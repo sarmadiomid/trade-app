@@ -2,6 +2,7 @@
 export * from './config';
 export type * from './contracts/runtime';
 export type * from './contracts/symbol';
+export type * from './contracts/instrument';
 export type * from './contracts/data-provider';
 export type * from './contracts/storage';
 export type * from './contracts/series';

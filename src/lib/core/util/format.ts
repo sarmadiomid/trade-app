@@ -72,9 +72,19 @@ export interface CalendarParts {
   minutes: number;
 }
 
+let forceUtc = false;
+
+/**
+ * Shows every time in UTC instead of local time (the backtest view works in UTC). Display-only
+ * and global, like the browser's own time zone it replaces.
+ */
+export function setDisplayUtc(on: boolean): void {
+  forceUtc = on;
+}
+
 export function calendarParts(time: number, utc: boolean): CalendarParts {
   const d = new Date(time);
-  return utc
+  return utc || forceUtc
     ? {
         year: d.getUTCFullYear(),
         month: d.getUTCMonth(),

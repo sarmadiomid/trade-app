@@ -15,6 +15,15 @@ export class Registry<T extends Registrable> {
     return this;
   }
 
+  /** Registers items ahead of everything already registered (they take priority). */
+  registerFirst(items: readonly T[]): this {
+    const rest = [...this.items.values()];
+    this.items.clear();
+    for (const item of items) this.register(item);
+    for (const item of rest) this.register(item);
+    return this;
+  }
+
   unregister(id: string): boolean {
     return this.items.delete(id);
   }
