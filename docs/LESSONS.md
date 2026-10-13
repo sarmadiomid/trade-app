@@ -123,15 +123,15 @@ Old lessons without the new slice keep working: a missing slice is `undefined` i
 Every step of making or editing a drawing is replayed, not only the result:
 
 - **Placing:** picking the tool (`tool`), then the shape following the pointer between clicks
-  or during a press-drag (`placement`, interpolated between samples). Freehand strokes grow
+  or during a press-drag (`placing`, interpolated between samples). Freehand strokes grow
   point by point; paths add segments click by click. When a drawing is finished, it moves from
-  `placement` to `drawings` at the same instant.
-- **Cancelling:** Esc or right-click clears `placement`, so a cancelled drawing leaves nothing.
+  `placing` to `drawings` at the same instant.
+- **Cancelling:** Esc or right-click clears `placing`, so a cancelled drawing leaves nothing.
 - **Editing:** moves, anchor drags, restyles, text typing and deletes all go through the
   drawing store and are captured by the `drawings` slice (throttled during drags; adds and
   removes are exact).
 - **Seeking** into the middle of a gesture shows the half-drawn shape. The player renders it
-  with `DrawingManager.showPlacementPreview`, like a live placement.
+  with `DrawingManager.showPlacement`, like a live placement.
 
 ## Known limits
 

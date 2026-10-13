@@ -465,7 +465,7 @@ describe('drawings are replayed as a process', () => {
       new VirtualMedia(rec.lesson.timeline.duration, rec.clock.now),
       frames,
     );
-    const ops = rec.lesson.timeline.ops.filter((o) => o.s === 'placement' && o.v);
+    const ops = rec.lesson.timeline.ops.filter((o) => o.s === 'placing' && o.v);
     const i = ops.findIndex(
       (o, k) =>
         k + 1 < ops.length &&

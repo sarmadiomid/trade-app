@@ -189,7 +189,7 @@ const placing: ChartSlice<SerializedDrawing | null> = {
   id: 'placing',
   mode: 'sample',
   capture: (app) => app.drawings.serializePlacement(),
-  watch: (app, changed) => app.drawings.events.on('placement:changed', changed),
+  watch: (app, changed) => app.drawings.events.on('placement:changed', () => changed()),
   apply: (app, v) => app.drawings.showPlacement(v ?? null),
 };
 
