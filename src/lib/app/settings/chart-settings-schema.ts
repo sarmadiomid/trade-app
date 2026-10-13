@@ -73,11 +73,7 @@ const CHART_TYPE_GROUPS: SettingsGroup[] = [
     label: 'Bars',
     visibleWhen: chartType('bars'),
     fields: [
-      {
-        kind: 'boolean',
-        key: 'opt.barsColorOnPrevClose',
-        label: 'Color bars based on previous close',
-      },
+      { kind: 'boolean', key: 'opt.barsColorOnPrevClose', label: 'Color bars based on previous close' },
       { kind: 'boolean', key: 'opt.barsHlc', label: 'HLC bars' },
       { kind: 'boolean', key: 'opt.barsThin', label: 'Thin bars' },
     ],
