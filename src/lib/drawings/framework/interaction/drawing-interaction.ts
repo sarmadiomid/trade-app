@@ -85,6 +85,7 @@ export class DrawingInteraction implements InteractionHandler {
     const style = this.m.defaults.resolve(def, this.m.engine.getTheme());
     const p = this.pointAt(e, def, null);
     this.placement = new PlacementSession(def, this.m.newId(), style, p, () => this.m.context());
+    this.placementChanged();
     if (this.placement.immediate) this.finishPlacement();
     else this.placementChanged();
   }

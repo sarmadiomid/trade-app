@@ -20,6 +20,7 @@ export function connectBridge(app: ChartApp): () => void {
     lastKey = key;
     set({ selection: snap });
   };
+  // Start from this app's state: another app (recorder, player) may have run before.
   set({
     options: app.engine.getOptions(),
     history: app.history.state,
