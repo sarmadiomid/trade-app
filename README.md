@@ -16,6 +16,11 @@ only for UI state.
 - **Lessons**: record your voice while you work on the chart, then play it back in sync with
   the chart. Pause at any moment to explore; the app opens on the lesson library. See
   [docs/LESSONS.md](docs/LESSONS.md).
+- **Backtesting** (`/backtest`): an FX Replay-style simulator on seeded 1-minute XAUUSD data.
+  Sessions with a balance and date range, candle-by-candle replay with ticker value and
+  frequency, market / limit / stop orders with SL/TP, partial close and break even, live
+  balance and equity, an automatic journal and a full analytics dashboard. See
+  [docs/BACKTEST.md](docs/BACKTEST.md) and [docs/backtest-spec.md](docs/backtest-spec.md).
 - Layered canvases with dirty flags, viewport culling and level-of-detail decimation. With 50k
   candles on screen, a frame costs about 5 ms of JS.
 

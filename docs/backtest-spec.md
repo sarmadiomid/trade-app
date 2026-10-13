@@ -145,6 +145,8 @@ Independent of the chart timeframe.
   re-simulates it over the 1-minute data — deterministic). If the rewind would remove trades, a
   confirmation lists how many. [DEC — FX Replay does not document how rewind interacts with
   trades; anything else leaves the journal inconsistent with the chart]
+- Actions taken exactly at the rewind target time are kept: stepping back one candle to where a
+  trade was placed keeps that trade. [DEC]
 - Right-click on a candle → **Replay to this point** rewinds to the close of that candle. [FXR]
 
 ### 3.6 Go to (date & time)
@@ -402,6 +404,17 @@ shortcuts (e.g. Alt+M is "magnet" on the plain chart). All other chart shortcuts
   timeframe above 1m is aggregated from the 1-minute bars.
 
 ---
+
+## 10a. Implementation notes (decisions made while building)
+
+- Right-click orders use the Quick panel quantity and no SL/TP (add them by dragging the ghost
+  handles); **New order at this price…** opens the ticket prefilled.
+- A prop rule breach or stop out closes positions at the exact price where equity reaches the
+  limit (equity is linear in the Bid, so the level is solved for), or at the open after a gap.
+- The max daily loss is measured on equity against the balance at 00:00 UTC.
+- Pressing Next candle while a step is still loading queues the press instead of dropping it.
+- The countdown shows calendar days left (`ceil`), the progress bar the share of the range
+  replayed.
 
 ## 11. Deliberate deviations from FX Replay (and why)
 
