@@ -2,6 +2,7 @@ export { MemoryStorage } from './adapters/memory-storage';
 export { LocalStorageStorage } from './adapters/local-storage';
 export { IndexedDBStorage } from './adapters/indexeddb-storage';
 export { RemoteStorage, RemoteStorageError } from './adapters/remote-storage';
+export { NamespacedStorage } from './adapters/namespaced-storage';
 export { CURRENT_VERSION, RECORD_KINDS, wrap, type Envelope, type RecordKind } from './envelope';
 export {
   MIGRATIONS,

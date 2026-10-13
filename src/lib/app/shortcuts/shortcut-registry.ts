@@ -1,7 +1,8 @@
 import { Registry } from '@/lib/core';
 import { chordOf, normalizeChord, type KeyInput } from './keys';
 
-export type ShortcutCategory = 'General' | 'Chart' | 'Drawing tools' | 'Drawings' | 'Replay';
+export type ShortcutCategory =
+  'Backtest' | 'General' | 'Chart' | 'Drawing tools' | 'Drawings' | 'Replay';
 
 export interface ShortcutDefinition<C = unknown> {
   readonly id: string;

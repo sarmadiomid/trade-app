@@ -22,7 +22,7 @@ import { drawingShortcuts } from './shortcuts/drawing-shortcuts';
 import { REPLAY_SHORTCUTS } from './shortcuts/replay-shortcuts';
 import { DEFAULT_SHORTCUTS } from './shortcuts/default-shortcuts';
 import { KeyboardController } from './shortcuts/keyboard-controller';
-import { ShortcutRegistry } from './shortcuts/shortcut-registry';
+import { ShortcutRegistry, type ShortcutDefinition } from './shortcuts/shortcut-registry';
 
 export interface ChartAppOptions {
   readonly initialBars?: number;
@@ -31,6 +31,12 @@ export interface ChartAppOptions {
    * playback turns it off: drawings then come only from the lesson.
    */
   readonly persistDrawings?: boolean;
+  /** Pins the chart to this symbol (symbol search and saved state cannot change it). */
+  readonly symbol?: string;
+  /** Initial timeframe when nothing is saved. */
+  readonly timeframe?: TimeframeId;
+  /** Extra shortcuts that take priority over every built-in one. */
+  readonly shortcuts?: ReadonlyArray<ShortcutDefinition<ChartApp>>;
 }
 
 /**
@@ -57,7 +63,7 @@ export class ChartApp {
   constructor(
     container: HTMLElement,
     readonly deps: AppDependencies,
-    options: ChartAppOptions = {},
+    private readonly options: ChartAppOptions = {},
   ) {
     const newId = createIdGenerator(deps.rng);
     this.store = new VersionedStore(deps.storage);
@@ -67,14 +73,17 @@ export class ChartApp {
       series: seriesRegistry.require(DEFAULT_SERIES_ID),
       resolveSeries: (id) => seriesRegistry.get(id),
       theme: themeRegistry.require(DEFAULT_THEME_ID),
-      symbol: deps.provider.getSymbolInfo(APP_CONFIG.defaultSymbol),
-      timeframe: APP_CONFIG.defaultTimeframe,
+      symbol: deps.provider.getSymbolInfo(options.symbol ?? APP_CONFIG.defaultSymbol),
+      timeframe: options.timeframe ?? APP_CONFIG.defaultTimeframe,
     });
     this.market = new MarketDataController(
       this.engine,
       deps.provider,
       this.events,
-      { symbol: APP_CONFIG.defaultSymbol, timeframe: APP_CONFIG.defaultTimeframe },
+      {
+        symbol: options.symbol ?? APP_CONFIG.defaultSymbol,
+        timeframe: options.timeframe ?? APP_CONFIG.defaultTimeframe,
+      },
       options.initialBars,
     );
     this.themes = new ThemeService(this.engine, this.store, this.events, newId);
@@ -106,6 +115,7 @@ export class ChartApp {
     );
     // Registration order is match priority: replay, then drawing shortcuts (e.g. arrows nudging
     // a selection), then the generic chart ones.
+    for (const s of options.shortcuts ?? []) this.shortcuts.register(s);
     for (const s of REPLAY_SHORTCUTS) this.shortcuts.register(s);
     for (const s of drawingShortcuts()) this.shortcuts.register(s);
     for (const s of DEFAULT_SHORTCUTS) this.shortcuts.register(s);
@@ -143,8 +153,8 @@ export class ChartApp {
     ]);
     if (this.destroyed) return;
     await this.market.load(
-      state?.symbol ?? APP_CONFIG.defaultSymbol,
-      state?.timeframe ?? APP_CONFIG.defaultTimeframe,
+      this.options.symbol ?? state?.symbol ?? APP_CONFIG.defaultSymbol,
+      state?.timeframe ?? this.options.timeframe ?? APP_CONFIG.defaultTimeframe,
     );
   }
 
@@ -158,7 +168,7 @@ export class ChartApp {
 
   async setSymbol(symbol: string): Promise<void> {
     const s = symbol.trim().toUpperCase();
-    if (!s || s === this.symbol) return;
+    if (!s || s === this.symbol || this.options.symbol) return;
     if (this.replay.state !== 'idle') this.replay.exit();
     await this.market.load(s, this.timeframe);
     void saveAppState(this.store, { symbol: this.symbol, timeframe: this.timeframe });

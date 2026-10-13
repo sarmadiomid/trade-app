@@ -11,3 +11,16 @@ export { chordLabel, type KeyInput } from './shortcuts/keys';
 export type { ShortcutDefinition, ShortcutCategory } from './shortcuts/shortcut-registry';
 export type { ImportResult } from './services/theme-service';
 export * from './lessons';
+export {
+  BacktestController,
+  type BacktestCommand,
+  type BacktestEventMap,
+  type RewindCheck,
+} from './backtest/backtest-controller';
+export {
+  BacktestRuntime,
+  createBacktestServices,
+  type BacktestServices,
+} from './backtest/backtest-runtime';
+export type { BacktestSnapshot, PositionView, PropProgress } from './backtest/snapshot';
+export type { OrderTicket, RightClickOrder } from './backtest/trading-api';
