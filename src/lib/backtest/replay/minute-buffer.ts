@@ -3,13 +3,19 @@ import { firstGreaterOrEqual, type Candle } from '@/lib/core';
 /** Loads 1-minute bars with `from <= time < to`, ascending. */
 export type MinuteLoader = (from: number, to: number) => Promise<Candle[]>;
 
+const MIN_CAPACITY = 4096;
+
 /**
  * A contiguous window of 1-minute bars [from, to) around the replay cursor. Loading is async
  * (any provider), reading is synchronous so stepping never awaits while the window covers it.
+ * Appends are amortised O(1) and trimming moves an offset (compacting occasionally), so a
+ * window extended on every replay step never copies itself.
  */
 export class MinuteBuffer {
   private bars: Candle[] = [];
-  private times = new Float64Array(0);
+  private times = new Float64Array(MIN_CAPACITY);
+  /** Index of the first live bar in `bars` / `times`. */
+  private head = 0;
   private from = 0;
   private to = 0;
   private pending: Promise<void> | null = null;
@@ -33,14 +39,15 @@ export class MinuteBuffer {
     while (this.pending) await this.pending;
     if (this.covers(from, to)) return;
     const run = async () => {
-      if (this.to > this.from && from >= this.from && from <= this.to) {
+      const live = this.to > this.from;
+      if (live && from >= this.from && from <= this.to) {
         const more = await this.load(this.to, to);
-        this.set([...this.bars, ...more], this.from, Math.max(this.to, to));
-      } else if (this.to > this.from && to <= this.to && to >= this.from) {
+        this.append(more, Math.max(this.to, to));
+      } else if (live && to <= this.to && to >= this.from) {
         const older = await this.load(from, this.from);
-        this.set([...older, ...this.bars], from, this.to);
+        this.reset([...older, ...this.bars.slice(this.head)], from, this.to);
       } else {
-        this.set(await this.load(from, to), from, to);
+        this.reset(await this.load(from, to), from, to);
       }
     };
     this.pending = run().finally(() => (this.pending = null));
@@ -49,28 +56,46 @@ export class MinuteBuffer {
 
   /** Bars with `from <= time < to` (must be covered). */
   slice(from: number, to: number): Candle[] {
-    const i = firstGreaterOrEqual(this.times, this.bars.length, from);
-    const j = firstGreaterOrEqual(this.times, this.bars.length, to);
+    const n = this.bars.length;
+    const i = Math.max(this.head, firstGreaterOrEqual(this.times, n, from));
+    const j = Math.max(i, firstGreaterOrEqual(this.times, n, to));
     return this.bars.slice(i, j);
   }
 
-  /** Close of the last bar before `time`, if buffered. */
+  /** The last bar before `time`, if buffered. */
   lastBefore(time: number): Candle | null {
     const i = firstGreaterOrEqual(this.times, this.bars.length, time) - 1;
-    return i >= 0 ? this.bars[i]! : null;
+    return i >= this.head ? this.bars[i]! : null;
   }
 
   /** Drops bars before `time` to bound memory. */
   trimBefore(time: number): void {
     if (time <= this.from) return;
-    const i = firstGreaterOrEqual(this.times, this.bars.length, time);
-    if (i > 0) this.set(this.bars.slice(i), time, this.to);
+    this.head = Math.max(this.head, firstGreaterOrEqual(this.times, this.bars.length, time));
+    this.from = time;
+    if (this.head > MIN_CAPACITY && this.head > this.bars.length / 2)
+      this.reset(this.bars.slice(this.head), this.from, this.to);
   }
 
-  private set(bars: Candle[], from: number, to: number): void {
-    this.bars = bars;
-    this.times = Float64Array.from(bars, (b) => b.time);
-    this.from = from;
+  private append(more: readonly Candle[], to: number): void {
+    const n = this.bars.length;
+    if (n + more.length > this.times.length) {
+      const next = new Float64Array(Math.max(MIN_CAPACITY, (n + more.length) * 2));
+      next.set(this.times.subarray(0, n));
+      this.times = next;
+    }
+    for (let k = 0; k < more.length; k++) {
+      this.bars.push(more[k]!);
+      this.times[n + k] = more[k]!.time;
+    }
     this.to = to;
+  }
+
+  private reset(bars: Candle[], from: number, to: number): void {
+    this.bars = [];
+    this.times = new Float64Array(Math.max(MIN_CAPACITY, bars.length * 2));
+    this.head = 0;
+    this.from = from;
+    this.append(bars, to);
   }
 }

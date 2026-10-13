@@ -151,9 +151,11 @@ function GoToDialog({ onClose }: { onClose: () => void }) {
   const submit = async () => {
     const t = fromDateTimeInput(value);
     if (t === null) return setError('Enter a valid date and time');
+    if (t <= c.cursor) return setError('Go to only moves forward. Use rewind to go back.');
+    // Close first: reaching the session end opens the "Session completed" dialog.
+    onClose();
     const err = await c.goTo(t);
-    if (err) setError(err);
-    else onClose();
+    if (err) c.notice('error', err);
   };
   return (
     <Dialog

@@ -41,10 +41,16 @@ function niceTicks(min: number, max: number, count = 4): number[] {
   return out;
 }
 
-const compact = (v: number) =>
-  Math.abs(v) >= 1000
-    ? `${(v / 1000).toFixed(Math.abs(v) >= 10_000 ? 0 : 1)}k`
-    : v.toFixed(Math.abs(v) < 10 ? 1 : 0);
+/** Axis label with as many digits as the tick spacing needs (10,200 / 10,400, not 10k / 10k). */
+function tickLabel(v: number, ticks: readonly number[]): string {
+  const step = ticks.length > 1 ? Math.abs(ticks[1]! - ticks[0]!) : Math.abs(v) || 1;
+  const decimals = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step)));
+  const out = (Math.abs(v) < step / 1e6 ? 0 : v).toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return out.replace('-', '−');
+}
 
 export interface LinePoint {
   readonly x: number;
@@ -88,7 +94,8 @@ export function LineChart({
   const d = points
     .map((p, i) => `${i ? 'L' : 'M'}${geo.x(i).toFixed(1)},${geo.y(p.y).toFixed(1)}`)
     .join('');
-  const area = `${d}L${geo.x(points.length - 1)},${height - pad.b}L${geo.x(0)},${height - pad.b}Z`;
+  const floor = baseline === undefined ? height - pad.b : geo.y(baseline);
+  const area = `${d}L${geo.x(points.length - 1)},${floor}L${geo.x(0)},${floor}Z`;
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const fx = ((e.clientX - r.left) / r.width) * W;
@@ -106,7 +113,7 @@ export function LineChart({
         onMouseMove={onMove}
         onMouseLeave={() => setHover(null)}
       >
-        {geo.ticks.map((t) => (
+        {geo.ticks.map((t, _i, ticks) => (
           <g key={t}>
             <line
               x1={pad.l}
@@ -117,7 +124,7 @@ export function LineChart({
               strokeWidth={1}
             />
             <text x={pad.l - 6} y={geo.y(t) + 4} textAnchor="end" fontSize={10.5} fill={CHART.text}>
-              {compact(t)}
+              {tickLabel(t, ticks)}
             </text>
           </g>
         ))}
@@ -206,7 +213,7 @@ export function BarChart({
         aria-label={label}
         onMouseLeave={() => setTip(null)}
       >
-        {niceTicks(lo, hi).map((t) => (
+        {niceTicks(lo, hi).map((t, _i, ticks) => (
           <g key={t}>
             <line
               x1={pad.l}
@@ -217,7 +224,7 @@ export function BarChart({
               strokeWidth={1}
             />
             <text x={pad.l - 6} y={y(t) + 4} textAnchor="end" fontSize={10.5} fill={CHART.text}>
-              {compact(t)}
+              {tickLabel(t, ticks)}
             </text>
           </g>
         ))}

@@ -78,6 +78,9 @@ const SNAPSHOT_MS = 60;
 /** A jump longer than this reloads the chart instead of revealing minute by minute. */
 const RELOAD_JUMP_MS = 2 * DAY_MS;
 const AHEAD_MIN_MS = 2 * DAY_MS;
+const AHEAD_MAX_MS = 14 * DAY_MS;
+/** Largest read-ahead extension per step. */
+const PREFETCH_CHUNK_MS = 3 * DAY_MS;
 
 /**
  * Runs one backtest session on top of a ChartApp: the Price Skipper (step, play, frequency,
@@ -93,6 +96,7 @@ export class BacktestController {
   private readonly buffer: MinuteBuffer;
   private interval: number | null = null;
   private busy = false;
+  private queuedSteps = 0;
   private loading = false;
   private saveTimer: number | null = null;
   private snapTimer: number | null = null;
@@ -167,10 +171,19 @@ export class BacktestController {
 
   // ---- Price Skipper -------------------------------------------------------------------------
 
-  /** Emit next candle (pauses playback). */
+  /** Emit next candle (pauses playback). Presses made during a step are queued, not lost. */
   async next(): Promise<void> {
     this.pause();
+    if (this.busy) {
+      this.queuedSteps += 1;
+      return;
+    }
     await this.stepOnce();
+    while (this.queuedSteps > 0 && !this.ended && !this.playing) {
+      this.queuedSteps -= 1;
+      await this.stepOnce();
+    }
+    this.queuedSteps = 0;
   }
 
   play(): void {
@@ -361,22 +374,35 @@ export class BacktestController {
     try {
       const ticker = this.session.prefs.tickerValue;
       let target = Math.min(this.end, nextStepEnd(this.cursor, ticker));
-      const ahead = Math.max(
-        AHEAD_MIN_MS,
-        TIMEFRAMES[ticker].ms * this.session.prefs.frequency * 3,
-      );
       for (let guard = 0; guard < 10_000; guard++) {
+        // Only what this step needs is awaited; read-ahead happens in small chunks below.
         if (!this.buffer.covers(this.cursor, target))
-          await this.buffer.ensure(this.cursor, Math.min(this.end, target + ahead));
+          await this.buffer.ensure(this.cursor, Math.min(this.end, target + PREFETCH_CHUNK_MS));
         if (this.buffer.slice(this.cursor, target).length > 0 || target >= this.end) break;
         this.setCursor(target); // market closed: skip the empty step
         target = Math.min(this.end, nextStepEnd(this.cursor, ticker));
       }
       this.advanceTo(target, true);
       this.afterStep();
+      this.readAhead(ticker);
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * Keeps enough 1-minute data buffered for the next few seconds of playback, extending the
+   * window by at most PREFETCH_CHUNK_MS per step so loading never blocks one frame for long.
+   */
+  private readAhead(ticker: TimeframeId): void {
+    // About one second of playback ahead (at least two days), at most two weeks.
+    const want = Math.min(
+      AHEAD_MAX_MS,
+      Math.max(AHEAD_MIN_MS, TIMEFRAMES[ticker].ms * this.session.prefs.frequency),
+    );
+    const end = Math.min(this.end, this.cursor + want);
+    if (this.buffer.end >= end) return;
+    void this.buffer.ensure(this.cursor, Math.min(end, this.buffer.end + PREFETCH_CHUNK_MS));
   }
 
   /** Processes the buffered minutes up to `target` (must be covered). */

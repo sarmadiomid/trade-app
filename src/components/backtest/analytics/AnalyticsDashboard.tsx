@@ -301,10 +301,22 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
             sub={`${s.drawdown.maxPct.toFixed(2)}% of peak`}
             cls={s.drawdown.max > 0 ? 'text-down' : 'text-fg'}
           />
-          <Kpi label="Average win" value={signedMoney(s.avgWin)} cls="text-up" />
-          <Kpi label="Average loss" value={signedMoney(s.avgLoss)} cls="text-down" />
+          <Kpi
+            label="Average win"
+            value={s.winners ? signedMoney(s.avgWin) : '—'}
+            cls={s.winners ? 'text-up' : 'text-fg'}
+          />
+          <Kpi
+            label="Average loss"
+            value={s.losers ? signedMoney(s.avgLoss) : '—'}
+            cls={s.losers ? 'text-down' : 'text-fg'}
+          />
           <Kpi label="Best win" value={signedMoney(s.bestWin)} sub={pct(s.bestWinPct)} />
-          <Kpi label="Worst loss" value={signedMoney(s.worstLoss)} sub={pct(s.worstLossPct)} />
+          <Kpi
+            label="Worst loss"
+            value={s.losers ? signedMoney(s.worstLoss) : '—'}
+            sub={s.losers ? pct(s.worstLossPct) : undefined}
+          />
           <Kpi
             label="Average RR"
             value={s.avgRR === null ? '—' : `1 : ${s.avgRR.toFixed(2)}`}

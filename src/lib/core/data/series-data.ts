@@ -121,6 +121,27 @@ export class SeriesData {
     this.emit({ kind: 'update', fromIndex: this.len - 1 });
   }
 
+  /**
+   * Batched upsertLast: the first bar may replace the last one (same time), the rest are
+   * appended. Emits a single change, so a replay step revealing many bars costs one update.
+   */
+  upsertMany(bars: readonly Candle[]): void {
+    if (bars.length === 0) return;
+    let from = this.len;
+    let i = 0;
+    if (this.len > 0 && this.time[this.len - 1] === bars[0]!.time) {
+      from = this.len - 1;
+      this.writeBar(from, bars[0]!);
+      i = 1;
+    }
+    this.ensureCapacity(this.len + bars.length - i, true);
+    for (; i < bars.length; i++) {
+      this.writeBar(this.len, bars[i]!);
+      this.len += 1;
+    }
+    this.emit({ kind: 'update', fromIndex: from });
+  }
+
   /** Drops bars from `newLength` onwards. */
   truncate(newLength: number): void {
     if (newLength >= this.len) return;

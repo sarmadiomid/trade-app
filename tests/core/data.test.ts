@@ -100,3 +100,23 @@ describe('TimeIndex (time <-> fractional index)', () => {
       expect(ti.indexToTime(ti.timeToIndex(t))).toBeCloseTo(t, 6);
   });
 });
+
+describe('SeriesData.upsertMany', () => {
+  it('replaces the forming bar, appends the rest and emits one change', () => {
+    const s = SeriesData.fromCandles([
+      { time: 0, open: 1, high: 2, low: 0, close: 1, volume: 1 },
+      { time: 60, open: 1, high: 2, low: 0, close: 1.5, volume: 1 },
+    ]);
+    const changes: unknown[] = [];
+    s.onChange((c) => changes.push(c));
+    s.upsertMany([
+      { time: 60, open: 1, high: 3, low: 0, close: 2, volume: 2 },
+      { time: 120, open: 2, high: 2, low: 1, close: 1, volume: 1 },
+      { time: 180, open: 1, high: 1, low: 1, close: 1, volume: 1 },
+    ]);
+    expect(s.length).toBe(4);
+    expect(s.bar(1)!.high).toBe(3);
+    expect(s.time[3]).toBe(180);
+    expect(changes).toEqual([{ kind: 'update', fromIndex: 1 }]);
+  });
+});

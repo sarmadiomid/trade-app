@@ -81,15 +81,17 @@ export function TopToolbar({
       {source ? (
         <span
           className={`mr-1 hidden rounded px-1.5 py-0.5 text-[11px] font-medium sm:inline ${
-            source === 'synthetic' ? 'bg-[#f7a60026] text-[#f7a600]' : 'bg-[#08998126] text-up'
+            source === 'binance' ? 'bg-[#08998126] text-up' : 'bg-[#f7a60026] text-[#f7a600]'
           }`}
           title={
             source === 'synthetic'
               ? 'Deterministic synthetic data (network unavailable)'
-              : 'Binance REST data'
+              : source === 'binance'
+                ? 'Binance REST data'
+                : 'Seeded mock market data'
           }
         >
-          {source === 'synthetic' ? 'SYNTHETIC' : 'BINANCE'}
+          {source.toUpperCase()}
         </span>
       ) : null}
       <span className="hidden sm:contents">

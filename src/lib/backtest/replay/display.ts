@@ -25,7 +25,7 @@ export function revealMinutes(series: SeriesData, tf: TimeframeId, minutes: read
       out.push(acc);
     }
   }
-  for (const b of out) series.upsertLast(b);
+  series.upsertMany(out);
 }
 
 /**

@@ -154,7 +154,7 @@ export class TradeOverlay {
     applyLineStyle(ctx, MARKER_COLOR, 1, 'dashed');
     vLine(ctx, x, plot.y, plot.y + plot.height, f.dpr);
     ctx.setLineDash([]);
-    drawLabel(ctx, 'Session start', x + 4, plot.y + 14, {
+    drawLabel(ctx, 'Session start', x + 4, plot.y + plot.height - 14, {
       bg: MARKER_COLOR,
       fg: '#ffffff',
       font: FONT,
