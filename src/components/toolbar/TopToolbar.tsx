@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { chordLabel } from '@/lib/app';
 import { useApp } from '../state/app-context';
 import { useUiStore } from '../state/ui-store';
@@ -7,11 +8,12 @@ import { Divider } from '../ui/Divider';
 import { Icon } from '../ui/Icon';
 import { IconButton } from '../ui/IconButton';
 import { Tooltip } from '../ui/Tooltip';
+import { ChartTypeMenu } from './ChartTypeMenu';
 import { TimeframeBar } from './TimeframeBar';
 import { MoreMenu } from './MoreMenu';
 import { ReplayButton } from './ReplayButton';
 
-export function TopToolbar() {
+export function TopToolbar({ end }: { end?: ReactNode }) {
   const app = useApp();
   const symbol = useUiStore((s) => s.symbol);
   const history = useUiStore((s) => s.history);
@@ -31,6 +33,8 @@ export function TopToolbar() {
       </Tooltip>
       <Divider />
       <TimeframeBar />
+      <Divider />
+      <ChartTypeMenu />
       <Divider />
       <ReplayButton />
       <Divider />
@@ -83,6 +87,7 @@ export function TopToolbar() {
         onClick={() => openDialog({ type: 'settings' })}
       />
       <MoreMenu />
+      {end}
     </header>
   );
 }

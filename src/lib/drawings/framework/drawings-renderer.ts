@@ -1,4 +1,12 @@
-import { ENGINE_CONFIG, rectsIntersect, type FrameState, type LayerRenderer } from '@/lib/core';
+import {
+  ENGINE_CONFIG,
+  contrastText,
+  drawLabel,
+  formatDateTime,
+  rectsIntersect,
+  type FrameState,
+  type LayerRenderer,
+} from '@/lib/core';
 import type { DrawingManager } from './drawing-manager';
 import type { DrawingInteraction } from './interaction/drawing-interaction';
 import type { Drawing, DrawingContext } from './types';
@@ -50,7 +58,8 @@ export function createDrawingsRenderer(
     id: 'drawings',
     zIndex: 0,
     render(ctx, f) {
-      if (m.modes.hideAll && !interaction.placement) return;
+      const preview = m.placementPreview;
+      if (m.modes.hideAll && !preview) return;
       const dc = contextFromFrame(f, m);
       const pane = f.layout.pricePane;
       ctx.save();
@@ -73,7 +82,6 @@ export function createDrawingsRenderer(
           ctx.restore();
         }
       }
-      const preview = interaction.placement?.drawing;
       if (preview) {
         ctx.save();
         preview.render(ctx, dc, { hovered: false, selected: true, placing: true });
@@ -87,6 +95,51 @@ export function createDrawingsRenderer(
         if (d && !d.hidden) drawHandles(ctx, d, dc, hover.anchor, true);
       }
       ctx.restore();
+    },
+  };
+}
+
+/** Price / time axis labels of drawings that expose them (horizontal / vertical lines…). */
+export function createDrawingAxisLabelsRenderer(m: DrawingManager): LayerRenderer {
+  return {
+    id: 'drawings.axis-labels',
+    zIndex: 50,
+    render(ctx, f) {
+      const preview = m.placementPreview;
+      if (m.modes.hideAll && !preview) return;
+      const dc = contextFromFrame(f, m);
+      const { priceAxis, timeAxis, pricePane } = f.layout;
+      const list: Drawing[] = m.modes.hideAll ? [] : m.store.all().filter((d) => !d.hidden);
+      if (preview) list.push(preview);
+      for (const d of list) {
+        const labels = d.axisLabels?.(dc);
+        if (!labels) continue;
+        for (const p of labels.prices ?? []) {
+          const y = f.coords.priceToY(p.price);
+          if (!Number.isFinite(y) || y < pricePane.y || y > pricePane.y + pricePane.height)
+            continue;
+          drawLabel(ctx, f.formatPrice(p.price), priceAxis.x + 1, y, {
+            bg: p.color,
+            fg: contrastText(p.color),
+            font: f.font,
+          });
+        }
+        for (const t of labels.times ?? []) {
+          const x = f.coords.timeToX(t.time);
+          if (!Number.isFinite(x) || x < timeAxis.x || x > timeAxis.x + timeAxis.width) continue;
+          const text = formatDateTime(t.time, f.timeframe.dateOnly, !f.timeframe.dateOnly);
+          ctx.font = f.font;
+          const w = ctx.measureText(text).width + 16;
+          const cx = Math.max(w / 2, Math.min(timeAxis.width - w / 2, x));
+          drawLabel(ctx, text, cx, timeAxis.y + timeAxis.height / 2, {
+            bg: t.color,
+            fg: contrastText(t.color),
+            font: f.font,
+            align: 'center',
+            height: timeAxis.height - 6,
+          });
+        }
+      }
     },
   };
 }

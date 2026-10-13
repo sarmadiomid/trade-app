@@ -44,6 +44,8 @@ export interface FrameState {
   readonly timeTicks: readonly TimeTick[];
   /** Previous session close (for the prev-close line), if known. */
   readonly prevClose: number | null;
+  /** Colour of the last-price line/label chosen by the series; null = last bar's direction. */
+  readonly lastValueColor?: string | null;
   formatPrice(price: number): string;
 }
 

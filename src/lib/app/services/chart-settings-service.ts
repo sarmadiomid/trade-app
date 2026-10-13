@@ -63,6 +63,11 @@ export class ChartSettingsService {
     this.update({ scaleMode: this.engine.getOptions().scaleMode === mode ? 'linear' : mode });
   }
 
+  /** Writes a pending debounced save now. */
+  flush(): void {
+    this.persist.flush();
+  }
+
   destroy(): void {
     this.persist.flush();
     this.off();

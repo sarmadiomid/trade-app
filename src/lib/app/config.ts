@@ -13,6 +13,7 @@ export const APP_CONFIG = {
     chartSettings: 'chart-settings',
     themes: 'themes',
     toolDefaults: 'tool-defaults',
+    toolTemplates: 'tool-templates',
     drawings: (symbol: string) => `drawings:${symbol}`,
   },
 } as const;

@@ -4,6 +4,7 @@ import {
   type DrawingManager,
   type DrawingStyle,
   type SerializedDrawing,
+  type ToolTemplate,
 } from '@/lib/drawings';
 import { readEnvelope, wrap, type VersionedStore } from '@/lib/storage';
 import type { AppEventMap } from '../app-events';
@@ -27,18 +28,40 @@ const validateDefaults = (data: unknown): Record<string, DrawingStyle> | null =>
     ? (data as Record<string, DrawingStyle>)
     : null;
 
+const isTemplate = (t: unknown): t is ToolTemplate => {
+  if (typeof t !== 'object' || t === null) return false;
+  const v = t as Record<string, unknown>;
+  return (
+    typeof v.id === 'string' &&
+    typeof v.name === 'string' &&
+    typeof v.style === 'object' &&
+    v.style !== null
+  );
+};
+
+const validateTemplates = (data: unknown): Record<string, ToolTemplate[]> | null => {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return null;
+  const out: Record<string, ToolTemplate[]> = {};
+  for (const [tool, list] of Object.entries(data)) {
+    if (Array.isArray(list)) out[tool] = list.filter(isTemplate);
+  }
+  return out;
+};
+
 export type DrawingImportResult =
   { ok: true; count: number; skipped: number } | { ok: false; error: string };
 
 /**
- * Persists drawings per symbol (debounced autosave) and per-tool default styles, and handles
- * JSON import/export. Everything passes through the versioned envelope + migration pipeline.
+ * Persists drawings per symbol (debounced autosave), per-tool default styles and named tool
+ * templates, and handles JSON import/export. Everything passes through the versioned envelope
+ * + migration pipeline.
  */
 export class DrawingPersistence {
   private symbol: string | null = null;
   private loading = false;
   private readonly save: ReturnType<typeof debounce>;
   private readonly saveDefaults: ReturnType<typeof debounce>;
+  private readonly saveTemplates: ReturnType<typeof debounce>;
   private readonly offs: Array<() => void> = [];
 
   constructor(
@@ -55,21 +78,28 @@ export class DrawingPersistence {
         this.drawings.defaults.snapshot(),
       );
     });
+    this.saveTemplates = debounce(timer, APP_CONFIG.persistDebounceMs, () => {
+      void this.store.save(
+        APP_CONFIG.storageKeys.toolTemplates,
+        'toolTemplates',
+        this.drawings.templates.snapshot(),
+      );
+    });
     this.offs.push(
       drawings.events.on('drawings:changed', () => !this.loading && this.save()),
       drawings.defaults.onChange(() => !this.loading && this.saveDefaults()),
+      drawings.templates.onChange(() => !this.loading && this.saveTemplates()),
     );
   }
 
   async loadDefaults(): Promise<void> {
-    const data = await this.store.load(
-      APP_CONFIG.storageKeys.toolDefaults,
-      'toolDefaults',
-      validateDefaults,
-    );
-    if (!data) return;
+    const [defaults, templates] = await Promise.all([
+      this.store.load(APP_CONFIG.storageKeys.toolDefaults, 'toolDefaults', validateDefaults),
+      this.store.load(APP_CONFIG.storageKeys.toolTemplates, 'toolTemplates', validateTemplates),
+    ]);
     this.loading = true;
-    this.drawings.defaults.load(data);
+    if (defaults) this.drawings.defaults.load(defaults);
+    if (templates) this.drawings.templates.load(templates);
     this.loading = false;
   }
 
@@ -127,9 +157,15 @@ export class DrawingPersistence {
     return { ok: true, count: drawings.length, skipped: skipped.length };
   }
 
-  destroy(): void {
+  /** Writes pending debounced saves now. */
+  flush(): void {
     this.save.flush();
     this.saveDefaults.flush();
+    this.saveTemplates.flush();
+  }
+
+  destroy(): void {
+    this.flush();
     for (const off of this.offs.splice(0)) off();
   }
 }

@@ -80,6 +80,17 @@ export class SeriesData {
     this.emit({ kind: 'reset' });
   }
 
+  /**
+   * Replaces all bars and reports them as `change` (derived series rebuilt from their source
+   * describe the rebuild as the append/prepend it amounts to, so the viewport can follow).
+   */
+  replace(candles: readonly Candle[], change: SeriesChange): void {
+    this.ensureCapacity(candles.length, false);
+    this.writeRange(0, candles);
+    this.len = candles.length;
+    this.emit(change);
+  }
+
   /** Inserts older bars before index 0 (lazy history). */
   prepend(candles: readonly Candle[]): void {
     const n = candles.length;

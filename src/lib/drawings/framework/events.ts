@@ -14,6 +14,8 @@ export interface DrawingEventMap {
   'selection:changed': { readonly id: string | null };
   /** Live or committed change of one drawing (floating toolbar / dialog refresh). */
   'drawing:updated': { readonly id: string };
+  /** The drawing being placed started, moved, finished or was cancelled. */
+  'placement:changed': Record<string, never>;
   'tool:changed': { readonly tool: string | null };
   'modes:changed': DrawingModes;
   'text:edit': { readonly id: string };

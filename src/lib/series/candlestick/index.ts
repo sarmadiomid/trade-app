@@ -4,6 +4,7 @@ import { renderCandles } from './candlestick-renderer';
 export const candlestickSeries: SeriesDefinition = {
   id: 'candles',
   label: 'Candles',
+  group: 'ohlc',
   icon: 'M7 3v3M7 17v4M17 3v6M17 16v5M5 6h4v11H5zM15 9h4v7h-4z',
   create: (ctx) => ({
     id: 'series.candles',

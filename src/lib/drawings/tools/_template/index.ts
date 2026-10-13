@@ -8,7 +8,7 @@
  * (Style + Coordinates tabs), floating toolbar, persistence validation, undo/redo, copy/paste
  * and the shared contract tests all derive from this definition.
  *
- * This example is a "Horizontal Ray": one click, a line from the anchor to the right edge.
+ * This example is a minimal ray: one click, a line from the anchor to the right edge.
  * It is intentionally NOT registered.
  */
 import { z } from 'zod';
@@ -71,8 +71,8 @@ class HorizontalRay extends BaseDrawing<ExampleStyle> {
 
 // 3. The definition: metadata, placement, defaults, settings schema, factory.
 export const exampleTool: DrawingToolDefinition<ExampleStyle> = {
-  id: 'horizontal-ray', // unique, stable (persisted in saved drawings)
-  label: 'Horizontal Ray',
+  id: 'example-ray', // unique, stable (persisted in saved drawings)
+  label: 'Example Ray',
   icon: 'M4 12h16M4 12h.01', // 24×24 SVG path data
   shortcut: 'Alt+Shift+Y', // optional; must be unique
   placement: { kind: 'single' }, // 'points' | 'polyline' | 'freehand' | 'single'
@@ -103,5 +103,5 @@ export const exampleTool: DrawingToolDefinition<ExampleStyle> = {
       },
     ],
   },
-  create: (init) => new HorizontalRay('horizontal-ray', init),
+  create: (init) => new HorizontalRay('example-ray', init),
 };

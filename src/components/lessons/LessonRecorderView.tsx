@@ -4,19 +4,23 @@ import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BrowserAudioCapture,
+  ChallengeBoard,
   MicError,
   RecordingSession,
   requestMicrophone,
   type AppDependencies,
+  type ChallengeDraft,
   type ChartApp,
   type RecordingStatus,
 } from '@/lib/app';
 import { createIdGenerator } from '@/lib/core';
-import { CapturingProvider, type LessonRepository } from '@/lib/lessons';
+import { CapturingProvider, type LessonChallenge, type LessonRepository } from '@/lib/lessons';
 import { useUiStore } from '../state/ui-store';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { ChallengeEditor } from './ChallengeEditor';
+import { KIND_LABELS } from './challenge-ui';
 import { formatDuration } from './format';
 
 const ChartWorkspace = dynamic(() => import('../chart/ChartWorkspace'), {
@@ -44,7 +48,29 @@ export function LessonRecorderView({ repository, onExit }: LessonRecorderViewPro
   const [modal, setModal] = useState<Modal | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [title, setTitle] = useState('');
+  const [board, setBoard] = useState<ChallengeBoard | null>(null);
+  const [authoring, setAuthoring] = useState(false);
+  const [challenges, setChallenges] = useState<readonly LessonChallenge[]>([]);
   const pushToast = useUiStore((s) => s.pushToast);
+
+  const boardRef = useRef<ChallengeBoard | null>(null);
+  const handleApp = useCallback((next: ChartApp | null) => {
+    boardRef.current?.destroy();
+    boardRef.current = next ? new ChallengeBoard(next.engine) : null;
+    setBoard(boardRef.current);
+    setApp(next);
+  }, []);
+
+  const saveChallenge = (draft: ChallengeDraft) => {
+    if (!session) return;
+    try {
+      session.addChallenge(draft);
+      setAuthoring(false);
+      pushToast('Challenge added. Resume when you are ready.', 'info');
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : String(e), 'error');
+    }
+  };
 
   const wrapDeps = useCallback((deps: AppDependencies) => {
     const provider = new CapturingProvider(deps.provider);
@@ -82,6 +108,7 @@ export function LessonRecorderView({ repository, onExit }: LessonRecorderViewPro
     s.events.on('autosave:failed', ({ message }) =>
       setWarning(`Autosave failed (${message}). Keep this tab open and stop to save.`),
     );
+    s.events.on('challenges:changed', ({ challenges: list }) => setChallenges(list));
     setSession(s);
     try {
       await s.start();
@@ -157,12 +184,28 @@ export function LessonRecorderView({ repository, onExit }: LessonRecorderViewPro
       onExit={onExit}
       warning={warning}
       onDismissWarning={() => setWarning(null)}
+      authoring={authoring}
+      challenges={challenges}
+      onAddChallenge={() => setAuthoring(true)}
+      onRemoveChallenge={(id) => session?.removeChallenge(id)}
     />
   );
 
+  const editor =
+    authoring && board && app && session && status === 'paused' ? (
+      <ChallengeEditor
+        board={board}
+        data={() => app.market.data}
+        initial={null}
+        timeLabel={formatDuration(session.elapsed)}
+        onSave={saveChallenge}
+        onCancel={() => setAuthoring(false)}
+      />
+    ) : null;
+
   return (
     <>
-      <ChartWorkspace wrapDeps={wrapDeps} onApp={setApp} footer={bar} />
+      <ChartWorkspace wrapDeps={wrapDeps} onApp={handleApp} footer={bar} overlay={editor} />
       {modal?.kind === 'mic-error' ? (
         <Dialog
           title="Microphone unavailable"
@@ -262,6 +305,51 @@ interface RecorderBarProps {
   onDiscard(): void;
   onExit(): void;
   onDismissWarning(): void;
+  readonly authoring: boolean;
+  readonly challenges: readonly LessonChallenge[];
+  onAddChallenge(): void;
+  onRemoveChallenge(id: string): void;
+}
+
+function ChallengeList({
+  challenges,
+  onRemove,
+}: {
+  readonly challenges: readonly LessonChallenge[];
+  onRemove(id: string): void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (challenges.length === 0) return null;
+  return (
+    <div className="relative">
+      <Button variant="ghost" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        <Icon name="target" size={16} className="text-accent" />
+        {challenges.length} {challenges.length === 1 ? 'challenge' : 'challenges'}
+        <Icon name="chevronDown" size={14} />
+      </Button>
+      {open ? (
+        <ul className="absolute bottom-10 left-0 z-50 w-72 rounded-md border border-line bg-panel py-1 shadow-xl">
+          {challenges.map((c) => (
+            <li key={c.id} className="flex items-center gap-2 px-3 py-1.5">
+              <span className="w-10 shrink-0 tabular-nums text-muted">{formatDuration(c.at)}</span>
+              <span className="min-w-0 flex-1 truncate" title={c.prompt}>
+                <span className="text-muted">{KIND_LABELS[c.kind]}: </span>
+                {c.prompt}
+              </span>
+              <button
+                type="button"
+                aria-label="Remove challenge"
+                className="text-muted hover:text-down"
+                onClick={() => onRemove(c.id)}
+              >
+                <Icon name="trash" size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
 }
 
 function Elapsed({ session, running }: { session: RecordingSession; running: boolean }) {
@@ -334,7 +422,19 @@ function RecorderBar(p: RecorderBarProps) {
             </span>
             {session ? <Elapsed session={session} running={status === 'recording'} /> : null}
             {session && !session.hasAudio ? <span className="text-muted">· no voice</span> : null}
+            <ChallengeList challenges={p.challenges} onRemove={p.onRemoveChallenge} />
             <div className="flex-1" />
+            {status === 'recording' ? (
+              <span className="hidden text-[12px] text-muted md:inline">
+                Pause to add a challenge
+              </span>
+            ) : null}
+            {status === 'paused' ? (
+              <Button disabled={p.authoring} onClick={p.onAddChallenge}>
+                <Icon name="target" size={16} className="text-accent" />
+                Add challenge
+              </Button>
+            ) : null}
             {status === 'recording' ? (
               <Button onClick={p.onPause}>
                 <Icon name="pause" size={16} />
@@ -342,12 +442,16 @@ function RecorderBar(p: RecorderBarProps) {
               </Button>
             ) : null}
             {status === 'paused' && !session?.microphoneLost ? (
-              <Button onClick={p.onResume}>
+              <Button disabled={p.authoring} onClick={p.onResume}>
                 <Icon name="record" size={16} className="text-down" />
                 Resume
               </Button>
             ) : null}
-            <Button variant="primary" disabled={status === 'saving'} onClick={p.onStop}>
+            <Button
+              variant="primary"
+              disabled={status === 'saving' || p.authoring}
+              onClick={p.onStop}
+            >
               <Icon name="stop" size={16} />
               Stop
             </Button>

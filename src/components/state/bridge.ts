@@ -25,6 +25,9 @@ export function connectBridge(app: ChartApp): () => void {
     history: app.history.state,
     themes: app.themes.list(),
     activeTheme: app.themes.active,
+    activeTool: d.tool,
+    drawingModes: d.modes,
+    drawingCount: d.store.size,
   });
   const offs = [
     app.events.on('market:changed', ({ symbol, timeframe }) => set({ symbol, timeframe })),

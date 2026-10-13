@@ -1,5 +1,6 @@
 import type { StorageAdapter } from '@/lib/core';
 import { decodeTimeline, encodeTimeline } from './codec';
+import type { LessonChallenge } from './challenges/types';
 import type { LessonDataset, LessonState, LessonTimeline, TimelineOp } from './types';
 
 export interface LessonMeta {
@@ -29,6 +30,7 @@ export interface DraftHeader {
   readonly initial: LessonState;
   /** Lesson time reached at the last autosave (ms). */
   readonly reached: number;
+  readonly challenges?: readonly LessonChallenge[];
 }
 
 export interface Draft {

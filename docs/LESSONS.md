@@ -26,6 +26,7 @@ independent pieces of chart state:
 | `modes`     | magnet / lock-all / hide-all / stay-in-mode   |                                            |
 | `tool`      | active drawing tool                           |                                            |
 | `selection` | selected drawing id                           |                                            |
+| `placing`   | the drawing being placed, or null             | throttled; shown as a preview on playback  |
 | `view`      | right-edge **time**, bar spacing, price range | continuous (interpolated)                  |
 | `cursor`    | pointer as a fraction of the chart size       | continuous (interpolated)                  |
 
@@ -66,6 +67,27 @@ the recording.
 **Size.** Voice is mono Opus at about 16–24 kbps, which is about 3.5–5 MB per 30 minutes. The
 timeline, gzip-compressed, is typically well under 1 MB; bars dominate short lessons.
 
+## Challenges
+
+A lesson can hold interactive checkpoints (`timeline.challenges`, optional, so older lessons still
+load). Each one has a lesson time `at`, a kind (`candles`: select candles, `points`: mark points
+such as BOS, `zones`: draw zones), a prompt, an optional region, an answer key in chart
+coordinates, a tolerance and a pass score.
+
+- **Authoring while recording.** Pause, then **Add challenge**. The editor panel sets the task and
+  the region, and you mark the answer on the chart. For candles, a rule (Doji, hammer,
+  engulfing…) can generate the answer. The challenge is stamped with the paused lesson time and
+  autosaved with the draft.
+- **Authoring afterwards.** In the player, **Edit challenges** adds a challenge at the current time,
+  or edits and deletes existing ones. The lesson is saved again.
+- **Playback.** When playback reaches a challenge, it stops there. The prompt card appears, and
+  bars after the region are hidden if the challenge asks for that. `ChallengeBoard`
+  (`src/lib/app/lessons/challenge-board.ts`) collects the marks. **Validate** grades them
+  (`gradeChallenge`: candles by exact bar, points within ±bars and price tolerance, zones by
+  overlap) and paints hits green, wrong marks red and missed answers dashed. **Retry**, **Show
+  solution** and **Continue** follow. Markers on the seek bar show pass/fail, and the end of the
+  lesson shows a summary.
+
 ## Making a new feature recordable
 
 Add a `ChartSlice` to `CHART_SLICES` in `src/lib/app/lessons/chart-slices.ts`:
@@ -88,7 +110,7 @@ Rules:
    seeks in both directions and after a student's free play.
 3. Order matters: put the slice after anything it depends on (the view comes after
    data and options).
-4. If the value can change without an event, set `poll: true` (re-read every 100 ms).
+4. If the value can change without an event, set `poll: true` (re-read every 33 ms).
 5. For values that move smoothly, add `behavior: { continuous: true, interpolate }`.
 6. Add the slice to the record → replay test (`tests/lessons/record-replay.test.ts`): change it
    during the recording and add a checkpoint.

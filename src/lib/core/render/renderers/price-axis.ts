@@ -65,7 +65,9 @@ function drawValueLabels(ctx: CanvasRenderingContext2D, f: FrameState): void {
     const close = f.series.close[last]!;
     const y = f.priceScale.priceToY(close);
     if (inPane(y)) {
-      const bg = close >= f.series.open[last]! ? f.theme.colors.upBody : f.theme.colors.downBody;
+      const bg =
+        f.lastValueColor ??
+        (close >= f.series.open[last]! ? f.theme.colors.upBody : f.theme.colors.downBody);
       drawLabel(ctx, f.formatPrice(close), x + 1, y, { bg, fg: contrastText(bg), font: f.font });
     }
   }

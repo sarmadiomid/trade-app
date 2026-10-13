@@ -13,6 +13,8 @@ export interface FieldCondition {
   readonly notEquals?: SettingsValue;
   /** Visible when Boolean(values[key]) === truthy. */
   readonly truthy?: boolean;
+  /** Visible when values[key] is one of these. */
+  readonly oneOf?: readonly SettingsValue[];
 }
 
 interface FieldBase {
@@ -87,6 +89,7 @@ export function isConditionMet(cond: FieldCondition | undefined, values: Setting
   if (cond.equals !== undefined && v !== cond.equals) return false;
   if (cond.notEquals !== undefined && v === cond.notEquals) return false;
   if (cond.truthy !== undefined && Boolean(v) !== cond.truthy) return false;
+  if (cond.oneOf !== undefined && !cond.oneOf.includes(v as SettingsValue)) return false;
   return true;
 }
 

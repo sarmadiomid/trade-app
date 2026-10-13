@@ -105,6 +105,8 @@ export class FrameBuilder {
       volumeTicks: layout.volumePane ? volumeTicks(layout.volumePane, volumeMax) : [],
       timeTicks,
       prevClose: options.showPrevCloseLine ? previousClose(data, input.timeframe) : null,
+      lastValueColor:
+        data.length > 0 ? (input.series.lastValueColor?.(data, options, input.theme) ?? null) : null,
       formatPrice: fmt,
     };
     return { frame, relayout };

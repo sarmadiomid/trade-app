@@ -65,6 +65,12 @@ export interface Modifiers {
   readonly shift: boolean;
 }
 
+/** Price / time labels a drawing shows on the axes, in the drawing's colour. */
+export interface AxisLabels {
+  readonly prices?: ReadonlyArray<{ readonly price: number; readonly color: string }>;
+  readonly times?: ReadonlyArray<{ readonly time: number; readonly color: string }>;
+}
+
 /** The runtime contract every drawing tool implements. */
 export interface Drawing<S extends DrawingStyle = DrawingStyle> {
   readonly id: string;
@@ -82,6 +88,8 @@ export interface Drawing<S extends DrawingStyle = DrawingStyle> {
   bounds(dc: DrawingContext): Rect | null;
   /** Price extent for auto-scale (optional). */
   priceRange?(): { min: number; max: number } | null;
+  /** Labels drawn on the price / time axes (optional). */
+  axisLabels?(dc: DrawingContext): AxisLabels | null;
   /** Editable text, if the tool supports inline text editing. */
   textKey?: string;
   /** Rect (px) of the editable text box, for the inline editor overlay. */
@@ -121,6 +129,8 @@ export interface DrawingToolDefinition<S extends DrawingStyle = DrawingStyle> {
   /** SVG path data, 24×24. */
   readonly icon: string;
   readonly shortcut?: string;
+  /** Tools sharing a group collapse into one toolbar button with a flyout. */
+  readonly group?: string;
   readonly placement: PlacementSpec;
   readonly defaults: S;
   /** Validates persisted styles (missing keys are filled from defaults first). */

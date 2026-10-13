@@ -172,6 +172,15 @@ const selection: ChartSlice<string | null> = {
   apply: (app, v) => app.drawings.select(v && app.drawings.store.get(v) ? v : null),
 };
 
+/** The drawing being placed (e.g. a trend line following the pointer before its second click). */
+const placing: ChartSlice<SerializedDrawing | null> = {
+  id: 'placing',
+  mode: 'sample',
+  capture: (app) => app.drawings.serializePlacement(),
+  watch: (app, changed) => app.drawings.events.on('placement:changed', changed),
+  apply: (app, v) => app.drawings.showPlacement(v ?? null),
+};
+
 const view: ChartSlice<ViewValue> = {
   id: 'view',
   mode: 'sample',
@@ -255,6 +264,7 @@ export const CHART_SLICES: readonly ChartSlice[] = [
   modes,
   tool,
   selection,
+  placing,
   view,
   cursor,
 ] as readonly ChartSlice[];

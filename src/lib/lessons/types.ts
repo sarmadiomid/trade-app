@@ -1,4 +1,5 @@
 import type { SymbolInfo, TimeframeId } from '@/lib/core';
+import type { LessonChallenge } from './challenges/types';
 
 /** Bumped whenever the serialized timeline shape changes (see codec + migrations). */
 export const LESSON_TIMELINE_VERSION = 1;
@@ -36,6 +37,8 @@ export interface LessonTimeline {
   /** Sorted by `t` (stable). */
   readonly ops: readonly TimelineOp[];
   readonly datasets: readonly LessonDataset[];
+  /** Interactive checkpoints, sorted by `at`. Missing in lessons recorded before challenges. */
+  readonly challenges?: readonly LessonChallenge[];
 }
 
 /**

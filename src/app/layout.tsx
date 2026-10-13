@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TradingChart',
-  description: 'TradingView-style candlestick charting with a custom Canvas engine',
+  title: 'چارتیکس',
+  description: 'پلتفرم نمودار و تحلیل تکنیکال حرفه‌ای',
 };
 
 export const viewport: Viewport = {

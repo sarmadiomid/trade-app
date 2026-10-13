@@ -11,6 +11,7 @@ export {
 } from './commands';
 export { deserializeDrawing, deserializeMany, serializedDrawingSchema } from './serialization';
 export { ToolDefaults } from './tool-defaults';
+export { ToolTemplates, type ToolTemplate } from './tool-templates';
 export { snapPrice, type MagnetMode } from './magnet';
 export type { DrawingEventMap, DrawingModes } from './events';
 export { toPixel, fromPixel, shiftPoint, barsBetween } from './geometry';

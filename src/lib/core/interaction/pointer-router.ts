@@ -182,6 +182,9 @@ export class PointerRouter {
     if (this.pointers.size === 0) {
       this.mode = 'none';
       this.target.gestureEnd();
+      // Placement clears the drawing tool on release. Re-hit so the cursor leaves the
+      // tool crosshair without waiting for the next move.
+      if (!cancelled && e.pointerType === 'mouse') this.hover(e, this.local(e));
     }
   }
 

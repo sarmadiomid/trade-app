@@ -109,6 +109,7 @@ export function makePositionDefinition(
     label: meta.label,
     icon: meta.icon,
     shortcut: meta.shortcut,
+    group: 'forecasting',
     placement: { kind: 'single' },
     defaults: POSITION_DEFAULTS,
     styleSchema: positionStyleSchema,

@@ -36,7 +36,8 @@ export async function recoverDraft(
   const duration = Math.max(draft.header.reached, ops.at(-1)?.t ?? 0);
   const rec = new TimelineRecorder({ now: () => duration });
   rec.begin(draft.header.initial);
-  const timeline = { ...rec.finish(duration, draft.datasets), ops };
+  const challenges = [...(draft.header.challenges ?? [])].sort((a, b) => a.at - b.at);
+  const timeline = { ...rec.finish(duration, draft.datasets), ops, challenges };
   const audio = await buildAudio(draft.audio, draft.header.audioType, duration);
   const meta = await repo.save(
     {

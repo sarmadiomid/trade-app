@@ -17,9 +17,10 @@ import type { DrawingEventMap, DrawingModes } from './events';
 import { DrawingInteraction } from './interaction/drawing-interaction';
 import { snapPrice, type MagnetMode } from './magnet';
 import type { DrawingRegistry } from './registry';
-import { createDrawingsRenderer } from './drawings-renderer';
+import { createDrawingAxisLabelsRenderer, createDrawingsRenderer } from './drawings-renderer';
 import { cloneSerialized, deserializeDrawing } from './serialization';
 import { ToolDefaults } from './tool-defaults';
+import { ToolTemplates } from './tool-templates';
 import type {
   AnyToolDefinition,
   ChartPoint,
@@ -40,6 +41,7 @@ export class DrawingManager {
   readonly events = new EventBus<DrawingEventMap>();
   readonly store = new DrawingStore();
   readonly defaults = new ToolDefaults();
+  readonly templates = new ToolTemplates();
   private selectedId: string | null = null;
   private activeTool: string | null = null;
   private modeState: DrawingModes = {
@@ -49,6 +51,14 @@ export class DrawingManager {
     hideAll: false,
   };
   private clipboard: SerializedDrawing[] = [];
+  /** Placement shown without a live session (lesson playback). */
+  private shownPlacement: Drawing | null = null;
+  /**
+   * Price extent last given to auto-scale. Kept while a drawing is placed or dragged:
+   * dropping drawings out of auto-scale for that gesture rescales the pane and the
+   * drawing jumps by however far it sat outside the candle range.
+   */
+  private heldPriceExtent: { min: number; max: number } | null = null;
   private readonly interaction: DrawingInteraction;
   private readonly disposers: Array<() => void> = [];
 
@@ -61,6 +71,7 @@ export class DrawingManager {
     this.interaction = new DrawingInteraction(this);
     this.disposers.push(
       engine.addRenderer('drawings', createDrawingsRenderer(this, this.interaction)),
+      engine.addRenderer('axes', createDrawingAxisLabelsRenderer(this)),
       engine.addInteractionHandler(this.interaction),
       engine.addPriceRangeContributor((from, to) => this.priceRange(from, to)),
       this.store.onChange((c) => {
@@ -101,7 +112,7 @@ export class DrawingManager {
   }
 
   invalidate(): void {
-    this.engine.invalidate(LayerMask.drawings);
+    this.engine.invalidate(LayerMask.drawings | LayerMask.axes);
   }
 
   definition(type: string): AnyToolDefinition | undefined {
@@ -324,11 +335,30 @@ export class DrawingManager {
     return this.interaction.busy;
   }
 
+  // ---- placement preview ------------------------------------------------------------------
+
+  /** The in-progress drawing: the live placement, else the one shown by showPlacement(). */
+  get placementPreview(): Drawing | null {
+    return this.interaction.placement?.drawing ?? this.shownPlacement;
+  }
+
+  serializePlacement(): SerializedDrawing | null {
+    return this.interaction.placement?.drawing.serialize() ?? null;
+  }
+
+  /** Displays a recorded in-progress drawing (not added to the store, not interactive). */
+  showPlacement(snap: SerializedDrawing | null): void {
+    const res = snap ? deserializeDrawing(snap, this.registry) : null;
+    this.shownPlacement = res?.ok ? res.drawing : null;
+    this.invalidate();
+  }
+
   // ---- bulk ---------------------------------------------------------------------------------
 
   /** Replaces all drawings (symbol switch / import). Not undoable. */
   load(drawings: readonly Drawing[]): void {
     this.interaction.cancelPlacement();
+    this.heldPriceExtent = null;
     this.store.reset(drawings);
   }
 
@@ -337,7 +367,11 @@ export class DrawingManager {
   }
 
   private priceRange(fromTime: number, toTime: number): { min: number; max: number } | null {
-    if (this.modeState.hideAll || this.interaction.busy) return null;
+    if (this.modeState.hideAll) return null;
+    // A press selects the drawing and the frame is built while the gesture is still active.
+    // Recomputing auto-scale without the drawing moves it on screen; keep the extent from
+    // the last settled frame until the gesture ends.
+    if (this.interaction.busy) return this.heldPriceExtent;
     let out: { min: number; max: number } | null = null;
     for (const d of this.store.all()) {
       if (d.hidden || !d.priceRange || d.points.length === 0) continue;
@@ -346,6 +380,7 @@ export class DrawingManager {
       const r = d.priceRange();
       if (r) out = out ? { min: Math.min(out.min, r.min), max: Math.max(out.max, r.max) } : r;
     }
+    this.heldPriceExtent = out;
     return out;
   }
 

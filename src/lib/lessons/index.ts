@@ -1,6 +1,7 @@
 // Public API of the lesson (record & replay) module. Framework- and chart-agnostic: it only knows
 // timelines of state slices; the app layer defines which chart state the slices hold.
 export * from './types';
+export * from './challenges';
 export { TimelineIndex, KEYFRAME_INTERVAL_MS } from './timeline-index';
 export {
   TimelineRecorder,

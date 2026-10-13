@@ -1,4 +1,291 @@
-import type { SettingsSchema } from '@/lib/core';
+import type { FieldCondition, SettingsField, SettingsGroup, SettingsSchema } from '@/lib/core';
+import { seriesRegistry } from '@/lib/series';
+
+const chartType = (...ids: string[]): FieldCondition => ({ key: 'opt.chartType', oneOf: ids });
+const when = (key: string, equals: string): FieldCondition => ({ key: `opt.${key}`, equals });
+
+const CANDLE_LIKE = chartType(
+  'candles',
+  'hollow-candles',
+  'volume-candles',
+  'session-volume-profile',
+  'heikin-ashi',
+  'renko',
+  'line-break',
+  'range',
+  'bars',
+  'point-figure',
+);
+
+const PRICE_SOURCES = [
+  { value: 'open', label: 'Open' },
+  { value: 'high', label: 'High' },
+  { value: 'low', label: 'Low' },
+  { value: 'close', label: 'Close' },
+  { value: 'hl2', label: '(H + L)/2' },
+  { value: 'hlc3', label: '(H + L + C)/3' },
+  { value: 'ohlc4', label: '(O + H + L + C)/4' },
+];
+
+const BOX_METHODS = [
+  { value: 'atr', label: 'ATR' },
+  { value: 'traditional', label: 'Traditional' },
+];
+
+const BRICK_SOURCES = [
+  { value: 'close', label: 'Close' },
+  { value: 'hl', label: 'High/Low' },
+];
+
+const color = (key: string, label: string, inline = false): SettingsField => ({
+  kind: 'color',
+  key: `opt.${key}`,
+  label,
+  inline,
+});
+
+const number = (
+  key: string,
+  label: string,
+  min: number,
+  max: number,
+  step: number,
+  extra: Partial<{ unit: string; visibleWhen: FieldCondition }> = {},
+): SettingsField => ({ kind: 'number', key: `opt.${key}`, label, min, max, step, ...extra });
+
+const boxSizeFields = (prefix: string, methodKey: string, sizeKey: string, sizeLabel: string) => [
+  {
+    kind: 'select',
+    key: `opt.${methodKey}`,
+    label: 'Box size assignment method',
+    options: BOX_METHODS,
+  } as SettingsField,
+  number(`${prefix}AtrLength`, 'ATR length', 1, 500, 1, { visibleWhen: when(methodKey, 'atr') }),
+  number(sizeKey, sizeLabel, 0.00000001, 1e9, 1, {
+    visibleWhen: when(methodKey, 'traditional'),
+  }),
+];
+
+/** Per chart type settings, shown in the Symbol tab for the active type only. */
+const CHART_TYPE_GROUPS: SettingsGroup[] = [
+  {
+    id: 'bars',
+    label: 'Bars',
+    visibleWhen: chartType('bars'),
+    fields: [
+      { kind: 'boolean', key: 'opt.barsColorOnPrevClose', label: 'Color bars based on previous close' },
+      { kind: 'boolean', key: 'opt.barsHlc', label: 'HLC bars' },
+      { kind: 'boolean', key: 'opt.barsThin', label: 'Thin bars' },
+    ],
+  },
+  {
+    id: 'line',
+    label: 'Line',
+    visibleWhen: chartType('line', 'step-line', 'area', 'baseline'),
+    fields: [
+      { kind: 'select', key: 'opt.lineSource', label: 'Price source', options: PRICE_SOURCES },
+      {
+        ...color('lineColor', 'Line'),
+        visibleWhen: chartType('line', 'step-line', 'area'),
+      },
+      {
+        kind: 'select',
+        key: 'opt.lineWidth',
+        label: 'Line width',
+        options: [1, 2, 3, 4].map((w) => ({ value: w, label: `${w}px` })),
+      },
+    ],
+  },
+  {
+    id: 'area',
+    label: 'Fill',
+    visibleWhen: chartType('area'),
+    fields: [color('areaTopColor', 'Fill'), color('areaBottomColor', 'To', true)],
+  },
+  {
+    id: 'hlc-area',
+    label: 'HLC area',
+    visibleWhen: chartType('hlc-area'),
+    fields: [
+      color('hlcHighColor', 'High line'),
+      color('hlcCloseColor', 'Close line'),
+      color('hlcLowColor', 'Low line'),
+      color('hlcHighFill', 'Fill high'),
+      color('hlcLowFill', 'Fill low'),
+    ],
+  },
+  {
+    id: 'baseline',
+    label: 'Baseline',
+    visibleWhen: chartType('baseline'),
+    fields: [
+      number('baselineLevel', 'Base level', 0, 100, 1, { unit: '%' }),
+      color('baselineTopLine', 'Top line'),
+      color('baselineTopFill1', 'Top area'),
+      color('baselineTopFill2', 'To', true),
+      color('baselineBottomLine', 'Bottom line'),
+      color('baselineBottomFill1', 'Bottom area'),
+      color('baselineBottomFill2', 'To', true),
+    ],
+  },
+  {
+    id: 'columns',
+    label: 'Columns',
+    visibleWhen: chartType('columns'),
+    fields: [
+      {
+        kind: 'boolean',
+        key: 'opt.columnsColorOnPrevClose',
+        label: 'Color bars based on previous close',
+      },
+      color('columnsUpColor', 'Up'),
+      color('columnsDownColor', 'Down', true),
+    ],
+  },
+  {
+    id: 'high-low',
+    label: 'High-low',
+    visibleWhen: chartType('high-low'),
+    fields: [
+      { kind: 'boolean', key: 'opt.hlShowBody', label: 'Body' },
+      color('hlBodyColor', 'Color', true),
+      { kind: 'boolean', key: 'opt.hlShowBorders', label: 'Borders' },
+      color('hlBorderColor', 'Color', true),
+      { kind: 'boolean', key: 'opt.hlShowLabels', label: 'Labels' },
+      color('hlLabelsColor', 'Color', true),
+    ],
+  },
+  {
+    id: 'footprint',
+    label: 'Volume footprint',
+    visibleWhen: chartType('volume-footprint'),
+    fields: [
+      {
+        kind: 'select',
+        key: 'opt.footprintType',
+        label: 'Type',
+        options: [
+          { value: 'buySell', label: 'Buy and sell' },
+          { value: 'volume', label: 'Total volume' },
+          { value: 'delta', label: 'Delta' },
+        ],
+      },
+      number('footprintTicksPerRow', 'Ticks per row (0 = auto)', 0, 100000, 1),
+      number('footprintValueArea', 'Value area', 1, 100, 1, { unit: '%' }),
+      { kind: 'boolean', key: 'opt.footprintImbalance', label: 'Highlight imbalance' },
+    ],
+  },
+  {
+    id: 'tpo',
+    label: 'Time price opportunity',
+    visibleWhen: chartType('tpo'),
+    fields: [
+      {
+        kind: 'select',
+        key: 'opt.tpoMode',
+        label: 'Display',
+        options: [
+          { value: 'letters', label: 'Letters' },
+          { value: 'blocks', label: 'Blocks' },
+        ],
+      },
+      {
+        kind: 'select',
+        key: 'opt.tpoPeriod',
+        label: 'Period',
+        options: [5, 10, 15, 30, 60, 120, 240].map((m) => ({
+          value: m,
+          label: m < 60 ? `${m} minutes` : `${m / 60} hour${m > 60 ? 's' : ''}`,
+        })),
+      },
+      number('tpoTicksPerRow', 'Ticks per row (0 = auto)', 0, 100000, 1),
+      number('tpoValueArea', 'Value area', 1, 100, 1, { unit: '%' }),
+      { kind: 'boolean', key: 'opt.tpoShowPoc', label: 'Point of control' },
+      { kind: 'boolean', key: 'opt.tpoShowValueArea', label: 'Value area' },
+      { kind: 'boolean', key: 'opt.tpoShowInitialBalance', label: 'Initial balance' },
+    ],
+  },
+  {
+    id: 'svp',
+    label: 'Session volume profile',
+    visibleWhen: chartType('session-volume-profile'),
+    fields: [
+      number('svpRows', 'Row size', 1, 500, 1),
+      number('svpValueArea', 'Value area volume', 1, 100, 1, { unit: '%' }),
+      number('svpWidth', 'Width', 1, 100, 1, { unit: '%' }),
+      {
+        kind: 'select',
+        key: 'opt.svpPlacement',
+        label: 'Placement',
+        options: [
+          { value: 'left', label: 'Left' },
+          { value: 'right', label: 'Right' },
+        ],
+      },
+      color('svpUpColor', 'Up volume'),
+      color('svpDownColor', 'Down volume', true),
+      color('svpVaUpColor', 'Value area up'),
+      color('svpVaDownColor', 'Value area down', true),
+      { kind: 'boolean', key: 'opt.svpShowPoc', label: 'POC' },
+      color('svpPocColor', 'Color', true),
+    ],
+  },
+  {
+    id: 'renko',
+    label: 'Renko',
+    visibleWhen: chartType('renko'),
+    fields: [
+      ...boxSizeFields('renko', 'renkoBoxMethod', 'renkoBoxSize', 'Box size'),
+      { kind: 'select', key: 'opt.renkoSource', label: 'Source', options: BRICK_SOURCES },
+      { kind: 'boolean', key: 'opt.renkoWicks', label: 'Wicks' },
+    ],
+  },
+  {
+    id: 'line-break',
+    label: 'Line break',
+    visibleWhen: chartType('line-break'),
+    fields: [number('lineBreakCount', 'Number of lines', 1, 100, 1)],
+  },
+  {
+    id: 'kagi',
+    label: 'Kagi',
+    visibleWhen: chartType('kagi'),
+    fields: [
+      {
+        kind: 'select',
+        key: 'opt.kagiMethod',
+        label: 'Reversal amount method',
+        options: [...BOX_METHODS, { value: 'percentage', label: 'Percentage' }],
+      },
+      number('kagiAtrLength', 'ATR length', 1, 500, 1, { visibleWhen: when('kagiMethod', 'atr') }),
+      number('kagiReversal', 'Reversal amount', 0.00000001, 1e9, 1, {
+        visibleWhen: when('kagiMethod', 'traditional'),
+      }),
+      number('kagiPercent', 'Percentage', 0.01, 100, 0.1, {
+        unit: '%',
+        visibleWhen: when('kagiMethod', 'percentage'),
+      }),
+      color('kagiYangColor', 'Up (yang) line'),
+      color('kagiYinColor', 'Down (yin) line'),
+    ],
+  },
+  {
+    id: 'point-figure',
+    label: 'Point & figure',
+    visibleWhen: chartType('point-figure'),
+    fields: [
+      ...boxSizeFields('pnf', 'pnfBoxMethod', 'pnfBoxSize', 'Box size'),
+      number('pnfReversal', 'Reversal amount', 1, 100, 1, { unit: 'boxes' }),
+      { kind: 'select', key: 'opt.pnfSource', label: 'Source', options: BRICK_SOURCES },
+    ],
+  },
+  {
+    id: 'range',
+    label: 'Range',
+    visibleWhen: chartType('range'),
+    fields: boxSizeFields('range', 'rangeMethod', 'rangeValue', 'Range'),
+  },
+];
 
 /**
  * The chart settings dialog, declared as data. Keys prefixed `opt.` bind to ChartOptions,
@@ -11,8 +298,21 @@ export const CHART_SETTINGS_SCHEMA: SettingsSchema = {
       label: 'Symbol',
       groups: [
         {
+          id: 'chart-type',
+          label: 'Chart type',
+          fields: [
+            {
+              kind: 'select',
+              key: 'opt.chartType',
+              label: 'Type',
+              options: seriesRegistry.list().map((s) => ({ value: s.id, label: s.label })),
+            },
+          ],
+        },
+        {
           id: 'candles',
           label: 'Candles',
+          visibleWhen: CANDLE_LIKE,
           fields: [
             { kind: 'boolean', key: 'opt.showBody', label: 'Body' },
             { kind: 'color', key: 'theme.upBody', label: 'Up', inline: true },
@@ -25,6 +325,7 @@ export const CHART_SETTINGS_SCHEMA: SettingsSchema = {
             { kind: 'color', key: 'theme.downWick', label: 'Down', inline: true },
           ],
         },
+        ...CHART_TYPE_GROUPS,
         {
           id: 'data',
           label: 'Data modification',

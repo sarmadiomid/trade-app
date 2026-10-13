@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { challengeSchema } from './challenges/schema';
 import { LESSON_TIMELINE_VERSION, type LessonTimeline } from './types';
 
 const finite = z.number().refine(Number.isFinite, 'must be finite');
@@ -35,6 +36,7 @@ export const lessonTimelineSchema = z.object({
       columns: z.tuple([column, column, column, column, column, column]),
     }),
   ),
+  challenges: z.array(challengeSchema).optional(),
 });
 
 export class LessonFormatError extends Error {}

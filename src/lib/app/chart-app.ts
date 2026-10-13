@@ -65,6 +65,7 @@ export class ChartApp {
       container,
       runtime: deps.runtime,
       series: seriesRegistry.require(DEFAULT_SERIES_ID),
+      resolveSeries: (id) => seriesRegistry.get(id),
       theme: themeRegistry.require(DEFAULT_THEME_ID),
       symbol: deps.provider.getSymbolInfo(APP_CONFIG.defaultSymbol),
       timeframe: APP_CONFIG.defaultTimeframe,
@@ -138,6 +139,7 @@ export class ChartApp {
       loadAppState(this.store),
       this.themes.load(),
       this.settings.load(),
+      this.drawingStore.loadDefaults(),
     ]);
     if (this.destroyed) return;
     await this.market.load(
@@ -173,6 +175,12 @@ export class ChartApp {
   /** Whether a drawing is selected (arrow keys nudge it instead of scrolling). */
   hasSelection(): boolean {
     return this.drawings.selected !== null;
+  }
+
+  /** Writes every pending debounced save to storage now (e.g. before the page unloads). */
+  flush(): void {
+    this.drawingStore.flush();
+    this.settings.flush();
   }
 
   destroy(): void {

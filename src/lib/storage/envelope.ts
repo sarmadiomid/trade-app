@@ -6,6 +6,7 @@ export const RECORD_KINDS = [
   'themes',
   'chartSettings',
   'toolDefaults',
+  'toolTemplates',
   'appState',
 ] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
@@ -16,6 +17,7 @@ export const CURRENT_VERSION: Readonly<Record<RecordKind, number>> = {
   themes: 1,
   chartSettings: 1,
   toolDefaults: 1,
+  toolTemplates: 1,
   appState: 1,
 };
 

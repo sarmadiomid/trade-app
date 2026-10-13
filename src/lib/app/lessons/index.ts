@@ -17,10 +17,19 @@ export {
   type RecordingStatus,
   type RecordingEventMap,
   type RecordingSessionDeps,
+  type ChallengeDraft,
 } from './recording-session';
+export {
+  ChallengeBoard,
+  type BoardMode,
+  type BoardTool,
+  type BoardConfig,
+  type BoardEventMap,
+} from './challenge-board';
 export {
   LessonPlayer,
   PLAYBACK_RATES,
+  type ActiveChallenge,
   type PlaybackRate,
   type PlayerMode,
   type PlayerSnapshot,

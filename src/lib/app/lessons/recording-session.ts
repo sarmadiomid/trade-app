@@ -5,6 +5,7 @@ import {
   TimelineRecorder,
   fixWebmDuration,
   type CapturingProvider,
+  type LessonChallenge,
   type LessonMeta,
   type LessonRepository,
 } from '@/lib/lessons';
@@ -20,7 +21,11 @@ export interface RecordingEventMap {
   'mic:lost': Record<string, never>;
   /** Autosave failed; the recording continues in memory. */
   'autosave:failed': { readonly message: string };
+  'challenges:changed': { readonly challenges: readonly LessonChallenge[] };
 }
+
+/** A challenge as authored; the session stamps its id and lesson time. */
+export type ChallengeDraft = Omit<LessonChallenge, 'id' | 'at'>;
 
 export interface RecordingSessionDeps {
   readonly app: ChartApp;
@@ -34,7 +39,7 @@ export interface RecordingSessionDeps {
 }
 
 export const AUTOSAVE_INTERVAL_MS = 3000;
-const TICK_MS = 100;
+const TICK_MS = 33;
 
 /**
  * One recording: watches the chart slices, keeps the op log on a pause-aware clock, captures the
@@ -59,6 +64,7 @@ export class RecordingSession {
   private autosaveHandle = 0;
   private saving: Promise<void> = Promise.resolve();
   private micLost = false;
+  private challengeList: LessonChallenge[] = [];
 
   constructor(private readonly deps: RecordingSessionDeps) {
     this.id = deps.newId();
@@ -81,6 +87,32 @@ export class RecordingSession {
 
   get microphoneLost(): boolean {
     return this.micLost;
+  }
+
+  get challenges(): readonly LessonChallenge[] {
+    return this.challengeList;
+  }
+
+  /**
+   * Adds a challenge at the current lesson time. Only while paused: the student's playback
+   * stops exactly where the teacher paused to set it up.
+   */
+  addChallenge(draft: ChallengeDraft): LessonChallenge {
+    if (this.status !== 'paused') throw new Error('Pause the recording to add a challenge');
+    this.recorder.flush();
+    const challenge: LessonChallenge = { ...draft, id: this.deps.newId(), at: this.clock.now() };
+    this.setChallenges([...this.challengeList, challenge]);
+    return challenge;
+  }
+
+  removeChallenge(id: string): void {
+    this.setChallenges(this.challengeList.filter((c) => c.id !== id));
+  }
+
+  private setChallenges(list: LessonChallenge[]): void {
+    this.challengeList = [...list].sort((a, b) => a.at - b.at);
+    this.events.emit('challenges:changed', { challenges: this.challengeList });
+    void this.autosave();
   }
 
   private setStatus(status: RecordingStatus): void {
@@ -129,7 +161,7 @@ export class RecordingSession {
   /** Stores what the chart displays now (covers data that did not come through the provider). */
   private captureDisplayed(): void {
     const e = this.deps.app.engine;
-    this.datasets.add(e.getSymbol(), e.getTimeframe().id, e.seriesData.toCandles());
+    this.datasets.add(e.getSymbol(), e.getTimeframe().id, e.sourceData.toCandles());
   }
 
   /** Writes pending throttled samples now (runs on the periodic tick). */
@@ -197,6 +229,7 @@ export class RecordingSession {
       audioType: this.deps.audio?.mimeType ?? null,
       initial: this.recorder.initial,
       reached: this.clock.now(),
+      challenges: this.challengeList,
     });
     const ops = this.recorder.opsFrom(this.savedOps);
     if (ops.length > 0) {
@@ -236,7 +269,10 @@ export class RecordingSession {
     await this.autosave();
     const audioType = this.deps.audio?.mimeType ?? null;
     const audio = await buildAudio(this.audioChunks, audioType, duration);
-    const timeline = this.recorder.finish(duration, this.datasets.toDatasets());
+    const timeline = {
+      ...this.recorder.finish(duration, this.datasets.toDatasets()),
+      challenges: this.challengeList,
+    };
     try {
       const meta = await this.deps.repository.save(
         {

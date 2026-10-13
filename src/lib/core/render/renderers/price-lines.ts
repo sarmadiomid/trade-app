@@ -14,7 +14,8 @@ export const priceLinesRenderer: LayerRenderer = {
     ctx.clip();
     if (f.options.showLastPriceLine) {
       const up = f.series.close[last]! >= f.series.open[last]!;
-      applyLineStyle(ctx, up ? f.theme.colors.upBody : f.theme.colors.downBody, 1, 'dotted');
+      const color = f.lastValueColor ?? (up ? f.theme.colors.upBody : f.theme.colors.downBody);
+      applyLineStyle(ctx, color, 1, 'dotted');
       hLine(ctx, f.priceScale.priceToY(f.series.close[last]!), pane.x, pane.x + pane.width, f.dpr);
     }
     if (f.options.showPrevCloseLine && f.prevClose !== null) {

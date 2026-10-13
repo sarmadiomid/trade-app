@@ -76,11 +76,17 @@ export class DrawingInteraction implements InteractionHandler {
 
   // ---- placement ----------------------------------------------------------------------------
 
+  private placementChanged(): void {
+    this.m.events.emit('placement:changed', {});
+    this.m.invalidate();
+  }
+
   private startPlacement(def: AnyToolDefinition, e: ChartPointerEvent): void {
     const style = this.m.defaults.resolve(def, this.m.engine.getTheme());
     const p = this.pointAt(e, def, null);
     this.placement = new PlacementSession(def, this.m.newId(), style, p, () => this.m.context());
     if (this.placement.immediate) this.finishPlacement();
+    else this.placementChanged();
   }
 
   private finishPlacement(): void {
@@ -88,7 +94,8 @@ export class DrawingInteraction implements InteractionHandler {
     if (!session) return;
     this.placement = null;
     this.drag = null;
-    if (!session.canFinish()) return this.m.invalidate();
+    this.placementChanged();
+    if (!session.canFinish()) return;
     const drawing = session.finish();
     const stay = this.m.modes.stayInDrawingMode;
     if (!stay) this.m.setTool(null);
@@ -103,7 +110,7 @@ export class DrawingInteraction implements InteractionHandler {
     if (!this.placement) return;
     this.placement = null;
     this.drag = null;
-    this.m.invalidate();
+    this.placementChanged();
   }
 
   escape(): boolean {
@@ -159,7 +166,7 @@ export class DrawingInteraction implements InteractionHandler {
   onHover(e: ChartPointerEvent): string | null {
     if (this.placement) {
       this.placement.move(this.pointAt(e, this.placement.def, this.placement.lastClick));
-      this.m.invalidate();
+      this.placementChanged();
       return 'crosshair';
     }
     if (this.m.tool) {
@@ -185,8 +192,10 @@ export class DrawingInteraction implements InteractionHandler {
         this.pointAt(e, this.placement.def, this.placement.lastClick),
       );
       if (step === 'done') this.finishPlacement();
-      else this.drag = { kind: 'place', downX: e.x, downY: e.y };
-      this.m.invalidate();
+      else {
+        this.drag = { kind: 'place', downX: e.x, downY: e.y };
+        this.placementChanged();
+      }
       return true;
     }
     if (toolId && !this.m.modes.hideAll && !this.m.modes.lockAll) {
@@ -194,7 +203,6 @@ export class DrawingInteraction implements InteractionHandler {
       if (!def) return false;
       this.startPlacement(def, e);
       if (this.placement) this.drag = { kind: 'place', downX: e.x, downY: e.y };
-      this.m.invalidate();
       return true;
     }
     const found = this.hitTest(e.x, e.y);
@@ -217,7 +225,7 @@ export class DrawingInteraction implements InteractionHandler {
     const drag = this.drag;
     if (this.placement) {
       this.placement.move(this.pointAt(e, this.placement.def, this.placement.lastClick));
-      this.m.invalidate();
+      this.placementChanged();
       return;
     }
     if (!drag || drag.kind === 'place') return;
@@ -256,6 +264,7 @@ export class DrawingInteraction implements InteractionHandler {
           this.pointAt(e, this.placement.def, this.placement.lastClick),
         );
         if (step === 'done') this.finishPlacement();
+        else this.placementChanged();
       }
       return;
     }

@@ -1,14 +1,14 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { drawingRegistry, type ChartPoint, type SerializedDrawing } from '@/lib/drawings';
 import { SchemaForm } from '../schema-form/SchemaForm';
 import { useApp } from '../state/app-context';
-import { useUiStore } from '../state/ui-store';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Tabs } from '../ui/Tabs';
 import { CoordinatesTab } from './CoordinatesTab';
+import { TemplateMenu } from './TemplateMenu';
 
 const COORDS_TAB = 'coordinates';
 
@@ -26,10 +26,10 @@ export function DrawingSettingsDialog({
   onClose: () => void;
 }) {
   const app = useApp();
-  const pushToast = useUiStore((s) => s.pushToast);
   const drawing = app.drawings.store.get(drawingId);
   const [before] = useState<SerializedDrawing | null>(() => drawing?.serialize() ?? null);
   const [draft, setDraft] = useState<SerializedDrawing | null>(before);
+  const draftRef = useRef(draft);
   const def = drawing ? drawingRegistry.get(drawing.type) : undefined;
   const tabs = useMemo(
     () => (def ? [...def.settings.tabs, { id: COORDS_TAB, label: 'Coordinates', groups: [] }] : []),
@@ -40,20 +40,28 @@ export function DrawingSettingsDialog({
   const symbol = app.engine.getSymbol();
 
   const apply = (next: SerializedDrawing) => {
+    draftRef.current = next;
     setDraft(next);
     app.drawings.preview(drawingId, next);
   };
   const derived = def.derivedFields;
   const values = derived ? { ...draft.style, ...derived.get(draft, symbol) } : draft.style;
-  const setField = (key: string, value: unknown) =>
+  // Colour controls report colour and opacity in one click. Each call must see the draft the
+  // previous call just wrote, or the second one rebuilds style from the old snapshot and drops the colour.
+  const setField = (key: string, value: unknown) => {
+    const current = draftRef.current;
+    if (!current) return;
     apply(
       derived?.keys.includes(key)
-        ? derived.set(draft, key, value, symbol)
-        : { ...draft, style: { ...draft.style, [key]: value } },
+        ? derived.set(current, key, value, symbol)
+        : { ...current, style: { ...current.style, [key]: value } },
     );
+  };
   const setPoint = (i: number, p: Partial<ChartPoint>) => {
-    const points = draft.points.map((q, j) => (j === i ? { ...q, ...p } : q));
-    apply({ ...draft, points: def.normalizePoints ? def.normalizePoints(points) : points });
+    const current = draftRef.current;
+    if (!current) return;
+    const points = current.points.map((q, j) => (j === i ? { ...q, ...p } : q));
+    apply({ ...current, points: def.normalizePoints ? def.normalizePoints(points) : points });
   };
 
   const cancel = () => {
@@ -73,29 +81,14 @@ export function DrawingSettingsDialog({
       width={580}
       footer={
         <>
-          <select
-            aria-label="Template"
-            className="h-8 rounded-md border border-line bg-panel px-2 text-[13px]"
-            value=""
-            onChange={(e) => {
-              if (e.target.value === 'save') {
-                app.drawings.defaults.set(def.id, draft.style);
-                pushToast(`Saved as default for ${def.label}`);
-              } else if (e.target.value === 'reset') {
-                app.drawings.defaults.reset(def.id);
-                apply({
-                  ...draft,
-                  style: app.drawings.defaults.resolve(def, app.engine.getTheme()),
-                });
-              }
+          <TemplateMenu
+            def={def}
+            style={draft.style}
+            onApply={(style) => {
+              const current = draftRef.current;
+              if (current) apply({ ...current, style });
             }}
-          >
-            <option value="" disabled>
-              Template
-            </option>
-            <option value="save">Save as default</option>
-            <option value="reset">Reset to default</option>
-          </select>
+          />
           <div className="flex-1" />
           <Button onClick={cancel}>Cancel</Button>
           <Button variant="primary" onClick={ok}>

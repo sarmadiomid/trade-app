@@ -33,7 +33,7 @@ export class TimelineRecorder {
     private readonly clock: RecorderClock,
     opts: TimelineRecorderOptions = {},
   ) {
-    this.interval = opts.sampleIntervalMs ?? 40;
+    this.interval = opts.sampleIntervalMs ?? 16;
   }
 
   begin(initial: LessonState): void {

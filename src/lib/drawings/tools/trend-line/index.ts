@@ -8,6 +8,7 @@ export const trendLineTool: DrawingToolDefinition<TrendLineStyle> = {
   label: 'Trend Line',
   icon: 'M3 19a2 2 0 1 0 4 0 2 2 0 1 0-4 0M17 5a2 2 0 1 0 4 0 2 2 0 1 0-4 0M6.5 17.5l11-11',
   shortcut: 'Alt+T',
+  group: 'lines',
   placement: { kind: 'points', count: 2 },
   defaults: TREND_LINE_DEFAULTS,
   styleSchema: trendLineStyleSchema,

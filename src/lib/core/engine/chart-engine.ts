@@ -1,3 +1,4 @@
+import type { Candle } from '../data/candle';
 import type { Clock, FrameScheduler, Timer } from '../contracts/runtime';
 import type { Series, SeriesDefinition } from '../contracts/series';
 import type { SymbolInfo } from '../contracts/symbol';
@@ -35,7 +36,10 @@ export interface EngineRuntime {
 export interface ChartEngineInit {
   readonly container: HTMLElement;
   readonly runtime: EngineRuntime;
+  /** Series used when `options.chartType` cannot be resolved. */
   readonly series: SeriesDefinition;
+  /** Resolves `options.chartType` to a series definition. Without it the chart type is fixed. */
+  readonly resolveSeries?: (id: string) => SeriesDefinition | undefined;
   readonly theme: Theme;
   readonly symbol: SymbolInfo;
   readonly timeframe: TimeframeId;
@@ -59,14 +63,23 @@ export class ChartEngine {
   private readonly router: PointerRouter;
   private readonly frames = new FrameBuilder();
   private readonly timeIndex: TimeIndex;
-  private readonly series: Series;
-  private data = new SeriesData();
+  private seriesDef: SeriesDefinition;
+  private series: Series;
+  private removeSeries: () => void = () => undefined;
+  /** Bars as provided by setData. */
+  private source = new SeriesData();
+  /** Bars on screen: `source`, or bars derived from it by the series transform. */
+  private data = this.source;
   private minMax = new RangeMinMax(this.data);
   private weights = new TimeWeights(this.data);
   private unsubscribeData: () => void = () => undefined;
+  private unsubscribeSource: () => void = () => undefined;
+  private boxSize = 0;
   private knownLength = 0;
   private options: ChartOptions;
   private theme: Theme;
+  /** Painted instead of `theme` when set. `getTheme()` still returns the real theme. */
+  private paintTheme: Theme | null = null;
   private symbol: SymbolInfo;
   private timeframe: Timeframe;
   private crosshair: CrosshairState | null = null;
@@ -92,8 +105,11 @@ export class ChartEngine {
     this.host = new DomHost(init.container, (w, h) => this.resize(w, h));
     this.layers = new LayerManager(this.host.surfaces);
     this.loop = new RenderLoop(init.runtime.frames, (mask) => this.renderFrame(mask));
-    this.series = init.series.create({ data: () => this.data, minMax: () => this.minMax });
-    registerBuiltInRenderers(this.layers, this.series);
+    this.seriesDef = init.resolveSeries?.(this.options.chartType) ?? init.series;
+    this.options.chartType = this.seriesDef.id;
+    this.series = this.createSeries(this.seriesDef);
+    registerBuiltInRenderers(this.layers);
+    this.removeSeries = this.layers.add('series', this.series);
     this.router = new PointerRouter(
       this.host.root,
       createNavigationTarget(this, this.host),
@@ -107,11 +123,30 @@ export class ChartEngine {
 
   // ---- data -------------------------------------------------------------------------------
 
+  /** Bars on screen (derived bars for Heikin Ashi, Renko, …). Drawings anchor to these. */
   get seriesData(): SeriesData {
     return this.data;
   }
 
-  setData(data: SeriesData, opts: { resetView?: boolean } = {}): void {
+  /** Bars as provided by setData, before any chart-type transform. */
+  get sourceData(): SeriesData {
+    return this.source;
+  }
+
+  setData(source: SeriesData, opts: { resetView?: boolean } = {}): void {
+    this.unsubscribeSource();
+    this.unsubscribeSource = () => undefined;
+    this.source = source;
+    let display = source;
+    this.boxSize = 0;
+    if (this.seriesDef.transform) {
+      display = SeriesData.fromCandles(this.runTransform());
+      this.unsubscribeSource = source.onChange((c) => this.refreshDerived(c));
+    }
+    this.attachDisplay(display, opts);
+  }
+
+  private attachDisplay(data: SeriesData, opts: { resetView?: boolean }): void {
     this.unsubscribeData();
     if (data !== this.data) {
       this.minMax.dispose();
@@ -149,8 +184,59 @@ export class ChartEngine {
     this.viewportChanged();
   }
 
+  private runTransform(): readonly Candle[] {
+    const out = this.seriesDef.transform!(this.source, {
+      options: this.options,
+      symbol: this.symbol,
+      timeframe: this.timeframe,
+    });
+    this.boxSize = out.boxSize ?? 0;
+    return out.bars;
+  }
+
+  /** Rebuilds the derived bars after `source` changed (null: options or symbol changed). */
+  private refreshDerived(c: SeriesChange | null): void {
+    if (!this.seriesDef.transform || this.data === this.source) return;
+    const bars = this.runTransform();
+    const old = this.data.length;
+    let change: SeriesChange;
+    if (c?.kind === 'prepend') {
+      change = { kind: 'prepend', count: Math.max(0, bars.length - old) };
+    } else if (c?.kind === 'update') {
+      change = { kind: 'update', fromIndex: firstDifference(this.data, bars) };
+    } else {
+      change = { kind: 'reset' };
+    }
+    this.data.replace(bars, change);
+  }
+
+  private createSeries(def: SeriesDefinition): Series {
+    return def.create({
+      data: () => this.data,
+      minMax: () => this.minMax,
+      options: () => this.options,
+      boxSize: () => this.boxSize,
+    });
+  }
+
+  private switchSeries(def: SeriesDefinition): void {
+    this.removeSeries();
+    this.series.dispose?.();
+    this.seriesDef = def;
+    this.series = this.createSeries(def);
+    this.removeSeries = this.layers.add('series', this.series);
+    const before = this.data.length;
+    this.setData(this.source, { resetView: false });
+    if (this.data.length !== before) this.setData(this.source, { resetView: true });
+    if (def.minBarSpacing && this.viewport.time.barSpacing < def.minBarSpacing) {
+      this.viewport.time.barSpacing = def.minBarSpacing;
+      this.viewportChanged();
+    }
+  }
+
   setSymbol(symbol: SymbolInfo): void {
     this.symbol = symbol;
+    this.refreshDerived(null);
     this.invalidate(ALL_LAYERS);
   }
 
@@ -174,8 +260,14 @@ export class ChartEngine {
   }
 
   setOptions(patch: Partial<ChartOptions>): void {
+    const prev = this.options;
     this.options = { ...this.options, ...patch };
     this.applyOptions();
+    const def = this.init.resolveSeries?.(this.options.chartType) ?? this.seriesDef;
+    this.options.chartType = def.id;
+    if (def !== this.seriesDef) this.switchSeries(def);
+    else if (def.transformOptions?.some((k) => prev[k] !== this.options[k]))
+      this.setData(this.source, { resetView: true });
     this.events.emit('options:changed', this.options);
     this.invalidate(ALL_LAYERS);
   }
@@ -206,6 +298,16 @@ export class ChartEngine {
   setTheme(theme: Theme): void {
     this.theme = theme;
     this.events.emit('theme:changed', theme);
+    this.invalidate(ALL_LAYERS);
+  }
+
+  /**
+   * Paints `theme` without changing the active theme. Null restores the active theme.
+   * Used so lesson edit mode can tint the chart without recording that tint as state.
+   */
+  setPaintTheme(theme: Theme | null): void {
+    if (theme === this.paintTheme) return;
+    this.paintTheme = theme;
     this.invalidate(ALL_LAYERS);
   }
 
@@ -381,7 +483,7 @@ export class ChartEngine {
       viewport: this.viewport,
       coords: this.coords,
       options: this.options,
-      theme: this.theme,
+      theme: this.paintTheme ?? this.theme,
       symbol: this.symbol,
       timeframe: this.timeframe,
       crosshair: this.crosshair,
@@ -419,6 +521,8 @@ export class ChartEngine {
     this.loop.destroy();
     this.router.destroy();
     this.unsubscribeData();
+    this.unsubscribeSource();
+    this.removeSeries();
     this.minMax.dispose();
     this.weights.dispose();
     this.series.dispose?.();
@@ -426,4 +530,22 @@ export class ChartEngine {
     this.host.destroy();
     this.events.clear();
   }
+}
+
+/** First bar index where `data` and `bars` differ (the common length when one is a prefix). */
+function firstDifference(data: SeriesData, bars: readonly Candle[]): number {
+  const n = Math.min(data.length, bars.length);
+  for (let i = 0; i < n; i++) {
+    const b = bars[i]!;
+    if (
+      data.time[i] !== b.time ||
+      data.open[i] !== b.open ||
+      data.high[i] !== b.high ||
+      data.low[i] !== b.low ||
+      data.close[i] !== b.close ||
+      data.volume[i] !== b.volume
+    )
+      return i;
+  }
+  return n;
 }

@@ -14,6 +14,7 @@ import { ReplayBar } from '../replay/ReplayBar';
 import { TopToolbar } from '../toolbar/TopToolbar';
 import { ContextMenu } from '../drawing/ContextMenu';
 import { DrawingToolbar } from '../drawing/DrawingToolbar';
+import { FavoritesToolbar } from '../drawing/FavoritesToolbar';
 import { FloatingToolbar } from '../drawing/FloatingToolbar';
 import { TextEditorOverlay } from '../drawing/TextEditorOverlay';
 import { ChartControls } from './ChartControls';
@@ -38,13 +39,23 @@ export interface ChartWorkspaceProps {
   readonly onApp?: (app: ChartApp | null) => void;
   /** Rendered below the chart, above the replay bar (e.g. the lesson recorder bar). */
   readonly footer?: ReactNode;
+  /** Rendered over the chart area (e.g. the challenge editor). */
+  readonly overlay?: ReactNode;
+  /** Rendered at the right end of the top toolbar (e.g. the account menu). */
+  readonly toolbarEnd?: ReactNode;
 }
 
 /**
  * Client-only application shell. Creates the ChartApp in an effect and destroys it on unmount
  * (safe under React Strict Mode double-mounting). Chart state never enters React state.
  */
-export default function ChartWorkspace({ wrapDeps, onApp, footer }: ChartWorkspaceProps = {}) {
+export default function ChartWorkspace({
+  wrapDeps,
+  onApp,
+  footer,
+  overlay,
+  toolbarEnd,
+}: ChartWorkspaceProps = {}) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [app, setApp] = useState<ChartApp | null>(null);
   // Creation-time callbacks: the app is created once per mount, later prop changes are ignored.
@@ -77,7 +88,7 @@ export default function ChartWorkspace({ wrapDeps, onApp, footer }: ChartWorkspa
   return (
     <AppContext.Provider value={app}>
       <div className="flex h-full w-full flex-col bg-chart text-fg">
-        {app ? <TopToolbar /> : <div className="h-10 shrink-0 border-b border-line bg-panel" />}
+        {app ? <TopToolbar end={toolbarEnd} /> : <div className="h-10 shrink-0 border-b border-line bg-panel" />}
         <div className="flex min-h-0 flex-1">
           {app ? (
             <DrawingToolbar />
@@ -90,12 +101,14 @@ export default function ChartWorkspace({ wrapDeps, onApp, footer }: ChartWorkspa
               <>
                 <Legend />
                 <ChartControls />
+                <FavoritesToolbar />
                 <FloatingToolbar />
                 <TextEditorOverlay />
                 <IntervalTyperOverlay />
               </>
             ) : null}
             <LoadingOverlay />
+            {overlay}
           </main>
         </div>
         {footer}

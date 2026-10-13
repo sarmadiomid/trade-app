@@ -79,6 +79,59 @@ export function textFont(
   return `${t.italic ? 'italic ' : ''}${t.bold ? 'bold ' : ''}${t.fontSize}px ${t.fontFamily ?? 'Inter, system-ui, sans-serif'}`;
 }
 
+const SEGMENT_TEXT_GAP = 6;
+
+/** Text along the segment a→b (kept upright), aligned along it and placed above/on/below it. */
+export function drawTextAlongSegment(
+  ctx: CanvasRenderingContext2D,
+  a: Point,
+  b: Point,
+  t: TextStyle & {
+    readonly align: 'left' | 'center' | 'right';
+    readonly position: 'top' | 'middle' | 'bottom';
+    readonly inset?: number;
+  },
+): void {
+  let angle = Math.atan2(b.y - a.y, b.x - a.x);
+  const flip = angle > Math.PI / 2 || angle < -Math.PI / 2;
+  const [p0, p1] = flip ? [b, a] : [a, b];
+  if (flip) angle += Math.PI;
+  const len = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+  const inset = t.inset ?? 0;
+  const along = t.align === 'left' ? inset : t.align === 'right' ? len - inset : len / 2;
+  ctx.save();
+  ctx.translate(p0.x, p0.y);
+  ctx.rotate(angle);
+  ctx.font = textFont(t);
+  ctx.fillStyle = t.color;
+  ctx.textAlign = t.align;
+  ctx.textBaseline = t.position === 'top' ? 'bottom' : t.position === 'bottom' ? 'top' : 'middle';
+  const dy =
+    t.position === 'top' ? -SEGMENT_TEXT_GAP : t.position === 'bottom' ? SEGMENT_TEXT_GAP : 0;
+  const lines = t.text.split('\n');
+  const lh = t.fontSize * 1.25;
+  const offset =
+    t.position === 'top'
+      ? -(lines.length - 1) * lh
+      : t.position === 'middle'
+        ? (-(lines.length - 1) * lh) / 2
+        : 0;
+  lines.forEach((l, i) => ctx.fillText(l, along, dy + offset + i * lh));
+  ctx.restore();
+}
+
+/** Ray-casting point-in-polygon test. */
+export function pointInPolygon(x: number, y: number, poly: readonly Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i]!;
+    const b = poly[j]!;
+    if (a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y) + a.x)
+      inside = !inside;
+  }
+  return inside;
+}
+
 export interface TextBlockOptions {
   readonly align: 'left' | 'center' | 'right';
   readonly maxWidth: number | null;

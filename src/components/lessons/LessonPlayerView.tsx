@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChartApp,
   HtmlAudioMedia,
@@ -8,9 +8,19 @@ import {
   PLAYBACK_RATES,
   VirtualMedia,
   createPlaybackDependencies,
+  type ChallengeDraft,
   type PlayerSnapshot,
 } from '@/lib/app';
-import { LessonDataProvider, type Lesson, type LessonRepository } from '@/lib/lessons';
+import { createIdGenerator } from '@/lib/core';
+import {
+  LessonDataProvider,
+  type Lesson,
+  type LessonChallenge,
+  type LessonRepository,
+} from '@/lib/lessons';
+import { ChallengeCard } from './ChallengeCard';
+import { ChallengeEditor } from './ChallengeEditor';
+import { KIND_LABELS } from './challenge-ui';
 import { ContextMenu } from '../drawing/ContextMenu';
 import { DrawingToolbar } from '../drawing/DrawingToolbar';
 import { FloatingToolbar } from '../drawing/FloatingToolbar';
@@ -44,7 +54,6 @@ const SEEK_STEP_MS = 5000;
 
 /** Loads a lesson and plays it on a dedicated, isolated chart. */
 export function LessonPlayerView({ repository, lessonId, onExit }: LessonPlayerViewProps) {
-  useThemeCssVars();
   const [load, setLoad] = useState<LoadState>({ kind: 'loading' });
 
   useEffect(() => {
@@ -73,24 +82,43 @@ export function LessonPlayerView({ repository, lessonId, onExit }: LessonPlayerV
 
   if (load.kind !== 'ready') {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-chart text-fg">
-        {load.kind === 'loading' ? (
-          <div
-            className="h-7 w-7 animate-spin rounded-full border-2 border-line border-t-accent"
-            aria-label="Loading lesson"
-          />
-        ) : (
-          <>
-            <p role="alert" className="text-[13px] text-down">
-              {load.message}
-            </p>
-            <Button onClick={onExit}>Back to library</Button>
-          </>
-        )}
-      </div>
+      <PendingScreen
+        kind={load.kind}
+        message={load.kind === 'error' ? load.message : undefined}
+        onExit={onExit}
+      />
     );
   }
-  return <Player lesson={load.lesson} onExit={onExit} />;
+  return <Player lesson={load.lesson} repository={repository} onExit={onExit} />;
+}
+
+function PendingScreen({
+  kind,
+  message,
+  onExit,
+}: {
+  readonly kind: 'loading' | 'error';
+  readonly message?: string | undefined;
+  readonly onExit: () => void;
+}) {
+  useThemeCssVars();
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-4 bg-chart text-fg">
+      {kind === 'loading' ? (
+        <div
+          className="h-7 w-7 animate-spin rounded-full border-2 border-line border-t-accent"
+          aria-label="Loading lesson"
+        />
+      ) : (
+        <>
+          <p role="alert" className="text-[13px] text-down">
+            {message}
+          </p>
+          <Button onClick={onExit}>Back to library</Button>
+        </>
+      )}
+    </div>
+  );
 }
 
 /** Fits a box of the given aspect ratio into the available space (letterbox). */
@@ -115,13 +143,71 @@ function useLetterbox(aspect: number | null) {
   return { ref, box };
 }
 
-function Player({ lesson, onExit }: { readonly lesson: Lesson; readonly onExit: () => void }) {
+interface Authoring {
+  readonly initial: LessonChallenge | null;
+  readonly at: number;
+}
+
+function Player({
+  lesson,
+  repository,
+  onExit,
+}: {
+  readonly lesson: Lesson;
+  readonly repository: LessonRepository;
+  readonly onExit: () => void;
+}) {
   const chartRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const [app, setApp] = useState<ChartApp | null>(null);
   const [player, setPlayer] = useState<LessonPlayer | null>(null);
   const [snap, setSnap] = useState<PlayerSnapshot | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [authoring, setAuthoring] = useState<Authoring | null>(null);
+  const [summaryDismissed, setSummaryDismissed] = useState(false);
   const pushToast = useUiStore((s) => s.pushToast);
+  const newId = useMemo(() => (app ? createIdGenerator(app.deps.rng, 'challenge-') : null), [app]);
+
+  const persistChallenges = async (list: readonly LessonChallenge[]) => {
+    if (!player) return;
+    player.setChallenges(list);
+    try {
+      await repository.save(
+        lesson.meta,
+        { ...lesson.timeline, challenges: [...list] },
+        lesson.audio,
+      );
+    } catch (e) {
+      pushToast(`Saving challenges failed: ${e instanceof Error ? e.message : String(e)}`, 'error');
+    }
+  };
+
+  const startAuthoring = (initial: LessonChallenge | null) => {
+    if (!player) return;
+    player.pause();
+    const at = initial?.at ?? player.time;
+    player.closeChallenge();
+    if (initial) player.seek(initial.at);
+    setAuthoring({ initial, at });
+  };
+
+  const saveAuthored = (draft: ChallengeDraft) => {
+    if (!player || !authoring || !newId) return;
+    const { initial, at } = authoring;
+    const challenge: LessonChallenge = { ...draft, id: initial?.id ?? newId(), at };
+    const list = initial
+      ? player.challenges.map((c) => (c.id === initial.id ? challenge : c))
+      : [...player.challenges, challenge];
+    setAuthoring(null);
+    void persistChallenges(list).then(() => pushToast('Challenge saved', 'info'));
+  };
+
+  const deleteChallenge = (id: string) => {
+    if (!player) return;
+    void persistChallenges(player.challenges.filter((c) => c.id !== id));
+  };
+  const editing = !snap || snap.mode === 'free';
+  useThemeCssVars(editing);
 
   useEffect(() => {
     const el = chartRef.current;
@@ -142,8 +228,10 @@ function Player({ lesson, onExit }: { readonly lesson: Lesson; readonly onExit: 
       p.events.on('frame', ({ cursor }) => {
         const c = cursorRef.current;
         if (!c) return;
-        c.style.display = cursor ? 'block' : 'none';
-        if (cursor) c.style.transform = `translate(${cursor.x}px, ${cursor.y}px)`;
+        if (p.snapshot.mode === 'lesson' && cursor) {
+          c.style.display = 'block';
+          c.style.transform = `translate(${cursor.x}px, ${cursor.y}px)`;
+        } else c.style.display = 'none';
       }),
     ];
     setApp(instance);
@@ -165,8 +253,9 @@ function Player({ lesson, onExit }: { readonly lesson: Lesson; readonly onExit: 
   const free = snap?.mode === 'free';
 
   useGlobalKeyboard(free ? app : null);
+  const locked = authoring !== null;
   useEffect(() => {
-    if (!player) return;
+    if (!player || locked) return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target;
       if (
@@ -189,7 +278,7 @@ function Player({ lesson, onExit }: { readonly lesson: Lesson; readonly onExit: 
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [player]);
+  }, [player, locked]);
 
   return (
     <AppContext.Provider value={app}>
@@ -201,6 +290,19 @@ function Player({ lesson, onExit }: { readonly lesson: Lesson; readonly onExit: 
           </Button>
           <h1 className="min-w-0 truncate text-[14px] font-semibold">{lesson.meta.title}</h1>
           <div className="flex-1" />
+          <Button
+            variant="ghost"
+            aria-pressed={editMode}
+            className={editMode ? 'text-accent' : ''}
+            title="Add, edit or delete this lesson's challenges"
+            onClick={() => {
+              setEditMode((m) => !m);
+              setAuthoring(null);
+            }}
+          >
+            <Icon name="target" size={16} />
+            {editMode ? 'Done editing' : 'Edit challenges'}
+          </Button>
           <ModeBadge snap={snap} onReset={() => player?.resetToLesson()} />
         </header>
         <div className="flex min-h-0 flex-1">
@@ -249,6 +351,42 @@ function Player({ lesson, onExit }: { readonly lesson: Lesson; readonly onExit: 
                   />
                 </svg>
               </div>
+              {player && snap && app && authoring ? (
+                <ChallengeEditor
+                  key={authoring.initial?.id ?? `new-${authoring.at}`}
+                  board={player.board}
+                  data={() => app.market.data}
+                  initial={authoring.initial}
+                  timeLabel={formatDuration(authoring.at)}
+                  onSave={saveAuthored}
+                  onCancel={() => setAuthoring(null)}
+                />
+              ) : null}
+              {player && snap?.challenge && !authoring ? (
+                <ChallengeCard
+                  player={player}
+                  active={snap.challenge}
+                  total={snap.challenges.length}
+                  onEdit={editMode ? () => startAuthoring(snap.challenge!.challenge) : undefined}
+                  onDelete={
+                    editMode ? () => deleteChallenge(snap.challenge!.challenge.id) : undefined
+                  }
+                />
+              ) : null}
+              {player &&
+              snap &&
+              free &&
+              !snap.challenge &&
+              !authoring &&
+              !summaryDismissed &&
+              snap.challenges.length > 0 &&
+              player.time >= snap.duration ? (
+                <LessonSummary
+                  snap={snap}
+                  onOpen={(id) => player.goToChallenge(id)}
+                  onClose={() => setSummaryDismissed(true)}
+                />
+              ) : null}
               {!free ? (
                 // Lesson mode: the chart follows the teacher; a click pauses into free play.
                 <div
@@ -261,7 +399,15 @@ function Player({ lesson, onExit }: { readonly lesson: Lesson; readonly onExit: 
             </main>
           </div>
         </div>
-        {player && snap ? <PlayerBar player={player} snap={snap} /> : null}
+        {player && snap ? (
+          <PlayerBar
+            player={player}
+            snap={snap}
+            locked={authoring !== null}
+            onAddChallenge={editMode && !authoring ? () => startAuthoring(null) : undefined}
+            onPlay={() => setSummaryDismissed(false)}
+          />
+        ) : null}
         {app && free ? (
           <>
             <DialogHost />
@@ -306,12 +452,112 @@ function ModeBadge({
   );
 }
 
-function PlayerBar({
+function LessonSummary({
+  snap,
+  onOpen,
+  onClose,
+}: {
+  readonly snap: PlayerSnapshot;
+  onOpen(id: string): void;
+  onClose(): void;
+}) {
+  const passed = snap.challenges.filter((c) => snap.results[c.id]?.passed).length;
+  return (
+    <div
+      role="dialog"
+      aria-label="Lesson summary"
+      className="absolute left-1/2 top-1/2 z-40 w-[min(420px,calc(100%-24px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-line bg-panel text-[13px] shadow-xl"
+    >
+      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
+        <Icon name="check" size={18} className="text-up" />
+        <span className="text-[15px] font-semibold">Lesson complete</span>
+        <div className="flex-1" />
+        <button
+          type="button"
+          aria-label="Close"
+          className="text-muted hover:text-fg"
+          onClick={onClose}
+        >
+          <Icon name="close" size={16} />
+        </button>
+      </div>
+      <p className="px-4 pt-3 font-medium">
+        {passed} of {snap.challenges.length} challenges passed
+      </p>
+      <ul className="max-h-64 overflow-y-auto px-2 py-2">
+        {snap.challenges.map((c, i) => {
+          const r = snap.results[c.id];
+          return (
+            <li key={c.id}>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-hover"
+                onClick={() => onOpen(c.id)}
+              >
+                <span
+                  className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${
+                    r ? (r.passed ? 'bg-up' : 'bg-down') : 'bg-muted'
+                  }`}
+                />
+                <span className="w-5 shrink-0 text-muted">{i + 1}.</span>
+                <span className="min-w-0 flex-1 truncate">{c.prompt}</span>
+                <span className="shrink-0 text-[12px] text-muted">
+                  {r ? `${Math.round(r.score * 100)}%` : 'skipped'}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function ChallengeMarkers({
   player,
   snap,
 }: {
   readonly player: LessonPlayer;
   readonly snap: PlayerSnapshot;
+}) {
+  if (snap.duration <= 0) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-1/2 h-0">
+      {snap.challenges.map((c, i) => {
+        const r = snap.results[c.id];
+        const color = r ? (r.passed ? 'bg-up' : 'bg-down') : 'bg-accent';
+        const current = snap.challenge?.challenge.id === c.id;
+        return (
+          <button
+            key={c.id}
+            type="button"
+            aria-label={`Challenge ${i + 1}: ${c.prompt}`}
+            title={`${formatDuration(c.at)} · ${KIND_LABELS[c.kind]}: ${c.prompt}`}
+            onClick={() => player.goToChallenge(c.id)}
+            className={`pointer-events-auto absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[3px] border-2 border-panel ${color} ${
+              current ? 'ring-2 ring-accent' : ''
+            }`}
+            style={{ left: `${(Math.min(c.at, snap.duration) / snap.duration) * 100}%` }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function PlayerBar({
+  player,
+  snap,
+  locked,
+  onAddChallenge,
+  onPlay,
+}: {
+  readonly player: LessonPlayer;
+  readonly snap: PlayerSnapshot;
+  /** Playback controls are disabled (a challenge is being edited). */
+  readonly locked: boolean;
+  readonly onAddChallenge?: (() => void) | undefined;
+  onPlay(): void;
 }) {
   const [time, setTime] = useState(player.time);
   useEffect(() => player.events.on('frame', ({ time: t }) => setTime(t)), [player]);
@@ -327,21 +573,35 @@ function PlayerBar({
         label={playing ? 'Pause' : 'Play'}
         shortcut="Space"
         tooltipSide="top"
-        onClick={() => player.toggle()}
+        disabled={locked}
+        onClick={() => {
+          if (!playing) onPlay();
+          player.toggle();
+        }}
       />
       <span className="w-24 shrink-0 tabular-nums text-muted">
         {formatDuration(time)} / {formatDuration(snap.duration)}
       </span>
-      <input
-        type="range"
-        aria-label="Seek"
-        min={0}
-        max={Math.max(1, snap.duration)}
-        step={100}
-        value={Math.min(time, snap.duration)}
-        onChange={(e) => player.seek(Number(e.target.value))}
-        className="h-1 min-w-0 flex-1 cursor-pointer accent-[var(--tc-accent)]"
-      />
+      <div className="relative flex min-w-0 flex-1 items-center">
+        <input
+          type="range"
+          aria-label="Seek"
+          min={0}
+          max={Math.max(1, snap.duration)}
+          step={100}
+          disabled={locked}
+          value={Math.min(time, snap.duration)}
+          onChange={(e) => player.seek(Number(e.target.value))}
+          className="h-1 w-full min-w-0 cursor-pointer accent-[var(--tc-accent)]"
+        />
+        {locked ? null : <ChallengeMarkers player={player} snap={snap} />}
+      </div>
+      {onAddChallenge && !playing ? (
+        <Button onClick={onAddChallenge}>
+          <Icon name="plus" size={15} />
+          Add challenge here
+        </Button>
+      ) : null}
       <div role="group" aria-label="Speed" className="flex shrink-0 items-center gap-0.5">
         {PLAYBACK_RATES.map((r) => (
           <button
