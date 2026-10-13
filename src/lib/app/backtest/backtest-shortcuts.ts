@@ -16,13 +16,17 @@ export function backtestShortcuts(get: Get): Array<ShortcutDefinition<ChartApp>>
     description: string,
     run: (c: BacktestController) => void,
     allowRepeat = false,
+    when: (c: BacktestController) => boolean = () => true,
   ): ShortcutDefinition<ChartApp> => ({
     id: `backtest-${id}`,
     keys,
     description,
     category: 'Backtest',
     allowRepeat,
-    when: () => get() !== null,
+    when: () => {
+      const c = get();
+      return c !== null && !c.inputBlocked && when(c);
+    },
     run: () => {
       const c = get();
       if (c) run(c);
@@ -48,7 +52,14 @@ export function backtestShortcuts(get: Get): Array<ShortcutDefinition<ChartApp>>
     def('new-market', ['Alt+M'], 'New market order', (c) =>
       c.command({ type: 'order-ticket', orderType: 'market' }),
     ),
-    def('prop-rules', ['Tab'], 'Prop Firm Rules panel', (c) => c.command({ type: 'prop-rules' })),
+    def(
+      'prop-rules',
+      ['Tab'],
+      'Prop Firm Rules panel',
+      (c) => c.command({ type: 'prop-rules' }),
+      false,
+      (c) => c.session.settings.type === 'prop',
+    ),
     def('shortcut-list', ['Ctrl+Alt+H', 'Ctrl+Shift+H'], 'Show shortcuts', (c) =>
       c.command({ type: 'shortcuts' }),
     ),

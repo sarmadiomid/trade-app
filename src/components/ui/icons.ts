@@ -36,6 +36,12 @@ export const ICONS = {
   play: 'M7 4l13 8-13 8z',
   pause: 'M7 4h4v16H7zM14 4h4v16h-4z',
   stepForward: 'M5 4l10 8-10 8zM18 4v16',
+  stepBack: 'M19 4L9 12l10 8zM6 4v16',
+  chart: 'M4 20V10M10 20V4M16 20v-8M21 20H3',
+  journal: 'M6 3h11a2 2 0 0 1 2 2v16H8a2 2 0 0 1-2-2zM10 8h5M10 12h5M6 17h13',
+  bolt: 'M13 2L4 14h7l-1 8 9-12h-7z',
+  camera: 'M4 8h4l2-3h4l2 3h4v11H4zM12 11a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  flag: 'M5 21V4M5 4h12l-2 4 2 4H5',
   jumpEnd: 'M4 4l8 8-8 8M12 4l8 8-8 8M21 4v16',
   exit: 'M9 21H5V3h4M16 17l5-5-5-5M21 12H9',
   scissors:

@@ -31,7 +31,8 @@ export interface BrowserDependencyOptions {
   readonly onFallback?: (error: unknown) => void;
 }
 
-function pickStorage(): StorageAdapter {
+/** The best persistent storage the browser offers (IndexedDB → localStorage → memory). */
+export function pickStorage(): StorageAdapter {
   try {
     if (typeof indexedDB !== 'undefined') return new IndexedDBStorage(indexedDB);
   } catch {

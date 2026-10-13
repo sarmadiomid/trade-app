@@ -98,6 +98,8 @@ export class BacktestController {
   private snapTimer: number | null = null;
   private readonly disposers: Array<() => void> = [];
   private destroyed = false;
+  /** Set by the UI while a dialog is open: hotkeys are ignored. */
+  inputBlocked = false;
 
   constructor(
     readonly app: ChartApp,

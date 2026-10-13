@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChartApp, createBrowserDependencies, type AppDependencies } from '@/lib/app';
+import {
+  ChartApp,
+  createBrowserDependencies,
+  type AppDependencies,
+  type ChartAppOptions,
+} from '@/lib/app';
 import { DialogHost } from '../dialogs/DialogHost';
 import { useGlobalKeyboard } from '../hooks/useGlobalKeyboard';
 import { useThemeCssVars } from '../hooks/useThemeCssVars';
@@ -12,7 +17,7 @@ import { AppContext } from '../state/app-context';
 import { connectBridge } from '../state/bridge';
 import { ReplayBar } from '../replay/ReplayBar';
 import { TopToolbar } from '../toolbar/TopToolbar';
-import { ContextMenu } from '../drawing/ContextMenu';
+import { ContextMenu, type ChartMenuItems } from '../drawing/ContextMenu';
 import { DrawingToolbar } from '../drawing/DrawingToolbar';
 import { FavoritesToolbar } from '../drawing/FavoritesToolbar';
 import { FloatingToolbar } from '../drawing/FloatingToolbar';
@@ -43,6 +48,16 @@ export interface ChartWorkspaceProps {
   readonly overlay?: ReactNode;
   /** Rendered at the right end of the top toolbar (e.g. the account menu). */
   readonly toolbarEnd?: ReactNode;
+  /** Rendered at the left end of the top toolbar (e.g. a back link). */
+  readonly toolbarStart?: ReactNode;
+  /** Options for the ChartApp (creation time only). */
+  readonly appOptions?: ChartAppOptions;
+  /** Hides the bar-replay button and bar (a host with its own replay). */
+  readonly hideReplay?: boolean;
+  /** Rendered to the right of the chart (e.g. an order panel). */
+  readonly sidePanel?: ReactNode;
+  /** Extra entries at the top of the chart's right-click menu. */
+  readonly chartMenuItems?: ChartMenuItems;
 }
 
 /**
@@ -55,18 +70,26 @@ export default function ChartWorkspace({
   footer,
   overlay,
   toolbarEnd,
+  toolbarStart,
+  appOptions,
+  hideReplay = false,
+  sidePanel,
+  chartMenuItems,
 }: ChartWorkspaceProps = {}) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [app, setApp] = useState<ChartApp | null>(null);
   // Creation-time callbacks: the app is created once per mount, later prop changes are ignored.
-  const [init] = useState(() => ({ wrapDeps, onApp }));
+  const [init] = useState(() => ({ wrapDeps, onApp, appOptions }));
 
   useEffect(() => {
     const el = chartRef.current;
     if (!el) return;
     const opts = urlOptions();
     const base = createBrowserDependencies(opts.deps);
-    const instance = new ChartApp(el, init.wrapDeps ? init.wrapDeps(base) : base, opts.app);
+    const instance = new ChartApp(el, init.wrapDeps ? init.wrapDeps(base) : base, {
+      ...opts.app,
+      ...init.appOptions,
+    });
     const disconnect = connectBridge(instance);
     // Dev-only handle for debugging and the e2e performance script.
     if (process.env.NODE_ENV !== 'production')
@@ -88,7 +111,16 @@ export default function ChartWorkspace({
   return (
     <AppContext.Provider value={app}>
       <div className="flex h-full w-full flex-col bg-chart text-fg">
-        {app ? <TopToolbar end={toolbarEnd} /> : <div className="h-10 shrink-0 border-b border-line bg-panel" />}
+        {app ? (
+          <TopToolbar
+            end={toolbarEnd}
+            start={toolbarStart}
+            symbolLocked={appOptions?.symbol !== undefined}
+            hideReplay={hideReplay}
+          />
+        ) : (
+          <div className="h-10 shrink-0 border-b border-line bg-panel" />
+        )}
         <div className="flex min-h-0 flex-1">
           {app ? (
             <DrawingToolbar />
@@ -110,13 +142,14 @@ export default function ChartWorkspace({
             <LoadingOverlay />
             {overlay}
           </main>
+          {sidePanel}
         </div>
         {footer}
-        {app ? <ReplayBar /> : null}
+        {app && !hideReplay ? <ReplayBar /> : null}
         {app ? (
           <>
             <DialogHost />
-            <ContextMenu />
+            <ContextMenu chartItems={chartMenuItems} />
           </>
         ) : null}
         <Toasts />

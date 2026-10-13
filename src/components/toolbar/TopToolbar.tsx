@@ -13,7 +13,21 @@ import { TimeframeBar } from './TimeframeBar';
 import { MoreMenu } from './MoreMenu';
 import { ReplayButton } from './ReplayButton';
 
-export function TopToolbar({ end }: { end?: ReactNode }) {
+export interface TopToolbarProps {
+  readonly end?: ReactNode;
+  /** Rendered before the symbol button (e.g. a back link). */
+  readonly start?: ReactNode;
+  /** The symbol is fixed: no symbol search. */
+  readonly symbolLocked?: boolean;
+  readonly hideReplay?: boolean;
+}
+
+export function TopToolbar({
+  end,
+  start,
+  symbolLocked = false,
+  hideReplay = false,
+}: TopToolbarProps) {
   const app = useApp();
   const symbol = useUiStore((s) => s.symbol);
   const history = useUiStore((s) => s.history);
@@ -21,23 +35,34 @@ export function TopToolbar({ end }: { end?: ReactNode }) {
   const openDialog = useUiStore((s) => s.openDialog);
   return (
     <header className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line bg-panel px-1.5">
-      <Tooltip label="Symbol search" shortcut="Ctrl + K">
-        <button
-          type="button"
-          onClick={() => openDialog({ type: 'symbol-search' })}
-          className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-semibold text-fg hover:bg-hover"
-        >
-          <Icon name="search" size={16} />
-          <span>{symbol?.symbol ?? '…'}</span>
-        </button>
-      </Tooltip>
+      {start}
+      {symbolLocked ? (
+        <span className="flex h-8 items-center px-2 text-sm font-semibold text-fg">
+          {symbol?.symbol ?? '…'}
+        </span>
+      ) : (
+        <Tooltip label="Symbol search" shortcut="Ctrl + K">
+          <button
+            type="button"
+            onClick={() => openDialog({ type: 'symbol-search' })}
+            className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm font-semibold text-fg hover:bg-hover"
+          >
+            <Icon name="search" size={16} />
+            <span>{symbol?.symbol ?? '…'}</span>
+          </button>
+        </Tooltip>
+      )}
       <Divider />
       <TimeframeBar />
       <Divider />
       <ChartTypeMenu />
       <Divider />
-      <ReplayButton />
-      <Divider />
+      {hideReplay ? null : (
+        <>
+          <ReplayButton />
+          <Divider />
+        </>
+      )}
       <IconButton
         icon="undo"
         label={history.undoLabel ? `Undo ${history.undoLabel}` : 'Undo'}

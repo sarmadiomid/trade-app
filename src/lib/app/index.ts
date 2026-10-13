@@ -19,8 +19,10 @@ export {
 } from './backtest/backtest-controller';
 export {
   BacktestRuntime,
+  browserBacktestServices,
   createBacktestServices,
   type BacktestServices,
 } from './backtest/backtest-runtime';
 export type { BacktestSnapshot, PositionView, PropProgress } from './backtest/snapshot';
 export type { OrderTicket, RightClickOrder } from './backtest/trading-api';
+export { scanExcursions } from './backtest/analytics-service';

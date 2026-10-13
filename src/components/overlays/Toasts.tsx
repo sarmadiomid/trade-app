@@ -17,7 +17,9 @@ function ToastItem({ toast }: { readonly toast: Toast }) {
       className={`pointer-events-auto animate-pop rounded-lg border px-3 py-2 text-[13px] shadow-xl ${
         toast.kind === 'error'
           ? 'border-down/50 bg-panel text-down'
-          : 'border-line bg-panel text-fg'
+          : toast.kind === 'success'
+            ? 'border-up/50 bg-panel text-up'
+            : 'border-line bg-panel text-fg'
       }`}
       onClick={() => dismiss(toast.id)}
     >

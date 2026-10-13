@@ -20,6 +20,7 @@ import type { ChartApp, ChartAppOptions } from '../chart-app';
 import type { AppDependencies } from '../composition';
 import { APP_CONFIG } from '../config';
 import { systemClock } from '../browser-runtime';
+import { pickStorage } from '../composition';
 import { BacktestController } from './backtest-controller';
 import { backtestShortcuts } from './backtest-shortcuts';
 
@@ -43,6 +44,13 @@ export interface BacktestServices {
 }
 
 let market: MockMarketProvider | null = null;
+let browserServices: BacktestServices | null = null;
+
+/** Backtest services on the browser's persistent storage (one instance per page). */
+export function browserBacktestServices(): BacktestServices {
+  browserServices ??= createBacktestServices(pickStorage());
+  return browserServices;
+}
 
 export function createBacktestServices(storage: StorageAdapter): BacktestServices {
   market ??= new MockMarketProvider();

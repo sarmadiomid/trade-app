@@ -30,7 +30,7 @@ export type ContextMenuState = {
 export interface Toast {
   readonly id: number;
   readonly message: string;
-  readonly kind: 'info' | 'error';
+  readonly kind: 'info' | 'error' | 'success';
 }
 
 /**

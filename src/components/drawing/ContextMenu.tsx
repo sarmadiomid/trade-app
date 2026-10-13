@@ -6,17 +6,25 @@ import { useUiStore } from '../state/ui-store';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
 
-interface Item {
+export interface MenuItem {
   readonly label: string;
   readonly icon?: IconName;
   readonly shortcut?: string;
   readonly danger?: boolean;
   readonly run: () => void;
 }
-type Entry = Item | 'divider' | { readonly submenu: string; readonly items: readonly Item[] };
+type Item = MenuItem;
+export type MenuEntry =
+  Item | 'divider' | { readonly submenu: string; readonly items: readonly Item[] };
+type Entry = MenuEntry;
+
+/** Extra entries for a right-click on the chart background at (time, price). */
+export type ChartMenuItems = (target: { time: number; price: number }) => MenuEntry[];
 
 /** Right-click menu for drawings and the chart background. */
-export function ContextMenu() {
+export function ContextMenu({
+  chartItems,
+}: { readonly chartItems?: ChartMenuItems | undefined } = {}) {
   const app = useApp();
   const menu = useUiStore((s) => s.contextMenu);
   const close = () => useUiStore.getState().openContextMenu(null);
@@ -91,7 +99,10 @@ export function ContextMenu() {
       { label: 'Remove', icon: 'trash', shortcut: 'Del', danger: true, run: () => d.remove([id]) },
     ];
   } else {
+    const extra = chartItems?.({ time: menu.target.time, price: menu.target.price }) ?? [];
     entries = [
+      ...extra,
+      ...(extra.length ? (['divider'] as const) : []),
       {
         label: 'Reset chart view',
         icon: 'reset',
