@@ -189,7 +189,7 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
   const sel = 'h-8 rounded-md border border-line bg-panel px-2 text-[13px]';
 
   return (
-    <div className="min-h-full bg-chart text-fg">
+    <div className="h-full overflow-y-auto bg-chart text-fg">
       <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-line bg-panel px-5">
         <Link
           href="/backtest"

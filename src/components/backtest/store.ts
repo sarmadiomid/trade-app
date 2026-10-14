@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import type { BacktestSnapshot, RewindCheck } from '@/lib/app';
-import type { AccountStatus, Side } from '@/lib/backtest';
+import type { Side } from '@/lib/backtest';
 
 export type TicketType = 'market' | 'limit' | 'stop';
 
@@ -13,7 +13,6 @@ export interface TicketState {
 }
 
 type Modal =
-  | { readonly type: 'completed'; readonly status: AccountStatus; readonly reason: string }
   | { readonly type: 'confirm-rewind'; readonly time: number; readonly check: RewindCheck }
   | { readonly type: 'go-to' }
   | { readonly type: 'settings' }
@@ -27,11 +26,13 @@ interface BacktestUiState {
   readonly ticket: TicketState | null;
   readonly tab: 'positions' | 'orders' | 'history';
   readonly propOpen: boolean;
+  readonly panelHidden: boolean;
   readonly modal: Modal | null;
   setSnap(snap: BacktestSnapshot | null): void;
   openTicket(t: TicketState | null): void;
   setTab(tab: BacktestUiState['tab']): void;
   toggleProp(open?: boolean): void;
+  setPanelHidden(hidden: boolean): void;
   openModal(m: Modal | null): void;
 }
 
@@ -41,10 +42,12 @@ export const useBacktestStore = create<BacktestUiState>((set) => ({
   ticket: null,
   tab: 'positions',
   propOpen: false,
+  panelHidden: false,
   modal: null,
   setSnap: (snap) => set({ snap }),
   openTicket: (ticket) => set({ ticket }),
   setTab: (tab) => set({ tab }),
   toggleProp: (open) => set((s) => ({ propOpen: open ?? !s.propOpen })),
+  setPanelHidden: (panelHidden) => set({ panelHidden }),
   openModal: (modal) => set({ modal }),
 }));

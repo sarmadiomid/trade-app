@@ -20,8 +20,10 @@ export function TradingPanel() {
   const tab = useBacktestStore((s) => s.tab);
   const setTab = useBacktestStore((s) => s.setTab);
   const openModal = useBacktestStore((s) => s.openModal);
+  const panelHidden = useBacktestStore((s) => s.panelHidden);
+  const setPanelHidden = useBacktestStore((s) => s.setPanelHidden);
   const [collapsed, setCollapsed] = useState(false);
-  if (!snap) return null;
+  if (!snap || panelHidden) return null;
   const p = c.spec.pricePrecision;
   const tabs = [
     { id: 'positions' as const, label: `Positions (${snap.positions.length})` },
@@ -42,6 +44,16 @@ export function TradingPanel() {
           className="inline-flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-hover"
         >
           <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={14} />
+        </button>
+        <button
+          type="button"
+          aria-label="Hide panel"
+          title="Hide panel"
+          data-testid="hide-trading-panel"
+          onClick={() => setPanelHidden(true)}
+          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-hover"
+        >
+          <Icon name="eyeOff" size={14} />
         </button>
         <div role="tablist" className="flex gap-1">
           {tabs.map((t) => (

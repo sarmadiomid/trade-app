@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState } from 'react';
 import { chordLabel } from '@/lib/app';
 import { Button } from '../ui/Button';
@@ -19,8 +18,6 @@ export function BacktestModals() {
   const close = () => openModal(null);
   if (!modal) return null;
   switch (modal.type) {
-    case 'completed':
-      return <CompletedDialog status={modal.status} reason={modal.reason} onClose={close} />;
     case 'confirm-rewind':
       return (
         <ConfirmRewind
@@ -43,59 +40,6 @@ export function BacktestModals() {
     case 'shortcuts':
       return <ShortcutsDialog onClose={close} />;
   }
-}
-
-function CompletedDialog({
-  status,
-  reason,
-  onClose,
-}: {
-  status: string;
-  reason: string;
-  onClose: () => void;
-}) {
-  const c = useBacktest();
-  const snap = useBacktestStore((s) => s.snap);
-  const title =
-    status === 'ended'
-      ? 'Session completed'
-      : status === 'failed'
-        ? 'Prop firm challenge failed'
-        : 'Account stopped out';
-  return (
-    <Dialog
-      title={title}
-      onClose={onClose}
-      width={440}
-      footer={
-        <>
-          <div className="flex-1" />
-          <Button onClick={onClose}>Stay on chart</Button>
-          <Link
-            href={`/backtest/${c.session.id}/analytics`}
-            className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-[13px] font-medium text-accent-fg hover:brightness-110"
-            data-testid="view-analytics"
-          >
-            View analytics
-          </Link>
-        </>
-      }
-    >
-      <div className="space-y-2 p-5 text-[13px]">
-        <p>
-          {status === 'ended'
-            ? 'The replay reached the end of the session’s date range. Open positions were closed at the last price and pending orders were cancelled.'
-            : reason}
-        </p>
-        {snap ? (
-          <p className="text-muted">
-            Final balance <span className="font-semibold text-fg">{money(snap.balance)}</span> ·{' '}
-            {snap.trades.length} trades
-          </p>
-        ) : null}
-      </div>
-    </Dialog>
-  );
 }
 
 function ConfirmRewind({
@@ -152,7 +96,7 @@ function GoToDialog({ onClose }: { onClose: () => void }) {
     const t = fromDateTimeInput(value);
     if (t === null) return setError('Enter a valid date and time');
     if (t <= c.cursor) return setError('Go to only moves forward. Use rewind to go back.');
-    // Close first: reaching the session end opens the "Session completed" dialog.
+    // Close first: reaching the session end leaves this page for analytics.
     onClose();
     const err = await c.goTo(t);
     if (err) c.notice('error', err);

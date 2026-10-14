@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { BacktestRuntime, browserBacktestServices, type BacktestController } from '@/lib/app';
 import { setDisplayUtc } from '@/lib/core';
@@ -31,6 +32,7 @@ type Load =
 
 /** Connects the controller's events to the UI stores. */
 function useBridge(c: BacktestController | null): void {
+  const router = useRouter();
   useEffect(() => {
     if (!c) return;
     const store = useBacktestStore.getState();
@@ -39,9 +41,10 @@ function useBridge(c: BacktestController | null): void {
     const offs = [
       c.events.on('snapshot', (s) => useBacktestStore.getState().setSnap(s)),
       c.events.on('notice', (n) => toast(n.text, n.level)),
-      c.events.on('ended', (e) =>
-        useBacktestStore.getState().openModal({ type: 'completed', ...e }),
-      ),
+      c.events.on('ended', () => {
+        const id = c.session.id;
+        void c.save().finally(() => router.push(`/backtest/${id}/analytics`));
+      }),
       c.events.on('command', (cmd) => {
         const s = useBacktestStore.getState();
         if (cmd.type === 'order-ticket')
@@ -69,8 +72,9 @@ function useBridge(c: BacktestController | null): void {
       s.openTicket(null);
       s.openModal(null);
       s.toggleProp(false);
+      s.setPanelHidden(false);
     };
-  }, [c]);
+  }, [c, router]);
 }
 
 /** One opened backtest session: the chart with FX Replay's trading and replay UI. */

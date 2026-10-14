@@ -6,6 +6,7 @@ import { FREQUENCIES, TICKER_VALUES } from '@/lib/backtest';
 import { Divider } from '../ui/Divider';
 import { IconButton } from '../ui/IconButton';
 import { Tooltip } from '../ui/Tooltip';
+import { Icon } from '../ui/Icon';
 import { useBacktest } from './context';
 import { utcDateTime } from './format';
 import { useBacktestStore } from './store';
@@ -19,6 +20,8 @@ export function PriceSkipperBar() {
   const snap = useBacktestStore((s) => s.snap);
   const openModal = useBacktestStore((s) => s.openModal);
   const toggleProp = useBacktestStore((s) => s.toggleProp);
+  const panelHidden = useBacktestStore((s) => s.panelHidden);
+  const setPanelHidden = useBacktestStore((s) => s.setPanelHidden);
   if (!snap) return null;
   const ended = snap.status !== 'active';
   const atStart = snap.cursor <= snap.start;
@@ -129,6 +132,18 @@ export function PriceSkipperBar() {
         </span>
       ) : null}
       <div className="flex-1" />
+      {panelHidden ? (
+        <button
+          type="button"
+          aria-label="Show trading panel"
+          data-testid="show-trading-panel"
+          onClick={() => setPanelHidden(false)}
+          className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-md border border-line px-2 text-[13px] hover:bg-hover"
+        >
+          <Icon name="eye" size={14} />
+          Panel
+        </button>
+      ) : null}
       {snap.prop ? (
         <button
           type="button"
