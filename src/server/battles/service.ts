@@ -218,10 +218,24 @@ export async function createRankedBattle(
 
 // ---- lifecycle ---------------------------------------------------------------------------
 
-/** Every participant's live standing at the battle's current cursor, in leaderboard order. */
+const standingsCache = new Map<string, Standing[]>();
+const STANDINGS_CACHE_SIZE = 200;
+
+/**
+ * Every participant's live standing at the battle's current cursor, in leaderboard order.
+ * Memoised per battle version and cursor: every trader polls about once a second, and the
+ * result only changes when the cursor moves or someone acts.
+ */
 export function liveStandings(b: BattleDoc, now: number): Standing[] {
   const cursor = cursorOf(b, now);
-  return sortStandings(b.participants.map((p) => simulateParticipant(b, p, cursor).standing));
+  const key = `${b._id.toHexString()}:${b.version}:${cursor}`;
+  const cached = standingsCache.get(key);
+  if (cached) return cached;
+  const out = sortStandings(b.participants.map((p) => simulateParticipant(b, p, cursor).standing));
+  standingsCache.set(key, out);
+  if (standingsCache.size > STANDINGS_CACHE_SIZE)
+    standingsCache.delete(standingsCache.keys().next().value!);
+  return out;
 }
 
 /**

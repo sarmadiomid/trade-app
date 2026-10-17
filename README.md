@@ -21,6 +21,13 @@ only for UI state.
   frequency, market / limit / stop orders with SL/TP, partial close and break even, live
   balance and equity, an automatic journal and a full analytics dashboard. See
   [docs/BACKTEST.md](docs/BACKTEST.md) and [docs/backtest-spec.md](docs/backtest-spec.md).
+- **Battles** (`/battle`): FX Replay "FXR Battles"-style trading competitions. Traders trade
+  the same historical market, revealed candle by candle on a shared clock. Ranked 1v1
+  matchmaking with Elo and eight ranks (Rookie → Master), custom battles (Time Trial or Profit
+  Target, up to five assets, drawdown rules, public or private by battle ID), host controls,
+  live leaderboard, chat and results with Composite Score. See [docs/BATTLES.md](docs/BATTLES.md).
+- **Home** (`/home`): the dashboard users land on after login, with entry points to Chart,
+  Backtest and Battles.
 - Layered canvases with dirty flags, viewport culling and level-of-detail decimation. With 50k
   candles on screen, a frame costs about 5 ms of JS.
 
@@ -56,12 +63,15 @@ src/lib/series    chart types (Candlestick)              ┐
 src/lib/drawings  drawing framework + 8 tools            │ domain: depend on core only
 src/lib/replay    replay FSM, session, controller        │
 src/lib/themes    built-in themes, validation            │
-src/lib/lessons   lesson timeline, keyframes, codec      ┘
+src/lib/lessons   lesson timeline, keyframes, codec      │
+src/lib/backtest  execution engine, analytics, sessions  │
+src/lib/battles   battle rules, clock, Elo, ranks, XP    ┘
 src/lib/data      Binance / synthetic / fallback providers   ┐ infrastructure behind
 src/lib/storage   IndexedDB / localStorage / memory, migrations ┘ DataProvider / StorageAdapter
 src/lib/app       composition root, services, shortcuts
 src/components    thin React UI (toolbars, dialogs, schema-driven forms)
-src/app           Next.js layout, page, /api/klines route
+src/server        auth, MongoDB, migrations, battle service (simulation, matchmaking)
+src/app           Next.js pages and API routes
 ```
 
 Dependencies only point inward, and a local ESLint rule enforces that. The engine owns all

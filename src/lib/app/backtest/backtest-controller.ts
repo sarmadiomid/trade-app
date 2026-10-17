@@ -338,6 +338,20 @@ export class BacktestController {
    */
   async restore(from: number, time: number): Promise<void> {
     this.pause();
+    // Wait for a follow() in flight, and keep new ones out while the account is rebuilt.
+    for (let i = 0; this.busy && i < 200; i++)
+      await new Promise<void>((r) => this.deps.timer.setTimeout(() => r(), 10));
+    this.busy = true;
+    try {
+      await this.rebuild(from, time);
+    } finally {
+      this.busy = false;
+    }
+    this.overlay.invalidate();
+    this.changed();
+  }
+
+  private async rebuild(from: number, time: number): Promise<void> {
     await this.withLoading(async () => {
       const minutes = time > from ? await this.loadMinutes(from, time) : [];
       const initial = ExecutionEngine.initialState(this.cfg, from, this.session.initialBid);
@@ -353,8 +367,17 @@ export class BacktestController {
       this.setCursor(Math.max(from, time));
       await this.reloadChart();
     });
-    this.overlay.invalidate();
-    this.changed();
+  }
+
+  /** Replaces the action log with an authoritative copy (a battle server's) and rebuilds. */
+  async resync(actions: readonly LoggedAction[], from: number, time: number): Promise<void> {
+    this.session.actions = [...actions];
+    await this.restore(from, time);
+  }
+
+  /** Blocks or allows the backtest hotkeys (dialogs open, trading closed). */
+  setInputBlocked(blocked: boolean): void {
+    this.inputBlocked = blocked;
   }
 
   /** Ends trading now (closes everything at the last price), e.g. when a battle is over. */

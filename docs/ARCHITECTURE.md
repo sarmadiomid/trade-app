@@ -40,7 +40,7 @@ flowchart TB
 | ----------------------------------- | ---------------- | -------------------------------- |
 | core                                | `src/lib/core`   | core                             |
 | series / drawings / replay / themes | `src/lib/<m>`    | core, itself                     |
-| lessons / backtest                  | `src/lib/<m>`    | core, itself                     |
+| lessons / backtest / battles        | `src/lib/<m>`    | core, itself                     |
 | data / storage                      | `src/lib/<m>`    | core, itself                     |
 | app (composition root)              | `src/lib/app`    | every `src/lib` module           |
 | components                          | `src/components` | lib **barrels only**, components |
@@ -82,6 +82,8 @@ src/lib/drawings/   framework/ (Drawing, BaseDrawing, DrawingManager, placement,
 src/lib/replay/     replay-machine.ts (pure FSM), ReplaySession (data windowing), ReplayController
 src/lib/backtest/   FX Replay-style backtesting: execution engine, analytics, sessions + repository
                     port, Price Skipper stepping, cursor-gated data, trade overlay (docs/BACKTEST.md)
+src/lib/battles/    Battles: settings + validation, battle clock, Elo, ranks, standings, Composite
+                    Score, API view types (docs/BATTLES.md)
 src/lib/themes/     ThemeRegistry, built-ins, theme validation (zod)
 src/lib/data/       BinanceProvider, SyntheticProvider, FallbackProvider, symbol catalogue, registry
 src/lib/storage/    IndexedDBStorage, LocalStorageStorage, MemoryStorage, envelopes, migrations/
