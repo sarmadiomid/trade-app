@@ -22,6 +22,7 @@ const ALLOWED = {
   storage: ['core', 'storage'],
   lessons: ['core', 'lessons'],
   backtest: ['core', 'backtest'],
+  battles: ['core', 'battles'],
   app: [
     'core',
     'series',
@@ -32,6 +33,7 @@ const ALLOWED = {
     'storage',
     'lessons',
     'backtest',
+    'battles',
     'app',
   ],
   components: [
@@ -44,6 +46,7 @@ const ALLOWED = {
     'storage',
     'lessons',
     'backtest',
+    'battles',
     'app',
     'components',
   ],
@@ -57,6 +60,7 @@ const ALLOWED = {
     'storage',
     'lessons',
     'backtest',
+    'battles',
     'app',
     'components',
     'next',
@@ -73,6 +77,7 @@ const LIB_ELEMENTS = new Set([
   'storage',
   'lessons',
   'backtest',
+  'battles',
   'app',
 ]);
 const UI_ELEMENTS = new Set(['components', 'next']);

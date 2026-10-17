@@ -26,3 +26,5 @@ export {
 export type { BacktestSnapshot, PositionView, PropProgress } from './backtest/snapshot';
 export type { OrderTicket, RightClickOrder } from './backtest/trading-api';
 export { scanExcursions } from './backtest/analytics-service';
+export { BattleRuntime, type BattleSeat } from './battle/battle-runtime';
+export { battleSessionSettings, battleAccountConfig } from './battle/battle-config';

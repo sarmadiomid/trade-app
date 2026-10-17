@@ -1,9 +1,20 @@
 import 'server-only';
 import { MongoClient, type Collection, type Db, type ObjectId } from 'mongodb';
+import type {
+  BattleMode,
+  BattleSettings,
+  BattleStatus,
+  FinalResult,
+  RankedFormat,
+} from '@/lib/battles';
+import type { TradeAction } from '@/lib/backtest';
+import { migrate } from './migrations';
 
 export interface UserDoc {
   _id: ObjectId;
   phone: string;
+  /** Public name on leaderboards and in battles (migration 002 backfills it). */
+  displayName?: string;
   createdAt: Date;
   lastLoginAt: Date;
 }
@@ -36,11 +47,114 @@ export interface ChartRecordDoc {
   updatedAt: Date;
 }
 
-interface Collections {
+export interface BattleActionDoc {
+  /** Market time the action was taken at. */
+  t: number;
+  a: TradeAction;
+  /** Wall-clock time it was received. */
+  at: number;
+}
+
+export interface BattleParticipantDoc {
+  userId: ObjectId;
+  name: string;
+  joinedAt: number;
+  /** Market time the trader's account starts at (late joiners start mid-battle). */
+  startT: number;
+  /** Bid before `startT` (the account's starting point). */
+  startBid: number;
+  /** Ranked rating and games when the trader joined. */
+  elo: number;
+  games: number;
+  actions: BattleActionDoc[];
+  /** Market time the trader left at (forfeit), or null. */
+  leftT: number | null;
+}
+
+export interface BattleChatDoc {
+  id: string;
+  userId: ObjectId | null;
+  name: string;
+  text: string;
+  at: number;
+  system: boolean;
+}
+
+export interface BattleDoc {
+  _id: ObjectId;
+  /** Battle ID players type to join (unique). */
+  code: string;
+  mode: BattleMode;
+  format: RankedFormat['id'] | null;
+  /** Null for matchmade ranked battles (nobody hosts them). */
+  hostId: ObjectId | null;
+  settings: BattleSettings;
+  /** The market drawn from the asset pool, and where in its history the battle starts. */
+  symbol: string;
+  marketStart: number;
+  status: BattleStatus;
+  createdAt: number;
+  updatedAt: number;
+  countdownEndsAt: number | null;
+  startedAt: number | null;
+  pausedAt: number | null;
+  pausedMs: number;
+  endedAt: number | null;
+  endReason: string | null;
+  participants: BattleParticipantDoc[];
+  chat: BattleChatDoc[];
+  results: FinalResult[] | null;
+  /** Optimistic-concurrency counter: every write checks and bumps it. */
+  version: number;
+}
+
+/** Ranked rating and lifetime battle stats of a user. */
+export interface BattleProfileDoc {
+  /** The user's id. */
+  _id: ObjectId;
+  elo: number;
+  peakElo: number;
+  rankedGames: number;
+  rankedWins: number;
+  rankedLosses: number;
+  battles: number;
+  wins: number;
+  podiums: number;
+  /** Composite Score. */
+  xp: number;
+  winStreak: number;
+  bestStreak: number;
+  trades: number;
+  winningTrades: number;
+  /** Sum of every finished battle's return, percent (average = / battles). */
+  returnSum: number;
+  bestReturn: number | null;
+  updatedAt: number;
+}
+
+/** A trader searching for a ranked match. */
+export interface BattleQueueDoc {
+  /** The user's id. */
+  _id: ObjectId;
+  format: RankedFormat['id'];
+  elo: number;
+  games: number;
+  name: string;
+  joinedAt: number;
+  lastSeen: number;
+  status: 'searching' | 'matching' | 'matched';
+  battleId: ObjectId | null;
+}
+
+export interface Collections {
+  db: Db;
   users: Collection<UserDoc>;
   otps: Collection<OtpDoc>;
   sessions: Collection<SessionDoc>;
   chartRecords: Collection<ChartRecordDoc>;
+  battles: Collection<BattleDoc>;
+  battleProfiles: Collection<BattleProfileDoc>;
+  battleQueue: Collection<BattleQueueDoc>;
 }
 
 const globalForMongo = globalThis as unknown as {
@@ -50,20 +164,17 @@ const globalForMongo = globalThis as unknown as {
 async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
   const client = await clientPromise;
   const db: Db = client.db(process.env.MONGODB_DB ?? 'tradingchart');
-  const c: Collections = {
+  await migrate(db);
+  return {
+    db,
     users: db.collection<UserDoc>('users'),
     otps: db.collection<OtpDoc>('otp_codes'),
     sessions: db.collection<SessionDoc>('sessions'),
     chartRecords: db.collection<ChartRecordDoc>('chart_records'),
+    battles: db.collection<BattleDoc>('battles'),
+    battleProfiles: db.collection<BattleProfileDoc>('battle_profiles'),
+    battleQueue: db.collection<BattleQueueDoc>('battle_queue'),
   };
-  await Promise.all([
-    c.users.createIndex({ phone: 1 }, { unique: true }),
-    c.otps.createIndex({ windowStart: 1 }, { expireAfterSeconds: 24 * 3600 }),
-    c.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-    c.sessions.createIndex({ userId: 1 }),
-    c.chartRecords.createIndex({ userId: 1, key: 1 }, { unique: true }),
-  ]);
-  return c;
 }
 
 /** Shared connection (cached on globalThis so dev hot reloads don't open new pools). */

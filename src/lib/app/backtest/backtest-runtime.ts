@@ -25,7 +25,7 @@ import { BacktestController } from './backtest-controller';
 import { backtestShortcuts } from './backtest-shortcuts';
 
 /** Chart records shared with the regular chart (everything else is per session). */
-const SHARED_KEYS = [
+export const SHARED_KEYS = [
   APP_CONFIG.storageKeys.themes,
   APP_CONFIG.storageKeys.chartSettings,
   APP_CONFIG.storageKeys.toolDefaults,

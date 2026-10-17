@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import type { ObjectId } from 'mongodb';
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from '@/auth/phone';
 import { collections, type UserDoc } from './db';
+import { defaultDisplayName } from './migrations';
 import { sendOtpSms } from './sms';
 
 export const SESSION_COOKIE = 'tc_session';
@@ -17,7 +18,12 @@ const OTP_MAX_PER_WINDOW = 5;
 export interface SessionUser {
   readonly id: string;
   readonly phone: string;
+  /** Public name (leaderboards, battles). */
+  readonly name: string;
 }
+
+const nameOf = (u: Pick<UserDoc, 'phone' | 'displayName'>) =>
+  u.displayName ?? defaultDisplayName(u.phone);
 
 function secret(): string {
   const s = process.env.AUTH_SECRET;
@@ -101,14 +107,20 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
     return {
       ok: false,
       status: 400,
-      error: left > 0 ? `کد وارد شده صحیح نیست. ${left} تلاش باقی مانده.` : 'کد باطل شد. کد جدید دریافت کنید.',
+      error:
+        left > 0
+          ? `کد وارد شده صحیح نیست. ${left} تلاش باقی مانده.`
+          : 'کد باطل شد. کد جدید دریافت کنید.',
     };
   }
   await otps.updateOne({ _id: phone }, { $set: { expiresAt: new Date(0) } });
 
   const existing = await users.findOneAndUpdate(
     { phone },
-    { $set: { lastLoginAt: now }, $setOnInsert: { phone, createdAt: now } },
+    {
+      $set: { lastLoginAt: now },
+      $setOnInsert: { phone, createdAt: now, displayName: defaultDisplayName(phone) },
+    },
     { upsert: true, returnDocument: 'after', includeResultMetadata: true },
   );
   const user = existing.value as UserDoc;
@@ -121,7 +133,12 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
     createdAt: now,
     expiresAt: new Date(now.getTime() + SESSION_DAYS * 86_400_000),
   });
-  return { ok: true, token, user: { id: user._id.toHexString(), phone: user.phone }, isNew };
+  return {
+    ok: true,
+    token,
+    user: { id: user._id.toHexString(), phone: user.phone, name: nameOf(user) },
+    isNew,
+  };
 }
 
 export async function userFromToken(
@@ -132,7 +149,9 @@ export async function userFromToken(
   const session = await sessions.findOne({ _id: hashToken(token), expiresAt: { $gt: new Date() } });
   if (!session) return null;
   const user = await users.findOne({ _id: session.userId });
-  return user ? { _id: user._id, id: user._id.toHexString(), phone: user.phone } : null;
+  return user
+    ? { _id: user._id, id: user._id.toHexString(), phone: user.phone, name: nameOf(user) }
+    : null;
 }
 
 export async function revokeToken(token: string | undefined): Promise<void> {
@@ -146,7 +165,7 @@ export async function currentUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   try {
     const user = await userFromToken(token);
-    return user ? { id: user.id, phone: user.phone } : null;
+    return user ? { id: user.id, phone: user.phone, name: user.name } : null;
   } catch (e) {
     console.error('[auth] session lookup failed', e);
     return null;

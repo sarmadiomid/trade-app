@@ -6,7 +6,7 @@ export * from './analytics/stats';
 export * from './analytics/breakdown';
 export * from './analytics/rr-simulator';
 export * from './session/model';
-export { sessionSchema, parseSession } from './session/schema';
+export { sessionSchema, parseSession, tradeActionSchema } from './session/schema';
 export {
   StorageBacktestRepository,
   readSessionEnvelope,

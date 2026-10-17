@@ -31,6 +31,7 @@ import {
   type BacktestSession,
   type ExecEvent,
   type JournalEntry,
+  type LoggedAction,
   type TradeAction,
 } from '@/lib/backtest';
 import type { ChartApp } from '../chart-app';
@@ -69,6 +70,8 @@ export interface BacktestControllerDeps {
   readonly timer: Timer;
   /** Shared with the cursor-gated chart provider. */
   readonly cursorRef: { value: number };
+  /** Called with every action once applied (battles send them to the server). */
+  readonly onAction?: (action: LoggedAction) => void;
 }
 
 const MINUTE_MS = 60_000;
@@ -306,6 +309,59 @@ export class BacktestController {
     return null;
   }
 
+  // ---- externally driven replay (battles) -----------------------------------------------------
+
+  /**
+   * Moves the replay forward to `target`, processing and revealing every minute in between.
+   * Used when an outside clock drives the replay (a battle) instead of the Price Skipper.
+   */
+  async follow(target: number): Promise<void> {
+    if (this.busy || this.ended) return;
+    const t = Math.min(target, this.end);
+    if (t <= this.cursor) return;
+    this.busy = true;
+    try {
+      const jump = t - this.cursor > RELOAD_JUMP_MS;
+      await this.buffer.ensure(this.cursor, Math.min(this.end, t + PREFETCH_CHUNK_MS));
+      this.advanceTo(t, !jump);
+      if (jump) await this.reloadChart();
+      this.afterStep();
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /**
+   * Rebuilds the account from the logged actions, from the account's start `from` (with the
+   * session's initial Bid) to `time`, and shows the chart there. Used to reopen a battle in
+   * progress or to resync with the server's record of the actions.
+   */
+  async restore(from: number, time: number): Promise<void> {
+    this.pause();
+    await this.withLoading(async () => {
+      const minutes = time > from ? await this.loadMinutes(from, time) : [];
+      const initial = ExecutionEngine.initialState(this.cfg, from, this.session.initialBid);
+      this.engine = resimulate(
+        this.cfg,
+        initial,
+        this.session.actions,
+        minutes,
+        Math.max(from, time),
+      );
+      this.session.account = this.engine.state;
+      this.session.nextId = nextIdAfter(this.session.actions);
+      this.setCursor(Math.max(from, time));
+      await this.reloadChart();
+    });
+    this.overlay.invalidate();
+    this.changed();
+  }
+
+  /** Ends trading now (closes everything at the last price), e.g. when a battle is over. */
+  stop(): void {
+    this.finish();
+  }
+
   // ---- trading (used by TradingApi) ------------------------------------------------------------
 
   newId(): string {
@@ -321,7 +377,9 @@ export class BacktestController {
       this.notice('error', res.error);
       return res.error;
     }
-    this.session.actions.push({ t: this.cursor, a: action });
+    const logged = { t: this.cursor, a: action };
+    this.session.actions.push(logged);
+    this.deps.onAction?.(logged);
     this.handleEvents(res.events);
     this.overlay.invalidate();
     this.changed();
@@ -557,6 +615,14 @@ export class BacktestController {
     for (const d of this.disposers.splice(0)) d();
     this.events.clear();
   }
+}
+
+/** The next free order / position id after `actions` (ids are increasing integers). */
+function nextIdAfter(actions: readonly LoggedAction[]): number {
+  let max = 0;
+  for (const { a } of actions)
+    if ((a.type === 'market' || a.type === 'pending') && Number(a.id) > max) max = Number(a.id);
+  return max + 1;
 }
 
 export interface RewindCheck {

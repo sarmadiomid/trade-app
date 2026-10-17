@@ -52,4 +52,109 @@ export const GOLD_MODEL: MockModel = {
   ],
 };
 
-export const MOCK_MODELS: Readonly<Record<string, MockModel>> = { XAUUSD: GOLD_MODEL };
+/** Euro / U.S. Dollar, 2019–2025. */
+export const EURUSD_MODEL: MockModel = {
+  symbol: 'EURUSD',
+  seed: 0xe0_05,
+  start: d(2019, 1, 1),
+  end: d(2026, 1, 1),
+  dailyVol: 0.0045,
+  garch: { alpha: 0.06, beta: 0.91 },
+  tickSize: 0.00001,
+  anchors: [
+    [d(2019, 1, 1), 1.146],
+    [d(2019, 10, 1), 1.09],
+    [d(2020, 3, 20), 1.069],
+    [d(2020, 12, 31), 1.222],
+    [d(2021, 6, 1), 1.222],
+    [d(2022, 3, 7), 1.086],
+    [d(2022, 9, 27), 0.96],
+    [d(2023, 7, 18), 1.124],
+    [d(2023, 10, 3), 1.045],
+    [d(2023, 12, 28), 1.11],
+    [d(2024, 4, 16), 1.062],
+    [d(2024, 9, 25), 1.12],
+    [d(2025, 1, 13), 1.02],
+    [d(2025, 7, 1), 1.18],
+    [d(2025, 12, 31), 1.165],
+  ],
+};
+
+/** British Pound / U.S. Dollar, 2019–2025. */
+export const GBPUSD_MODEL: MockModel = {
+  symbol: 'GBPUSD',
+  seed: 0x6b_9d,
+  start: d(2019, 1, 1),
+  end: d(2026, 1, 1),
+  dailyVol: 0.005,
+  garch: { alpha: 0.07, beta: 0.9 },
+  tickSize: 0.00001,
+  anchors: [
+    [d(2019, 1, 1), 1.275],
+    [d(2019, 9, 3), 1.196],
+    [d(2019, 12, 13), 1.333],
+    [d(2020, 3, 20), 1.149],
+    [d(2021, 2, 24), 1.415],
+    [d(2022, 9, 26), 1.035],
+    [d(2023, 7, 14), 1.313],
+    [d(2023, 10, 4), 1.205],
+    [d(2024, 9, 27), 1.343],
+    [d(2025, 1, 13), 1.211],
+    [d(2025, 7, 1), 1.375],
+    [d(2025, 12, 31), 1.34],
+  ],
+};
+
+/** Australian Dollar / U.S. Dollar, 2019–2025. */
+export const AUDUSD_MODEL: MockModel = {
+  symbol: 'AUDUSD',
+  seed: 0xa0_d5,
+  start: d(2019, 1, 1),
+  end: d(2026, 1, 1),
+  dailyVol: 0.0055,
+  garch: { alpha: 0.07, beta: 0.9 },
+  tickSize: 0.00001,
+  anchors: [
+    [d(2019, 1, 1), 0.705],
+    [d(2020, 3, 19), 0.574],
+    [d(2021, 2, 25), 0.8],
+    [d(2022, 10, 13), 0.622],
+    [d(2023, 2, 2), 0.714],
+    [d(2023, 10, 26), 0.63],
+    [d(2024, 9, 30), 0.694],
+    [d(2025, 4, 8), 0.597],
+    [d(2025, 12, 31), 0.665],
+  ],
+};
+
+/** Nasdaq 100 index CFD, 2019–2025. */
+export const NAS100_MODEL: MockModel = {
+  symbol: 'NAS100',
+  seed: 0x4a_51,
+  start: d(2019, 1, 1),
+  end: d(2026, 1, 1),
+  dailyVol: 0.013,
+  garch: { alpha: 0.09, beta: 0.88 },
+  tickSize: 0.1,
+  anchors: [
+    [d(2019, 1, 1), 6330],
+    [d(2020, 2, 19), 9718],
+    [d(2020, 3, 23), 6994],
+    [d(2021, 11, 19), 16573],
+    [d(2022, 12, 28), 10679],
+    [d(2023, 12, 29), 16826],
+    [d(2024, 7, 10), 20675],
+    [d(2024, 12, 16), 22097],
+    [d(2025, 4, 7), 16540],
+    [d(2025, 10, 29), 26100],
+    [d(2025, 12, 31), 25200],
+  ],
+};
+
+export const MOCK_MODELS: Readonly<Record<string, MockModel>> = {
+  XAUUSD: GOLD_MODEL,
+  EURUSD: EURUSD_MODEL,
+  GBPUSD: GBPUSD_MODEL,
+  AUDUSD: AUDUSD_MODEL,
+  NAS100: NAS100_MODEL,
+};

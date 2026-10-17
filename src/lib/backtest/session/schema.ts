@@ -103,7 +103,8 @@ const account = z.object({
 });
 
 const optProt = { sl: nullableNum.optional(), tp: nullableNum.optional() };
-const action = z.discriminatedUnion('type', [
+/** A trader action (validates actions received from clients, e.g. in battles). */
+export const tradeActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('market'),
     id: z.string(),
@@ -159,7 +160,7 @@ export const sessionSchema = z.object({
   }),
   quickVolume: num,
   cursor: num,
-  actions: z.array(z.object({ t: num, a: action })),
+  actions: z.array(z.object({ t: num, a: tradeActionSchema })),
   account,
   initialBid: num,
   journal: z.record(
