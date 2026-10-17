@@ -11,7 +11,6 @@ import {
   eloChanges,
   elapsedMs,
   durationMs,
-  marketCursor,
   marketEnd,
   normalizeSettings,
   placesOf,
@@ -44,11 +43,6 @@ export interface Player {
   readonly name: string;
 }
 
-/** How far behind the server's replay cursor a trader's action may be (network latency). */
-const ACTION_LAG_MS = 3 * MINUTE_MS;
-/** How far ahead (client clock running slightly fast). */
-const ACTION_LEAD_MS = MINUTE_MS;
-
 export const clockOf = (b: BattleDoc): BattleClock => ({
   status: b.status,
   startedAt: b.startedAt,
@@ -60,7 +54,13 @@ export const clockOf = (b: BattleDoc): BattleClock => ({
   durationMin: b.settings.durationMin,
 });
 
-export const cursorOf = (b: BattleDoc, now: number) => marketCursor(clockOf(b), now);
+const endOf = (b: BattleDoc) => marketEnd(clockOf(b));
+
+/** Market time a trader has replayed up to (they step through the candles themselves). */
+export const cursorOf = (b: BattleDoc, p: BattleParticipantDoc) =>
+  Math.min(endOf(b), Math.max(p.startT, p.cursor ?? p.startT));
+
+const floorMinute = (t: number) => Math.floor(t / MINUTE_MS) * MINUTE_MS;
 
 const systemMessage = (text: string, at: number): BattleChatDoc => ({
   id: randomUUID(),
@@ -124,6 +124,7 @@ function newParticipant(
     elo: profile.elo,
     games: profile.rankedGames,
     actions: [],
+    cursor: startT,
     leftT: null,
   };
 }
@@ -222,16 +223,17 @@ const standingsCache = new Map<string, Standing[]>();
 const STANDINGS_CACHE_SIZE = 200;
 
 /**
- * Every participant's live standing at the battle's current cursor, in leaderboard order.
- * Memoised per battle version and cursor: every trader polls about once a second, and the
- * result only changes when the cursor moves or someone acts.
+ * Every participant's live standing at their own replay cursor, in leaderboard order.
+ * Memoised per battle version: every trader polls about once a second, and the result only
+ * changes when someone steps their replay or acts (both bump the version).
  */
-export function liveStandings(b: BattleDoc, now: number): Standing[] {
-  const cursor = cursorOf(b, now);
-  const key = `${b._id.toHexString()}:${b.version}:${cursor}`;
+export function liveStandings(b: BattleDoc): Standing[] {
+  const key = `${b._id.toHexString()}:${b.version}`;
   const cached = standingsCache.get(key);
   if (cached) return cached;
-  const out = sortStandings(b.participants.map((p) => simulateParticipant(b, p, cursor).standing));
+  const out = sortStandings(
+    b.participants.map((p) => simulateParticipant(b, p, cursorOf(b, p)).standing),
+  );
   standingsCache.set(key, out);
   if (standingsCache.size > STANDINGS_CACHE_SIZE)
     standingsCache.delete(standingsCache.keys().next().value!);
@@ -277,29 +279,33 @@ function transition(
   }
   if (b.status !== 'live' && b.status !== 'paused') return null;
   const clock = clockOf(b);
-  if (elapsedMs(clock, now) >= durationMs(clock))
-    return complete(b, marketEnd(clock), 'Time is up', now);
+  if (elapsedMs(clock, now) >= durationMs(clock)) return complete(b, 'Time is up', now);
   if (b.status === 'paused') return null;
-  const standings = liveStandings(b, now);
+  const standings = liveStandings(b);
   if (b.settings.winCondition === 'profit-target') {
     const hit = standings.filter((s) => s.status === 'target' && s.targetAt !== null);
     if (hit.length > 0) {
       const at = Math.min(...hit.map((s) => s.targetAt!));
       const winner = hit.find((s) => s.targetAt === at)!;
-      const t = Math.ceil(at / MINUTE_MS) * MINUTE_MS;
-      return complete(b, t, `${winner.name} reached the profit target`, now);
+      return complete(b, `${winner.name} reached the profit target`, now);
     }
   }
-  if (standings.every((s) => s.status === 'disqualified' || s.status === 'left'))
-    return complete(b, cursorOf(b, now), 'Every trader is out', now);
+  const out = (s: Standing) => s.status === 'disqualified' || s.status === 'left';
+  if (standings.every(out)) return complete(b, 'Every trader is out', now);
+  const end = endOf(b);
+  const done = b.participants.every(
+    (p) => out(standingOf(standings, p)) || cursorOf(b, p) >= end,
+  );
+  if (done) return complete(b, 'Every trader reached the end of the market', now);
   return null;
 }
 
-function complete(b: BattleDoc, finalT: number, reason: string, now: number) {
-  const clock = clockOf(b);
-  const t = Math.max(b.marketStart, Math.min(finalT, marketEnd(clock)));
+const standingOf = (standings: readonly Standing[], p: BattleParticipantDoc) =>
+  standings.find((s) => s.userId === p.userId.toHexString())!;
+
+function complete(b: BattleDoc, reason: string, now: number) {
   const finals = sortStandings(
-    b.participants.map((p) => simulateParticipant(b, p, t, true).standing),
+    b.participants.map((p) => simulateParticipant(b, p, cursorOf(b, p), true).standing),
   );
   const places = placesOf(finals);
   const results: FinalResult[] = finals.map((s) => ({
@@ -309,11 +315,11 @@ function complete(b: BattleDoc, finalT: number, reason: string, now: number) {
     eloAfter: null,
     xp: 0,
   }));
-  // Wall-clock end that matches the final market time (the clock freezes there).
+  // The timer freezes where it was (at most at the battle's duration).
   const endedAt =
     b.startedAt === null
       ? now
-      : Math.min(now, b.startedAt + b.pausedMs + (t - b.marketStart) / b.settings.speed);
+      : Math.min(b.pausedAt ?? now, b.startedAt + b.pausedMs + durationMs(clockOf(b)));
   return {
     completed: true,
     set: {
@@ -423,11 +429,10 @@ export async function joinBattle(id: string, user: Player, code?: string): Promi
     if (isIn(b, user._id)) return null;
     const blocked = joinBlocked(b, user._id);
     if (blocked) throw new BattleError(blocked, 409);
-    const live = b.status === 'live' || b.status === 'paused';
-    const startT = live ? cursorOf(b, now) : b.marketStart;
+    // Everyone replays the same market from its first candle, late joiners included.
     return {
       $push: {
-        participants: newParticipant(user, b, startT, profile, now),
+        participants: newParticipant(user, b, b.marketStart, profile, now),
         chat: { $each: [systemMessage(`${user.name} joined`, now)], $slice: -MAX_CHAT },
       },
     };
@@ -464,9 +469,9 @@ export async function leaveBattle(id: string, user: Player): Promise<BattleDoc> 
     }
     if (b.status === 'completed' || b.status === 'cancelled') return null;
     if (me.leftT !== null) return null;
-    // Forfeit: the account is closed at the current market time and ranks below everyone trading.
+    // Forfeit: the account is closed at the trader's market time and ranks below everyone trading.
     const i = b.participants.indexOf(me);
-    return { $set: { [`participants.${i}.leftT`]: cursorOf(b, now) }, $push: { chat: msg } };
+    return { $set: { [`participants.${i}.leftT`]: cursorOf(b, me) }, $push: { chat: msg } };
   });
 }
 
@@ -509,6 +514,7 @@ export async function controlBattle(id: string, user: Player, op: ControlOp): Pr
             startT: b.marketStart,
             startBid: bidBefore(b.symbol, b.marketStart),
             actions: [],
+            cursor: b.marketStart,
           }));
         return {
           $set: {
@@ -542,7 +548,7 @@ async function endEarly(b: BattleDoc): Promise<BattleDoc> {
   for (let attempt = 0; attempt < 8; attempt++) {
     if (b.status !== 'live' && b.status !== 'paused') return b;
     const now = Date.now();
-    const update = complete(b, cursorOf(b, now), 'Ended by the host', now);
+    const update = complete(b, 'Ended by the host', now);
     const out = await commit(b, update.set);
     if (out) {
       await recordResults(out);
@@ -554,8 +560,8 @@ async function endEarly(b: BattleDoc): Promise<BattleDoc> {
 }
 
 /**
- * A trade from a participant, taken at market time `t` of their own replay. The server checks
- * it against its own clock and re-simulates the account to validate it like the broker would.
+ * A trade from a participant, taken at market time `t` of their own replay (which moves their
+ * cursor there). The server re-simulates the account to validate it like the broker would.
  */
 export async function submitAction(
   id: string,
@@ -576,14 +582,34 @@ export async function submitAction(
     if (!me) throw new BattleError('You are not in this battle', 403);
     if (me.leftT !== null) throw new BattleError('You left this battle', 409);
     if (me.actions.length >= MAX_ACTIONS) throw new BattleError('Too many actions', 429);
-    const cursor = cursorOf(b, now);
+    const cursor = cursorOf(b, me);
     const last = me.actions[me.actions.length - 1]?.t ?? me.startT;
-    if (t < me.startT || t < last || t > cursor + ACTION_LEAD_MS || t < cursor - ACTION_LAG_MS)
+    const at = floorMinute(t);
+    if (at < cursor || at < last || at > endOf(b))
       throw new BattleError('Your chart is out of sync with the battle, reloading', 409);
-    const at = Math.floor(t / MINUTE_MS) * MINUTE_MS;
     const error = validateAction(b, me, at, action);
     if (error) throw new BattleError(error, 422);
-    return { $push: { [`participants.${i}.actions`]: { t: at, a: action, at: now } } };
+    return {
+      $push: { [`participants.${i}.actions`]: { t: at, a: action, at: now } },
+      $set: { [`participants.${i}.cursor`]: at },
+    };
+  });
+}
+
+/** The trader stepped their replay forward to market time `t`. */
+export async function advanceCursor(id: string, user: Player, t: unknown): Promise<BattleDoc> {
+  if (typeof t !== 'number' || !Number.isFinite(t)) throw new BattleError('Invalid time');
+  const target = await loadBattle(id);
+  return mutate(target._id, (b) => {
+    if (b.status === 'paused') throw new BattleError('The battle is paused', 409);
+    if (b.status !== 'live') throw new BattleError('Trading is closed', 409);
+    const i = b.participants.findIndex((p) => p.userId.equals(user._id));
+    const me = b.participants[i];
+    if (!me) throw new BattleError('You are not in this battle', 403);
+    if (me.leftT !== null) return null;
+    const at = Math.min(endOf(b), floorMinute(t));
+    if (at <= cursorOf(b, me)) return null;
+    return { $set: { [`participants.${i}.cursor`]: at } };
   });
 }
 

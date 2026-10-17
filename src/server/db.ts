@@ -67,6 +67,8 @@ export interface BattleParticipantDoc {
   elo: number;
   games: number;
   actions: BattleActionDoc[];
+  /** Market time the trader has replayed up to (each trader steps their own candles). */
+  cursor?: number;
   /** Market time the trader left at (forfeit), or null. */
   leftT: number | null;
 }

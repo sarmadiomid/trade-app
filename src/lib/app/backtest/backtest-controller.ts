@@ -72,6 +72,8 @@ export interface BacktestControllerDeps {
   readonly cursorRef: { value: number };
   /** Called with every action once applied (battles send them to the server). */
   readonly onAction?: (action: LoggedAction) => void;
+  /** Market time the replay stops at, when not the end of the session's last day (battles). */
+  readonly end?: number;
 }
 
 const MINUTE_MS = 60_000;
@@ -160,7 +162,7 @@ export class BacktestController {
   }
 
   get end(): number {
-    return sessionEnd(this.session.settings);
+    return this.deps.end ?? sessionEnd(this.session.settings);
   }
 
   async start(): Promise<void> {

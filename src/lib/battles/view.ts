@@ -33,7 +33,7 @@ export interface BattleView {
   readonly countdownEndsAt: number | null;
   /** Server wall clock when the view was built (clients correct their clock with it). */
   readonly serverNow: number;
-  /** Replay cursor at `serverNow`. */
+  /** The viewer's own replay cursor (each trader steps through the candles themselves). */
   readonly cursor: number;
   readonly host: { readonly id: string; readonly name: string } | null;
   readonly isHost: boolean;

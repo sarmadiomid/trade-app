@@ -10,7 +10,7 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
   const host = b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
   let standings: readonly Standing[];
   if (b.status === 'completed' && b.results) standings = b.results;
-  else standings = liveStandings(b, now);
+  else standings = liveStandings(b);
   const mine = standings.find((s) => s.userId === viewerId.toHexString());
   return {
     id: b._id.toHexString(),
@@ -23,7 +23,7 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
     clock: clockOf(b),
     countdownEndsAt: b.countdownEndsAt,
     serverNow: now,
-    cursor: cursorOf(b, now),
+    cursor: me ? cursorOf(b, me) : b.marketStart,
     host: host ? { id: host.userId.toHexString(), name: host.name } : null,
     isHost: b.hostId?.equals(viewerId) ?? false,
     standings,

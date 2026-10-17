@@ -8,7 +8,7 @@ import {
   type BacktestSession,
   type LoggedAction,
 } from '@/lib/backtest';
-import type { BattleSettings } from '@/lib/battles';
+import { marketEnd, type BattleSettings } from '@/lib/battles';
 import { NamespacedStorage } from '@/lib/storage';
 import type { ChartApp, ChartAppOptions } from '../chart-app';
 import type { AppDependencies } from '../composition';
@@ -29,8 +29,14 @@ export interface BattleSeat {
   readonly actions: readonly LoggedAction[];
 }
 
-/** Hotkeys that make sense in a battle: order entry only (the battle clock drives the replay). */
+/** Hotkeys that make sense in a battle: stepping forward and order entry (no rewind). */
 const BATTLE_HOTKEYS = new Set([
+  'backtest-next',
+  'backtest-play',
+  'backtest-freq-down',
+  'backtest-freq-up',
+  'backtest-ticker-down',
+  'backtest-ticker-up',
   'backtest-new-order',
   'backtest-new-limit',
   'backtest-new-stop',
@@ -51,11 +57,14 @@ const NO_REPO: BacktestRepository = {
 
 /**
  * Wiring of one battle seat on the chart: the trader's account runs in the browser on the same
- * engine and data the server re-simulates, the chart only ever shows candles up to the battle
- * cursor, and every action is reported through `onAction`.
+ * engine and data the server re-simulates, the trader steps the replay themselves (as in a
+ * backtest, forward only, up to the battle's last candle), and every action is reported through
+ * `onAction`.
  */
 export class BattleRuntime {
   readonly cursorRef: { value: number };
+  /** Market time the battle's replay ends at. */
+  readonly end: number;
   readonly session: BacktestSession;
   readonly spec: InstrumentSpec;
   private controllerRef: BacktestController | null = null;
@@ -83,6 +92,7 @@ export class BattleRuntime {
       nextId: 1,
     };
     this.cursorRef = { value: seat.startT };
+    this.end = marketEnd({ ...seat.settings, marketStart: seat.marketStart });
   }
 
   get controller(): BacktestController | null {
@@ -111,7 +121,7 @@ export class BattleRuntime {
     };
   }
 
-  /** Starts the account and brings it to the battle's current cursor. */
+  /** Starts the account and brings it to the trader's replay cursor. */
   attach(app: ChartApp, cursor: number, onAction: (a: LoggedAction) => void): BacktestController {
     const c = new BacktestController(app, {
       session: this.session,
@@ -122,9 +132,11 @@ export class BattleRuntime {
       timer: app.deps.runtime.timer,
       cursorRef: this.cursorRef,
       onAction,
+      end: this.end,
     });
     this.controllerRef = c;
-    void c.start().then(() => c.restore(this.seat.startT, Math.max(this.seat.startT, cursor)));
+    const to = Math.min(this.end, Math.max(this.seat.startT, cursor));
+    void c.start().then(() => c.restore(this.seat.startT, to));
     return c;
   }
 

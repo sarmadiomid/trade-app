@@ -10,7 +10,7 @@ import {
   type ChartApp,
 } from '@/lib/app';
 import type { LoggedAction } from '@/lib/backtest';
-import { formatClock, marketCursor, remainingMs, type BattleView } from '@/lib/battles';
+import { formatClock, remainingMs, type BattleView } from '@/lib/battles';
 import { setDisplayUtc } from '@/lib/core';
 import { BacktestModals } from '../../backtest/BacktestModals';
 import { BacktestContext } from '../../backtest/context';
@@ -27,9 +27,13 @@ import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { ordinal, pctClass, signedPct } from '../format';
 import { BattleSidebar } from './BattleSidebar';
+import { BattleSkipperBar } from './BattleSkipperBar';
 import { Results } from './Results';
 import { StandingsList } from './StandingsList';
 import { useTicker } from './useBattle';
+
+/** How often the trader's replay position is reported to the server while it moves. */
+const CURSOR_REPORT_MS = 1000;
 
 const ChartWorkspace = dynamic(() => import('../../chart/ChartWorkspace'), {
   ssr: false,
@@ -79,6 +83,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
   const ticket = useBacktestStore((s) => s.ticket);
   const stoppedRef = useRef(false);
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const reportedRef = useRef(view.cursor);
   const onActionRef = useRef<(a: LoggedAction) => void>(() => {});
   useTicker(250);
 
@@ -93,12 +98,25 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
     const c = runtime.controller;
     if (!v?.me || !c) return;
     const actions = v.me.actions.map((x) => ({ t: x.t, a: x.a })) as LoggedAction[];
-    await c.resync(actions, v.me.startT, marketCursor(v.clock, now()));
-  }, [refetch, runtime, now]);
+    await c.resync(actions, v.me.startT, Math.max(v.cursor, c.cursor));
+  }, [refetch, runtime]);
+
+  /** Sends the replay position to the server (queued behind the actions, in order). */
+  const reportCursor = useCallback(() => {
+    const c = runtime.controller;
+    if (!c || c.cursor <= reportedRef.current) return queueRef.current;
+    const t = c.cursor;
+    reportedRef.current = t;
+    queueRef.current = queueRef.current.then(() =>
+      api(`/api/battles/${view.id}/cursor`, { method: 'POST', body: { t } }).catch(() => {}),
+    );
+    return queueRef.current;
+  }, [runtime, view.id]);
 
   // Every action goes to the server in order; a rejection resyncs with the server's record.
   useEffect(() => {
     onActionRef.current = (logged) => {
+      reportedRef.current = Math.max(reportedRef.current, logged.t);
       queueRef.current = queueRef.current.then(() =>
         api(`/api/battles/${view.id}/actions`, {
           method: 'POST',
@@ -119,33 +137,39 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
       onApp: (app: ChartApp | null) => {
         if (app) {
           const v = viewRef.current!;
-          setController(
-            runtime.attach(app, marketCursor(v.clock, now()), (a) => onActionRef.current(a)),
-          );
+          setController(runtime.attach(app, v.cursor, (a) => onActionRef.current(a)));
         } else {
           runtime.detach();
           setController(null);
         }
       },
     }),
-    [runtime, viewRef, now],
+    [runtime, viewRef],
   );
 
-  // The battle clock drives the replay: reveal every candle up to the server's cursor.
+  // The trader steps the replay; the server hears where they are, and the replay stops while
+  // the battle is not running.
   useEffect(() => {
     if (!controller) return;
     const id = window.setInterval(() => {
       const v = viewRef.current;
       if (!v) return;
-      const cursor = marketCursor(v.clock, now());
-      if (cursor > controller.cursor) void controller.follow(cursor);
-      else if (v.status === 'completed' && !stoppedRef.current && !controller.ended) {
+      if (v.status !== 'live' || v.me?.status === 'left') controller.pause();
+      if (v.status === 'completed' && !stoppedRef.current && !controller.ended) {
         stoppedRef.current = true;
         controller.stop();
       }
     }, 200);
-    return () => window.clearInterval(id);
-  }, [controller, viewRef, now]);
+    const report = window.setInterval(() => {
+      const v = viewRef.current;
+      if (v?.status === 'live' && v.me?.status !== 'left') void reportCursor();
+    }, CURSOR_REPORT_MS);
+    return () => {
+      window.clearInterval(id);
+      window.clearInterval(report);
+      void reportCursor();
+    };
+  }, [controller, viewRef, reportCursor]);
 
   // Snapshot / notice bridge (as in a backtest session, without leaving for analytics).
   useEffect(() => {
@@ -209,8 +233,10 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
 
   const control = async (op: 'pause' | 'resume' | 'restart' | 'end' | 'leave') => {
     try {
-      if (op === 'leave') await run('leave');
-      else await run('control', { op });
+      if (op === 'leave') {
+        await reportCursor();
+        await run('leave');
+      } else await run('control', { op });
     } catch (e) {
       useUiStore.getState().pushToast(e instanceof Error ? e.message : 'Failed', 'error');
     }
@@ -446,6 +472,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
           footer={
             controller ? (
               <>
+                <BattleSkipperBar start={me.startT} end={runtime.end} enabled={canTrade} />
                 <TradingPanel />
                 <BacktestModals />
               </>

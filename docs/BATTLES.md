@@ -83,8 +83,11 @@ at that moment. A rejected action makes the browser resync its account from the 
 
 ### Clock
 
-`marketCursor = marketStart + ⌊(elapsed real time × speed) / 1 min⌋ × 1 min`, with pauses
-excluded. It moves in whole minutes, so a candle is only shown once it has closed. The battle
+The clock only counts the battle's time limit. Each trader steps through the candles themselves
+with the Price Skipper (play / pause, next candle, ticker value, frequency; forward only, no
+rewind), up to the market's last candle (`marketStart + duration × speed`). The browser reports
+its position (`POST /api/battles/:id/cursor`) and every action moves it too; standings are
+computed at each trader's own position. The battle
 start is a random weekday morning in the instrument's history, early enough that the whole
 replay (`duration × speed`, at most one trading week) never crosses a weekend.
 
