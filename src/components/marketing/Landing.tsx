@@ -143,10 +143,10 @@ function Header({ signedIn }: { signedIn: boolean }) {
         <div className="flex-1" />
         {signedIn ? (
           <Link
-            href="/chart"
+            href="/home"
             className="mk-btn-primary inline-flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold text-white"
           >
-            ورود به نمودار
+            ورود به داشبورد
             <Svg d={I.arrow} className="h-4 w-4" />
           </Link>
         ) : (
@@ -221,10 +221,10 @@ function Hero({ signedIn }: { signedIn: boolean }) {
           </p>
           <div className="mk-fade-up mt-9 flex flex-col items-center justify-center gap-3 [animation-delay:240ms] sm:flex-row">
             <Link
-              href={signedIn ? '/chart' : '/login'}
+              href={signedIn ? '/home' : '/login'}
               className="mk-btn-primary inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl px-8 text-base font-bold text-white sm:w-auto"
             >
-              {signedIn ? 'باز کردن نمودار' : 'شروع تحلیل'}
+              {signedIn ? 'ورود به داشبورد' : 'شروع تحلیل'}
               <Svg d={I.arrow} className="h-5 w-5" />
             </Link>
             <a
@@ -753,10 +753,10 @@ function Pricing({ signedIn }: { signedIn: boolean }) {
               ))}
             </ul>
             <Link
-              href={signedIn ? '/chart' : '/login'}
+              href={signedIn ? '/home' : '/login'}
               className="mk-btn-primary mt-10 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl text-base font-bold text-white"
             >
-              {signedIn ? 'ورود به نمودار' : 'همین حالا شروع کنید'}
+              {signedIn ? 'ورود به داشبورد' : 'همین حالا شروع کنید'}
               <Svg d={I.arrow} className="h-5 w-5" />
             </Link>
             <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-[var(--mk-muted)]">
@@ -836,10 +836,10 @@ function FinalCta({ signedIn }: { signedIn: boolean }) {
             با شماره موبایل وارد شوید و همین حالا هر بازاری را با ابزارهای حرفه‌ای تحلیل کنید.
           </p>
           <Link
-            href={signedIn ? '/chart' : '/login'}
+            href={signedIn ? '/home' : '/login'}
             className="mt-9 inline-flex h-14 items-center gap-2.5 rounded-2xl bg-white px-8 text-base font-bold text-[#0b2a7a] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] transition hover:-translate-y-0.5 hover:bg-[#eef4ff]"
           >
-            {signedIn ? 'ورود به نمودار' : 'شروع تحلیل'}
+            {signedIn ? 'ورود به داشبورد' : 'شروع تحلیل'}
             <Svg d={I.arrow} className="h-5 w-5" />
           </Link>
         </div>

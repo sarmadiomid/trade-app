@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'ورود / ثبت‌نام | چار�
 /** Only same-site relative paths are allowed as the post-login destination. */
 function safeNext(next: string | string[] | undefined): string {
   const v = Array.isArray(next) ? next[0] : next;
-  return v && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/\\') ? v : '/chart';
+  return v && v.startsWith('/') && !v.startsWith('//') && !v.startsWith('/\\') ? v : '/home';
 }
 
 export default async function LoginPage({

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { AppHeader } from '../platform/AppHeader';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { browserBacktestServices } from '@/lib/app';
@@ -38,22 +39,17 @@ export default function SessionsPage() {
   };
 
   return (
-    <div className="min-h-full bg-chart text-fg">
-      <header className="flex h-14 items-center gap-3 border-b border-line bg-panel px-5">
-        <Link href="/" className="text-[15px] font-semibold">
-          Backtesting
-        </Link>
-        <span className="text-[13px] text-muted">
-          Replay the market candle by candle and trade it
-        </span>
-        <div className="flex-1" />
-        <Link href="/chart" className="text-[13px] text-muted hover:text-fg">
-          Chart
-        </Link>
+    <div className="h-full overflow-y-auto bg-chart text-fg">
+      <AppHeader />
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-5 pt-6">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[22px] font-bold tracking-tight">Backtesting</h1>
+          <p className="text-[13px] text-muted">Replay the market candle by candle and trade it</p>
+        </div>
         <Button variant="primary" onClick={() => setCreating({})} data-testid="new-session">
           <Icon name="plus" size={16} /> New session
         </Button>
-      </header>
+      </div>
       <main className="mx-auto max-w-6xl p-5">
         {sessions === null ? (
           <div className="flex h-60 items-center justify-center">

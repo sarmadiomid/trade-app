@@ -13,7 +13,7 @@ import { Tooltip } from '../ui/Tooltip';
 const ITEM =
   'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] hover:bg-hover disabled:opacity-50';
 
-/** Signed-in user's menu in the top toolbar: phone number, home link and sign out. */
+/** Signed-in user's menu in the top toolbar: phone number, the platform sections and sign out. */
 export function AccountMenu({ phone, storage }: { phone: string; storage: RemoteStorage }) {
   const app = useApp();
   const router = useRouter();
@@ -55,9 +55,17 @@ export function AccountMenu({ phone, storage }: { phone: string; storage: Remote
               </div>
             </div>
             <div className="border-t border-line pt-1">
-              <Link href="/" className={ITEM}>
-                <Icon name="chevronLeft" size={15} />
-                Home page
+              <Link href="/home" className={ITEM}>
+                <Icon name="home" size={15} />
+                Home
+              </Link>
+              <Link href="/backtest" className={ITEM}>
+                <Icon name="replay" size={15} />
+                Backtest
+              </Link>
+              <Link href="/battle" className={ITEM}>
+                <Icon name="swords" size={15} />
+                Battles
               </Link>
               <button type="button" className={ITEM} disabled={leaving} onClick={logout}>
                 <Icon name="logout" size={15} />
