@@ -353,7 +353,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
             <>
               {controller && canTrade ? <QuickTradePanel /> : null}
               <div
-                className="absolute right-16 top-2 z-10 flex items-center gap-1 md:hidden"
+                className="absolute left-2 top-[84px] z-10 flex items-center gap-1 md:hidden"
                 data-testid="battle-hud-mobile"
               >
                 <span
@@ -434,6 +434,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
                 onControl={(op) =>
                   op === 'restart' || op === 'end' ? setConfirm(op) : void control(op)
                 }
+                onClose={() => setSidebarOpen(false)}
                 className={
                   sidebarOpen
                     ? 'fixed inset-y-0 right-0 z-40 flex shadow-2xl lg:static lg:shadow-none'
