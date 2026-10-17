@@ -1,12 +1,10 @@
 import type { Metadata } from 'next';
-import { redirect } from 'next/navigation';
 import { UserChart } from '@/components/platform/UserChart';
-import { currentUser } from '@/server/auth';
+import { requireUser } from '@/server/guard';
 
 export const metadata: Metadata = { title: 'نمودار | چارتیکس' };
 
 export default async function ChartPage() {
-  const user = await currentUser();
-  if (!user) redirect('/login?next=/chart');
+  const user = await requireUser('/chart');
   return <UserChart phone={user.phone} />;
 }
