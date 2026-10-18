@@ -17,6 +17,13 @@ export const NAV: ReadonlyArray<{ href: string; label: string; icon: IconName }>
   { href: '/battle', label: 'Battles', icon: 'bolt' },
 ];
 
+const NAV_FA: ReadonlyArray<{ href: string; label: string; icon: IconName }> = [
+  { href: '/home', label: 'خانه', icon: 'home' },
+  { href: '/chart', label: 'نمودار', icon: 'chart' },
+  { href: '/backtest', label: 'بک‌تست', icon: 'replay' },
+  { href: '/battle', label: 'نبردها', icon: 'bolt' },
+];
+
 /** First letters of a display name, for the avatar. */
 export const initials = (name: string) =>
   name
@@ -27,7 +34,16 @@ export const initials = (name: string) =>
     .join('') || '?';
 
 /** Top bar of the signed-in platform pages: logo, the four sections and the account menu. */
-export function AppHeader({ user, end }: { readonly user?: Me; readonly end?: ReactNode }) {
+export function AppHeader({
+  user,
+  end,
+  fa = false,
+}: {
+  readonly user?: Me;
+  readonly end?: ReactNode;
+  /** Persian labels. The backtest pages turn the document RTL around this bar. */
+  readonly fa?: boolean;
+}) {
   const pathname = usePathname();
   const [me, setMe] = useState<Me | null>(user ?? null);
   useEffect(() => {
@@ -39,14 +55,14 @@ export function AppHeader({ user, end }: { readonly user?: Me; readonly end?: Re
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-4 sm:px-6">
         <Link
           href="/home"
-          className="mr-2 flex shrink-0 items-center gap-2"
-          aria-label="Chartix home"
+          className="me-2 flex shrink-0 items-center gap-2"
+          aria-label={fa ? 'خانه چارتیکس' : 'Chartix home'}
         >
           <LogoMark size={28} />
-          <span className="hidden text-[15px] font-bold tracking-tight sm:inline">Chartix</span>
+          <span className="hidden text-[15px] font-bold sm:inline">{fa ? 'چارتیکس' : 'Chartix'}</span>
         </Link>
-        <nav aria-label="Sections" className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-          {NAV.map((n) => {
+        <nav aria-label={fa ? 'بخش‌ها' : 'Sections'} className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+          {(fa ? NAV_FA : NAV).map((n) => {
             const active = pathname === n.href || pathname.startsWith(`${n.href}/`);
             return (
               <Link
@@ -65,16 +81,16 @@ export function AppHeader({ user, end }: { readonly user?: Me; readonly end?: Re
         </nav>
         <div className="flex-1" />
         {end}
-        {me ? <UserMenu me={me} /> : <div className="h-8 w-8 rounded-full bg-hover" />}
+        {me ? <UserMenu me={me} fa={fa} /> : <div className="h-8 w-8 rounded-full bg-hover" />}
       </div>
     </header>
   );
 }
 
 const ITEM =
-  'flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] hover:bg-hover disabled:opacity-50';
+  'flex h-8 w-full items-center gap-2 rounded-md px-2 text-start text-[13px] hover:bg-hover disabled:opacity-50';
 
-function UserMenu({ me }: { readonly me: Me }) {
+function UserMenu({ me, fa }: { readonly me: Me; readonly fa: boolean }) {
   const router = useRouter();
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [open, setOpen] = useState(false);
@@ -90,11 +106,11 @@ function UserMenu({ me }: { readonly me: Me }) {
       <button
         ref={setAnchor}
         type="button"
-        aria-label="Account"
+        aria-label={fa ? 'حساب' : 'Account'}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 transition hover:bg-hover"
+        className="flex items-center gap-2 rounded-full py-1 pe-2 ps-1 transition hover:bg-hover"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#4a8dff] to-[#1f5fe6] text-[11px] font-bold text-white">
           {initials(me.name)}
@@ -116,15 +132,15 @@ function UserMenu({ me }: { readonly me: Me }) {
             <div className="border-t border-line pt-1">
               <Link href="/battle?tab=profile" className={ITEM} onClick={() => setOpen(false)}>
                 <Icon name="user" size={15} />
-                Battle profile
+                {fa ? 'پروفایل نبرد' : 'Battle profile'}
               </Link>
               <Link href="/" className={ITEM} onClick={() => setOpen(false)}>
-                <Icon name="chevronLeft" size={15} />
-                Chartix website
+                <Icon name="chevronLeft" size={15} className="rtl:-scale-x-100" />
+                {fa ? 'وب‌سایت چارتیکس' : 'Chartix website'}
               </Link>
               <button type="button" className={ITEM} disabled={leaving} onClick={logout}>
                 <Icon name="logout" size={15} />
-                {leaving ? 'Signing out…' : 'Sign out'}
+                {leaving ? (fa ? 'در حال خروج…' : 'Signing out…') : fa ? 'خروج' : 'Sign out'}
               </button>
             </div>
           </div>

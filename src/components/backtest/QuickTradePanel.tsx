@@ -30,14 +30,15 @@ export function QuickTradePanel() {
           className="flex w-[86px] flex-col items-start bg-down/15 px-2 py-1 text-down hover:bg-down/25 disabled:opacity-40"
           data-testid="quick-sell"
         >
-          <span className="text-[10px] font-semibold uppercase">Sell</span>
+          <span className="text-[11px] font-semibold">فروش</span>
           <span className="tabular-nums text-[13px] font-semibold">
             {snap.bid.toFixed(precision)}
           </span>
         </button>
         <div className="flex flex-col items-center justify-center border-x border-line px-1">
           <input
-            aria-label="Quantity (lots)"
+            aria-label="حجم (لات)"
+            dir="ltr"
             data-testid="quick-qty"
             type="number"
             min={0}
@@ -47,7 +48,9 @@ export function QuickTradePanel() {
             className="h-6 w-16 rounded bg-transparent text-center tabular-nums text-fg outline-none focus:bg-hover"
           />
           <span className="text-[10px] text-muted">
-            {snap.spread > 0 ? `spread ${(snap.spread / c.spec.pipSize).toFixed(1)}` : 'lots'}
+            {snap.spread > 0
+              ? `اسپرد ${(snap.spread / c.spec.pipSize).toLocaleString('fa-IR', { maximumFractionDigits: 1 })}`
+              : 'لات'}
           </span>
         </div>
         <button
@@ -57,15 +60,15 @@ export function QuickTradePanel() {
           className="flex w-[86px] flex-col items-end bg-accent/15 px-2 py-1 text-accent hover:bg-accent/25 disabled:opacity-40"
           data-testid="quick-buy"
         >
-          <span className="text-[10px] font-semibold uppercase">Buy</span>
+          <span className="text-[11px] font-semibold">خرید</span>
           <span className="tabular-nums text-[13px] font-semibold">
             {snap.ask.toFixed(precision)}
           </span>
         </button>
-        <Tooltip label="Scalper Mode: preset SL, TP and auto break even for quick trades">
+        <Tooltip label="حالت اسکالپ: حد ضرر، حد سود و سربه‌سر آماده برای معامله سریع">
           <button
             type="button"
-            aria-label="Scalper Mode"
+            aria-label="حالت اسکالپ"
             aria-pressed={snap.scalper.enabled}
             onClick={() => setScalperOpen((o) => !o)}
             className={`flex w-8 items-center justify-center border-l border-line hover:bg-hover ${snap.scalper.enabled ? 'text-accent' : 'text-muted'}`}
@@ -73,10 +76,10 @@ export function QuickTradePanel() {
             <Icon name="bolt" size={15} />
           </button>
         </Tooltip>
-        <Tooltip label="New order" shortcut="Alt + ,">
+        <Tooltip label="سفارش جدید" shortcut="Alt + ,">
           <button
             type="button"
-            aria-label="New order"
+            aria-label="سفارش جدید"
             disabled={disabled}
             onClick={() => openTicket({ side: 'buy', type: 'market' })}
             className="flex w-8 items-center justify-center border-l border-line text-muted hover:bg-hover hover:text-fg disabled:opacity-40"
@@ -116,27 +119,28 @@ function ScalperMode({
   const [sl, setSl] = useState(value.sl ?? 50);
   const [tp, setTp] = useState(value.tp ?? 100);
   const [be, setBe] = useState(value.autoBE ?? { mode: 'rr' as const, value: 1 });
-  const field = 'h-7 w-20 rounded border border-line bg-panel px-1.5 text-right tabular-nums';
+  const field = 'h-7 w-20 rounded border border-line bg-panel px-1.5 text-left tabular-nums';
   return (
-    <div className="w-72 animate-pop rounded-lg border border-line bg-panel p-3 text-[12.5px] shadow-xl">
+    <div dir="rtl" className="w-72 animate-pop rounded-lg border border-line bg-panel p-3 text-[12.5px] shadow-xl">
       <div className="mb-2 flex items-center justify-between">
-        <span className="font-semibold">Scalper Mode</span>
+        <span className="font-semibold">حالت اسکالپ</span>
         <select
-          aria-label="Distance unit"
+          aria-label="واحد فاصله"
           value={s.unit}
           onChange={(e) => set({ ...s, unit: e.target.value as ScalperSettings['unit'] })}
           className="h-7 rounded border border-line bg-panel px-1"
         >
-          <option value="pips">Pips</option>
-          <option value="ticks">Ticks</option>
-          <option value="percent">%</option>
+          <option value="pips">پیپ</option>
+          <option value="ticks">تیک</option>
+          <option value="percent">٪</option>
         </select>
       </div>
       <label className="flex h-8 items-center gap-2">
         <input type="checkbox" checked={slOn} onChange={(e) => setSlOn(e.target.checked)} />
-        <span className="flex-1">Stop loss</span>
+        <span className="flex-1">حد ضرر</span>
         <input
-          aria-label="Stop loss distance"
+          aria-label="فاصله حد ضرر"
+          dir="ltr"
           type="number"
           min={0}
           className={field}
@@ -147,9 +151,10 @@ function ScalperMode({
       </label>
       <label className="flex h-8 items-center gap-2">
         <input type="checkbox" checked={tpOn} onChange={(e) => setTpOn(e.target.checked)} />
-        <span className="flex-1">Take profit</span>
+        <span className="flex-1">حد سود</span>
         <input
-          aria-label="Take profit distance"
+          aria-label="فاصله حد سود"
+          dir="ltr"
           type="number"
           min={0}
           className={field}
@@ -165,9 +170,10 @@ function ScalperMode({
           disabled={!slOn}
           onChange={(e) => setBeOn(e.target.checked)}
         />
-        <span className="flex-1">Auto break even at</span>
+        <span className="flex-1">سربه‌سر خودکار در</span>
         <input
-          aria-label="Auto break even distance"
+          aria-label="فاصله سربه‌سر خودکار"
+          dir="ltr"
           type="number"
           min={0}
           step={0.1}
@@ -177,27 +183,29 @@ function ScalperMode({
           onChange={(e) => setBe({ ...be, value: Number(e.target.value) })}
         />
         <select
-          aria-label="Auto break even unit"
+          aria-label="واحد سربه‌سر خودکار"
           className="h-7 rounded border border-line bg-panel px-1"
           value={be.mode}
           disabled={!beOn || !slOn}
           onChange={(e) => setBe({ ...be, mode: e.target.value as 'rr' | 'pips' })}
         >
-          <option value="rr">R:R</option>
-          <option value="pips">pips</option>
+          <option value="rr">ریسک به ریوارد</option>
+          <option value="pips">پیپ</option>
         </select>
       </label>
-      <p className="mt-1 text-[11px] text-muted">Distances only. Auto BE needs a stop loss.</p>
+      <p className="mt-1 text-[11px] leading-5 text-muted">
+        فقط فاصله است، قیمت مطلق نیست. سربه‌سر خودکار بدون حد ضرر کار نمی‌کند.
+      </p>
       <div className="mt-2 flex justify-end gap-2">
         <Button
           onClick={() => {
             onSave({ ...value, enabled: false });
           }}
         >
-          Turn off
+          خاموش
         </Button>
         <Button variant="ghost" onClick={onClose}>
-          Cancel
+          انصراف
         </Button>
         <Button
           variant="primary"
@@ -211,7 +219,7 @@ function ScalperMode({
             })
           }
         >
-          Save
+          ذخیره
         </Button>
       </div>
     </div>

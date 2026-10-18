@@ -45,7 +45,7 @@ function niceTicks(min: number, max: number, count = 4): number[] {
 function tickLabel(v: number, ticks: readonly number[]): string {
   const step = ticks.length > 1 ? Math.abs(ticks[1]! - ticks[0]!) : Math.abs(v) || 1;
   const decimals = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step)));
-  const out = (Math.abs(v) < step / 1e6 ? 0 : v).toLocaleString('en-US', {
+  const out = (Math.abs(v) < step / 1e6 ? 0 : v).toLocaleString('fa-IR', {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
@@ -104,7 +104,7 @@ export function LineChart({
   };
   const hp = hover === null ? null : points[hover]!;
   return (
-    <div className="relative">
+    <div className="relative" dir="ltr">
       <svg
         viewBox={`0 0 ${W} ${height}`}
         className="w-full"
@@ -205,7 +205,7 @@ export function BarChart({
   const bw = Math.max(2, Math.min(40, band - 2));
   if (data.length === 0) return <Empty height={height} />;
   return (
-    <div className="relative">
+    <div className="relative" dir="ltr">
       <svg
         viewBox={`0 0 ${W} ${height}`}
         className="w-full"
@@ -279,7 +279,7 @@ export function BarChart({
 function Empty({ height }: { readonly height: number }) {
   return (
     <div className="flex items-center justify-center text-[12.5px] text-muted" style={{ height }}>
-      No trades yet
+      هنوز معامله‌ای نیست
     </div>
   );
 }

@@ -24,7 +24,9 @@ export function Popover({ anchor, onClose, children }: PopoverProps) {
     let top = a.bottom + GAP;
     if (top + p.height > window.innerHeight - MARGIN)
       top = Math.max(MARGIN, a.top - p.height - GAP);
-    const left = Math.min(Math.max(MARGIN, a.left), window.innerWidth - p.width - MARGIN);
+    const rtl = getComputedStyle(document.documentElement).direction === 'rtl';
+    const preferred = rtl ? a.right - p.width : a.left;
+    const left = Math.min(Math.max(MARGIN, preferred), window.innerWidth - p.width - MARGIN);
     setPos({ left, top });
   }, [anchor]);
 

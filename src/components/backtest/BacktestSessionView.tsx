@@ -13,6 +13,13 @@ import { IconButton } from '../ui/IconButton';
 import { BacktestModals } from './BacktestModals';
 import { BacktestContext } from './context';
 import { lots } from './format';
+
+const ORDER_FA: Readonly<Record<string, string>> = {
+  'Buy Limit': 'خرید لیمیت',
+  'Buy Stop': 'خرید استاپ',
+  'Sell Limit': 'فروش لیمیت',
+  'Sell Stop': 'فروش استاپ',
+};
 import { OrderTicket } from './OrderTicket';
 import { PriceSkipperBar } from './PriceSkipperBar';
 import { PropRulesPanel } from './PropRulesPanel';
@@ -132,9 +139,9 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
   if (load.status === 'missing' || !callbacks) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-chart text-fg">
-        <p className="text-muted">This session does not exist (it may have been deleted).</p>
+        <p className="text-muted">این جلسه وجود ندارد. شاید حذف شده باشد.</p>
         <Link href="/backtest" className="text-accent hover:underline">
-          Back to sessions
+          بازگشت به جلسه‌ها
         </Link>
       </div>
     );
@@ -146,7 +153,7 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
     const vol = c.session.quickVolume > 0 ? c.session.quickVolume : c.cfg.lotMin;
     const p = c.spec.pricePrecision;
     const orders: MenuEntry[] = c.trading.rightClickOrders(price).map((o) => ({
-      label: `${o.label} ${lots(vol)} @ ${o.price.toFixed(p)}`,
+      label: `${ORDER_FA[o.label] ?? o.label} ${lots(vol)} @ ${o.price.toFixed(p)}`,
       run: () => {
         c.trading.place({
           side: o.side,
@@ -161,7 +168,7 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
     const entries: MenuEntry[] = [
       ...orders,
       {
-        label: 'New order at this price…',
+        label: 'سفارش تازه روی این قیمت…',
         icon: 'plus',
         run: () => {
           const o = c.trading.rightClickOrders(price)[0];
@@ -172,7 +179,7 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
     ];
     if (time < c.cursor)
       entries.push({
-        label: 'Replay to this point',
+        label: 'بازپخش تا این نقطه',
         icon: 'replay',
         run: () =>
           void c.replayToBar(time).then((check) => {
@@ -198,10 +205,10 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
           <Link
             href="/backtest"
             className="mr-1 inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] text-muted hover:bg-hover hover:text-fg"
-            aria-label="Back to sessions"
+            aria-label="بازگشت به جلسه‌ها"
           >
             <Icon name="chevronLeft" size={16} />
-            <span className="hidden sm:inline">Sessions</span>
+            <span className="hidden sm:inline">جلسه‌ها</span>
           </Link>
         }
         toolbarEnd={controller ? <SessionMenu /> : null}
@@ -216,11 +223,11 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
         sidePanel={controller && ticket ? <OrderTicket key={ticketKey(ticket)} /> : null}
         footer={
           controller ? (
-            <>
+            <div dir="rtl" className="flex shrink-0 flex-col">
               <PriceSkipperBar />
               <TradingPanel />
               <BacktestModals />
-            </>
+            </div>
           ) : null
         }
         chartMenuItems={chartMenuItems}
@@ -246,34 +253,34 @@ function SessionMenu() {
       </span>
       {snap.settings.type === 'prop' ? (
         <span className="hidden rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-medium text-accent md:inline">
-          Prop
+          پراپ
         </span>
       ) : null}
       <Link
         href={`/backtest/${snap.id}/journal`}
         className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] hover:bg-hover"
-        title="Journal"
+        title="دفتر معاملات"
       >
         <Icon name="journal" size={16} />
-        <span className="hidden xl:inline">Journal</span>
+        <span className="hidden xl:inline">دفتر</span>
       </Link>
       <Link
         href={`/backtest/${snap.id}/analytics`}
         className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] hover:bg-hover"
-        title="Analytics"
+        title="عملکرد"
         data-testid="open-analytics"
       >
         <Icon name="chart" size={16} />
-        <span className="hidden xl:inline">Analytics</span>
+        <span className="hidden xl:inline">عملکرد</span>
       </Link>
       <IconButton
         icon="info"
-        label="Session settings"
+        label="تنظیمات جلسه"
         onClick={() => openModal({ type: 'settings' })}
       />
       <IconButton
         icon="keyboard"
-        label="Backtest shortcuts"
+        label="میانبرهای بک‌تست"
         shortcut="Ctrl + Alt + H"
         onClick={() => openModal({ type: 'shortcuts' })}
       />

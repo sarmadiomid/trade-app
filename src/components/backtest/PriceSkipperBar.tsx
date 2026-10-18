@@ -8,7 +8,7 @@ import { IconButton } from '../ui/IconButton';
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../ui/Icon';
 import { useBacktest } from './context';
-import { utcDateTime } from './format';
+import { faNum, failReasonFa, TF_FA, utcDateTime } from './format';
 import { useBacktestStore } from './store';
 
 const selectCls =
@@ -28,12 +28,12 @@ export function PriceSkipperBar() {
   return (
     <div
       role="region"
-      aria-label="Price Skipper"
+      aria-label="نوار بازپخش"
       className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-t border-line bg-panel px-2 text-[13px]"
     >
       <IconButton
         icon="stepBack"
-        label="Rewind one candle"
+        label="یک کندل به عقب"
         shortcut={chordLabel('Alt+Z')}
         tooltipSide="top"
         disabled={atStart || snap.loading}
@@ -41,7 +41,7 @@ export function PriceSkipperBar() {
       />
       <IconButton
         icon={snap.playing ? 'pause' : 'play'}
-        label={snap.playing ? 'Pause' : 'Play'}
+        label={snap.playing ? 'مکث' : 'پخش'}
         shortcut={chordLabel('Alt+1')}
         tooltipSide="top"
         disabled={ended}
@@ -50,7 +50,7 @@ export function PriceSkipperBar() {
       />
       <IconButton
         icon="stepForward"
-        label="Next candle"
+        label="کندل بعدی"
         shortcut={chordLabel('Ctrl+Space')}
         tooltipSide="top"
         disabled={ended || snap.loading}
@@ -59,14 +59,14 @@ export function PriceSkipperBar() {
       />
       <Divider />
       <Tooltip
-        label="Ticker value: candle size of each step"
+        label="گام کندل: اندازه هر قدم بازپخش"
         shortcut="Alt + 4 / Alt + 5"
         side="top"
       >
-        <label className="flex items-center gap-1 pl-1 text-muted">
-          <span className="hidden md:inline">Ticker</span>
+        <label className="flex items-center gap-1 ps-1 text-muted">
+          <span className="hidden md:inline">گام</span>
           <select
-            aria-label="Ticker value"
+            aria-label="گام کندل"
             data-testid="bt-ticker"
             className={selectCls}
             value={snap.tickerValue}
@@ -74,21 +74,21 @@ export function PriceSkipperBar() {
           >
             {TICKER_VALUES.map((tf) => (
               <option key={tf} value={tf}>
-                {TIMEFRAMES[tf].label}
+                {TF_FA[tf] ?? TIMEFRAMES[tf].label}
               </option>
             ))}
           </select>
         </label>
       </Tooltip>
       <Tooltip
-        label="Frequency: candles per second while playing"
+        label="سرعت پخش: چند کندل در هر ثانیه"
         shortcut="Alt + 2 / Alt + 3"
         side="top"
       >
-        <label className="flex items-center gap-1 pl-1 text-muted">
-          <span className="hidden md:inline">Frequency</span>
+        <label className="flex items-center gap-1 ps-1 text-muted">
+          <span className="hidden md:inline">سرعت</span>
           <select
-            aria-label="Frequency"
+            aria-label="سرعت پخش"
             data-testid="bt-frequency"
             className={selectCls}
             value={snap.frequency}
@@ -96,7 +96,7 @@ export function PriceSkipperBar() {
           >
             {FREQUENCIES.map((f) => (
               <option key={f} value={f}>
-                {f}/s
+                {faNum(f)} در ثانیه
               </option>
             ))}
           </select>
@@ -104,44 +104,47 @@ export function PriceSkipperBar() {
       </Tooltip>
       <IconButton
         icon="calendar"
-        label="Go to date & time"
+        label="پرش به تاریخ و ساعت"
         tooltipSide="top"
         disabled={ended || snap.loading}
         onClick={() => openModal({ type: 'go-to' })}
       />
       <Divider />
       <span className="whitespace-nowrap px-1 tabular-nums text-fg" data-testid="bt-cursor">
-        {utcDateTime(snap.cursor)} UTC
+        {utcDateTime(snap.cursor)}
+        <span className="ms-1 text-[11px] text-muted">ساعت جهانی</span>
       </span>
       <span
         className="whitespace-nowrap rounded bg-[#f7a60026] px-1.5 py-0.5 text-[12px] font-medium text-[#f7a600]"
-        title="Days left in the session's date range"
+        title="روزهای باقی‌مانده از بازه جلسه"
       >
-        {snap.daysLeft} {snap.daysLeft === 1 ? 'day' : 'days'} left
+        {faNum(snap.daysLeft)} روز مانده
       </span>
       <div
         className="mx-2 hidden h-1.5 w-28 overflow-hidden rounded-full bg-line sm:block"
-        aria-label={`Progress ${(snap.progress * 100).toFixed(0)}%`}
+        aria-label={`پیشرفت ${faNum(snap.progress * 100, 0)} درصد`}
       >
         <div className="h-full bg-accent" style={{ width: `${snap.progress * 100}%` }} />
       </div>
-      {snap.loading ? <span className="text-muted">Loading…</span> : null}
+      {snap.loading ? <span className="text-muted">در حال بارگذاری…</span> : null}
       {ended ? (
         <span className={snap.status === 'ended' ? 'text-muted' : 'text-down'}>
-          {snap.status === 'ended' ? 'Session completed' : `Stopped · ${snap.failReason ?? ''}`}
+          {snap.status === 'ended'
+            ? 'جلسه تمام شد'
+            : `متوقف شد · ${snap.failReason ? failReasonFa(snap.failReason) : ''}`}
         </span>
       ) : null}
       <div className="flex-1" />
       {panelHidden ? (
         <button
           type="button"
-          aria-label="Show trading panel"
+          aria-label="نمایش پنل معاملات"
           data-testid="show-trading-panel"
           onClick={() => setPanelHidden(false)}
           className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-md border border-line px-2 text-[13px] hover:bg-hover"
         >
           <Icon name="eye" size={14} />
-          Panel
+          پنل
         </button>
       ) : null}
       {snap.prop ? (
@@ -149,9 +152,9 @@ export function PriceSkipperBar() {
           type="button"
           onClick={() => toggleProp()}
           className="h-8 whitespace-nowrap rounded-md border border-line px-2 text-[13px] hover:bg-hover"
-          title="Prop Firm Rules (Tab)"
+          title="قوانین پراپ (Tab)"
         >
-          Prop Firm Rules
+          قوانین پراپ
         </button>
       ) : null}
     </div>

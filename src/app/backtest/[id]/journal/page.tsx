@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { BacktestJournalClient } from '@/components/backtest/BacktestClient';
 import { requireUser } from '@/server/guard';
 
-export const metadata: Metadata = { title: 'Backtest journal' };
+export const metadata: Metadata = { title: 'دفتر معاملات | چارتیکس' };
 
 export default async function BacktestJournalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

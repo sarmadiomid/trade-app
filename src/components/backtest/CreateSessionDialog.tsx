@@ -9,12 +9,15 @@ import {
   type SessionSettings,
   type SessionType,
 } from '@/lib/backtest';
+import { faNum } from '@/lib/locale/jalali';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
-import { fromDateInput, toDateInput } from './format';
+import { ASSET_FA, fromDateInput, toDateInput, utcDate } from './format';
+import { JalaliDateField } from './JalaliField';
 
 const field =
   'h-9 w-full rounded-md border border-line bg-chart px-2.5 text-[13px] text-fg outline-none focus:border-accent';
+const numField = `${field} text-left`;
 
 interface Props {
   readonly services: BacktestServices;
@@ -28,7 +31,7 @@ interface Props {
 export function CreateSessionDialog({ services, onClose, onCreated, initial }: Props) {
   const instruments = services.instruments();
   const [type, setType] = useState<SessionType>(initial?.type ?? 'backtesting');
-  const [name, setName] = useState(initial ? `${initial.name} (copy)` : 'XAUUSD backtest');
+  const [name, setName] = useState(initial ? `${initial.name} (کپی)` : 'بک‌تست XAUUSD');
   const [symbol, setSymbol] = useState(initial?.symbol ?? instruments[0]?.symbol ?? 'XAUUSD');
   const spec = services.spec(symbol);
   const range = services.dataRange(symbol);
@@ -84,7 +87,7 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
 
   const days = settings ? Math.round((settings.endDate - settings.startDate) / DAY_MS) + 1 : 0;
   const submit = async () => {
-    if (!settings) return setError('Enter a valid start and end date');
+    if (!settings) return setError('تاریخ شروع و پایان معتبر نیست');
     const invalid = validateSettings(settings, range);
     if (invalid) return setError(invalid);
     setBusy(true);
@@ -96,7 +99,7 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
 
   return (
     <Dialog
-      title={initial ? 'Duplicate session' : 'Create session'}
+      title={initial ? 'کپی جلسه' : 'جلسه جدید'}
       onClose={onClose}
       width={560}
       footer={
@@ -108,24 +111,24 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
           ) : (
             <div className="flex-1" />
           )}
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>انصراف</Button>
           <Button
             variant="primary"
             disabled={busy}
             onClick={() => void submit()}
             data-testid="create-session-submit"
           >
-            {busy ? 'Creating…' : 'Create session'}
+            {busy ? 'در حال ساخت…' : 'ساخت جلسه'}
           </Button>
         </>
       }
     >
       <div className="space-y-4 p-5 text-[13px]">
-        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Session type">
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="نوع جلسه">
           {(
             [
-              ['backtesting', 'Backtesting session', 'Replay the market and test a strategy'],
-              ['prop', 'Prop Firm Session', 'Add profit target and loss limits'],
+              ['backtesting', 'جلسه بک‌تست', 'بازار را بازپخش کنید و استراتژی را بسنجید'],
+              ['prop', 'جلسه پراپ', 'هدف سود و سقف ضرر را هم اعمال کنید'],
             ] as const
           ).map(([id, title, sub]) => (
             <button
@@ -134,7 +137,7 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
               role="radio"
               aria-checked={type === id}
               onClick={() => setType(id)}
-              className={`rounded-lg border p-3 text-left ${type === id ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'}`}
+              className={`rounded-lg border p-3 text-start ${type === id ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'}`}
             >
               <div className="font-semibold">{title}</div>
               <div className="text-[12px] text-muted">{sub}</div>
@@ -142,9 +145,9 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
           ))}
         </div>
         <label className="block space-y-1">
-          <span className="text-muted">Session name</span>
+          <span className="text-muted">نام جلسه</span>
           <input
-            aria-label="Session name"
+            aria-label="نام جلسه"
             className={field}
             value={name}
             maxLength={60}
@@ -153,110 +156,111 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="block space-y-1">
-            <span className="text-muted">Asset</span>
+            <span className="text-muted">نماد</span>
             <select
-              aria-label="Asset"
+              aria-label="نماد"
               className={field}
               value={symbol}
               onChange={(e) => setSymbol(e.target.value)}
             >
               {instruments.map((i) => (
                 <option key={i.symbol} value={i.symbol}>
-                  {i.symbol} · {i.description}
+                  {i.symbol} · {ASSET_FA[i.symbol] ?? i.description}
                 </option>
               ))}
             </select>
           </label>
           <label className="block space-y-1">
-            <span className="text-muted">Account balance (USD)</span>
+            <span className="text-muted">موجودی شروع (دلار)</span>
             <input
-              aria-label="Account balance"
+              aria-label="موجودی حساب"
               type="number"
+              dir="ltr"
               min={1}
               step={1000}
-              className={field}
+              className={numField}
               value={balance}
               onChange={(e) => setBalance(Number(e.target.value))}
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-muted">Start date (UTC)</span>
-            <input
-              aria-label="Start date"
-              type="date"
-              className={field}
+            <span className="text-muted">تاریخ شروع</span>
+            <JalaliDateField
+              ariaLabel="تاریخ شروع"
               value={start}
               min={toDateInput(range.start)}
               max={toDateInput(range.end - DAY_MS)}
-              onChange={(e) => setStart(e.target.value)}
+              onChange={setStart}
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-muted">End date (UTC, inclusive)</span>
-            <input
-              aria-label="End date"
-              type="date"
-              className={field}
+            <span className="text-muted">تاریخ پایان (همان روز هم شامل است)</span>
+            <JalaliDateField
+              ariaLabel="تاریخ پایان"
               value={end}
               min={start}
               max={toDateInput(range.end - DAY_MS)}
-              onChange={(e) => setEnd(e.target.value)}
+              onChange={setEnd}
             />
           </label>
         </div>
-        <p className="-mt-2 text-[12px] text-muted">
-          {days > 0 ? `${days} days` : ''} · data available {toDateInput(range.start)} →{' '}
-          {toDateInput(range.end - DAY_MS)}
+        <p className="-mt-2 text-[12px] leading-6 text-muted">
+          {days > 0 ? `${faNum(days)} روز` : ''}
+          {' · '}
+          داده از {utcDate(range.start)} تا {utcDate(range.end - DAY_MS)} موجود است. تاریخ شمسی
+          است و ساعت جلسه، ساعت جهانی (UTC) می‌ماند.
         </p>
         <fieldset className="grid grid-cols-2 gap-3 rounded-lg border border-line p-3">
-          <legend className="px-1 text-[12px] text-muted">Spreads & commissions</legend>
+          <legend className="px-1 text-[12px] text-muted">اسپرد و کارمزد</legend>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={spreadOn}
               onChange={(e) => setSpreadOn(e.target.checked)}
             />
-            <span className="flex-1">Spread</span>
+            <span className="flex-1">اسپرد</span>
             <input
-              aria-label="Spread"
+              aria-label="اسپرد"
               type="number"
+              dir="ltr"
               min={0}
               step={spec.tickSize}
               disabled={!spreadOn}
-              className="h-8 w-24 rounded-md border border-line bg-chart px-2 text-right"
+              className="h-8 w-24 rounded-md border border-line bg-chart px-2 text-left"
               value={spread}
               onChange={(e) => setSpread(Number(e.target.value))}
             />
           </label>
           <span className="self-center text-[12px] text-muted">
-            {(spread / spec.pipSize).toFixed(1)} pips (price units)
+            {faNum(spread / spec.pipSize, 1)} پیپ (واحد قیمت)
           </span>
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={commOn} onChange={(e) => setCommOn(e.target.checked)} />
-            <span className="flex-1">Commission</span>
+            <span className="flex-1">کارمزد</span>
             <input
-              aria-label="Commission per lot"
+              aria-label="کارمزد هر لات"
               type="number"
+              dir="ltr"
               min={0}
               step={0.5}
               disabled={!commOn}
-              className="h-8 w-24 rounded-md border border-line bg-chart px-2 text-right"
+              className="h-8 w-24 rounded-md border border-line bg-chart px-2 text-left"
               value={comm}
               onChange={(e) => setComm(Number(e.target.value))}
             />
           </label>
           <span className="self-center text-[12px] text-muted">
-            USD per lot, charged on entry and on exit
+            دلار برای هر لات، هم هنگام ورود و هم هنگام خروج
           </span>
         </fieldset>
         {type === 'prop' ? (
           <fieldset className="grid grid-cols-3 gap-3 rounded-lg border border-line p-3">
-            <legend className="px-1 text-[12px] text-muted">Prop firm rules (% of balance)</legend>
+            <legend className="px-1 text-[12px] text-muted">قوانین پراپ (درصد موجودی)</legend>
             {(
               [
-                ['profitTargetPct', 'Profit target'],
-                ['maxDailyLossPct', 'Max daily loss'],
-                ['maxTotalLossPct', 'Max total loss'],
+                ['profitTargetPct', 'هدف سود'],
+                ['maxDailyLossPct', 'سقف ضرر روزانه'],
+                ['maxTotalLossPct', 'سقف ضرر کل'],
               ] as const
             ).map(([k, label]) => (
               <label key={k} className="block space-y-1">
@@ -264,10 +268,11 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
                 <input
                   aria-label={label}
                   type="number"
+                  dir="ltr"
                   min={0.1}
                   max={99}
                   step={0.5}
-                  className={field}
+                  className={numField}
                   value={rules[k]}
                   onChange={(e) => setRules({ ...rules, [k]: Number(e.target.value) })}
                 />
@@ -277,11 +282,11 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
         ) : null}
         <div className="grid grid-cols-2 gap-3">
           <label className="block space-y-1">
-            <span className="text-muted">Strategy tag (optional)</span>
+            <span className="text-muted">برچسب استراتژی (اختیاری)</span>
             <input className={field} value={tag} onChange={(e) => setTag(e.target.value)} />
           </label>
           <label className="block space-y-1">
-            <span className="text-muted">Description (optional)</span>
+            <span className="text-muted">توضیح (اختیاری)</span>
             <input
               className={field}
               value={description}
@@ -289,9 +294,11 @@ export function CreateSessionDialog({ services, onClose, onCreated, initial }: P
             />
           </label>
         </div>
-        <p className="text-[12px] text-muted">
-          {spec.symbol}: contract {spec.contractSize} oz per lot, pip {spec.pipSize}, lots{' '}
-          {spec.lotMin}–{spec.lotMax}.
+        <p className="text-[12px] leading-6 text-muted">
+          <bdi dir="ltr">{spec.symbol}</bdi>
+          {': '}
+          هر لات {faNum(spec.contractSize, 0)} واحد، اندازه پیپ {faNum(spec.pipSize)}، حجم از{' '}
+          {faNum(spec.lotMin)} تا {faNum(spec.lotMax)} لات.
         </p>
       </div>
     </Dialog>

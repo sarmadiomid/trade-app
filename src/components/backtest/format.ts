@@ -1,42 +1,47 @@
-import { formatDuration, formatNumber } from '@/lib/core';
+import { faDigits, faNum, formatJalaliDate, formatJalaliDateTime } from '@/lib/locale/jalali';
 
+const faFixed = (v: number, decimals: number) =>
+  Math.abs(v).toLocaleString('fa-IR', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+
+/** «۱۲٬۳۴۵٫۰۰ $» — the dollar mark stays with the number (rendered LTR). */
 export const money = (v: number, decimals = 2): string =>
-  `${v < 0 ? '−' : ''}$${formatNumber(Math.abs(v), decimals)}`;
+  `${v < 0 ? '−' : ''}${faFixed(v, decimals)} $`;
 
-export const signedMoney = (v: number): string =>
-  `${v > 0.004 ? '+' : v < -0.004 ? '−' : ''}$${formatNumber(Math.abs(v), 2)}`;
+export const signedMoney = (v: number): string => {
+  const n = Math.abs(v) < 0.004 ? 0 : v;
+  const sign = n > 0 ? '+' : n < 0 ? '−' : '';
+  return `${sign}${faFixed(n, 2)} $`;
+};
 
 export const pct = (v: number, decimals = 2): string =>
-  `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(decimals)}%`;
+  `${v > 0 ? '+' : v < 0 ? '−' : ''}${faFixed(v, decimals)}٪`;
 
 export const plainPct = (ratio: number, decimals = 1): string =>
-  `${(ratio * 100).toFixed(decimals)}%`;
+  `${faFixed(ratio * 100, decimals)}٪`;
 
-export const lots = (v: number): string => v.toFixed(2);
+export const lots = (v: number): string => faFixed(v, 2);
 
 export const num = (v: number | null | undefined, decimals = 2): string =>
-  v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(decimals);
+  v === null || v === undefined || !Number.isFinite(v) ? '—' : faFixed(v, decimals);
 
 export const pnlClass = (v: number): string =>
   v > 0.004 ? 'text-up' : v < -0.004 ? 'text-down' : 'text-muted';
 
 const pad = (n: number) => n.toString().padStart(2, '0');
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/** "Mon 04 Mar 2024 13:45" in UTC. */
+/** Jalali date of the UTC civil day, with the UTC clock. The session never shifts to Tehran. */
 export function utcDateTime(t: number, withTime = true): string {
-  const d = new Date(t);
-  const date = `${DAYS[d.getUTCDay()]} ${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
-  return withTime ? `${date} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}` : date;
+  return formatJalaliDateTime(t, withTime);
 }
 
 export function utcDate(t: number): string {
-  const d = new Date(t);
-  return `${pad(d.getUTCDate())} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return formatJalaliDate(t);
 }
 
-/** yyyy-mm-dd (UTC) for <input type="date">. */
+/** yyyy-mm-dd (Gregorian UTC) for storage and `<input type="date">` bounds. */
 export function toDateInput(t: number): string {
   const d = new Date(t);
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
@@ -47,7 +52,7 @@ export function fromDateInput(v: string): number | null {
   return m ? Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
 }
 
-/** yyyy-mm-ddThh:mm (UTC) for <input type="datetime-local"> holding UTC values. */
+/** yyyy-mm-ddThh:mm (UTC) for datetime bounds. */
 export function toDateTimeInput(t: number): string {
   const d = new Date(t);
   return `${toDateInput(t)}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
@@ -60,17 +65,81 @@ export function fromDateTimeInput(v: string): number | null {
     : null;
 }
 
-export const duration = (ms: number): string => (ms > 0 ? formatDuration(ms) : '—');
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
-export const MONTH_NAMES = MONTHS;
-export const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+/** «۳ روز و ۴ ساعت»، «۴۵ دقیقه». */
+export function duration(ms: number): string {
+  if (!(ms > 0)) return '—';
+  if (ms >= DAY) {
+    const d = Math.floor(ms / DAY);
+    const h = Math.round((ms - d * DAY) / HOUR);
+    return h ? `${faNum(d)} روز و ${faNum(h)} ساعت` : `${faNum(d)} روز`;
+  }
+  if (ms >= HOUR) {
+    const h = Math.floor(ms / HOUR);
+    const m = Math.round((ms - h * HOUR) / MINUTE);
+    return m ? `${faNum(h)} ساعت و ${faNum(m)} دقیقه` : `${faNum(h)} ساعت`;
+  }
+  return `${faNum(Math.max(1, Math.round(ms / MINUTE)))} دقیقه`;
+}
+
+/** Monday-first labels for the weekday chart (it only buckets Mon–Fri). */
+export const WEEKDAY_NAMES = ['دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'] as const;
 
 export const EXIT_REASON_LABEL: Readonly<Record<string, string>> = {
-  tp: 'TP',
-  sl: 'SL',
-  manual: 'Manual',
-  partial: 'Partial',
-  'session-end': 'Session end',
-  'stop-out': 'Stop out',
-  'rule-breach': 'Rule breach',
+  tp: 'حد سود',
+  sl: 'حد ضرر',
+  manual: 'دستی',
+  partial: 'جزئی',
+  'session-end': 'پایان جلسه',
+  'stop-out': 'کال مارجین',
+  'rule-breach': 'نقض قانون پراپ',
 };
+
+export const SIDE_FA = { buy: 'خرید', sell: 'فروش' } as const;
+
+export const ORDER_KIND_FA = { limit: 'لیمیت', stop: 'استاپ', market: 'بازار' } as const;
+
+/** Stored engine reasons stay English; this is display only. */
+export function failReasonFa(reason: string): string {
+  const daily = /^Max daily loss \((.+)\)$/.exec(reason);
+  if (daily) return `سقف ضرر روزانه (${faDigits(daily[1]!)})`;
+  const total = /^Max total loss \((.+)\)$/.exec(reason);
+  if (total) return `سقف ضرر کل (${faDigits(total[1]!)})`;
+  if (reason === 'Stop out' || reason === 'Stopped out') return 'کال مارجین';
+  if (reason === 'Session end') return 'پایان جلسه';
+  return reason;
+}
+
+export const TF_FA: Readonly<Record<string, string>> = {
+  '1m': '۱ دقیقه',
+  '3m': '۳ دقیقه',
+  '5m': '۵ دقیقه',
+  '15m': '۱۵ دقیقه',
+  '30m': '۳۰ دقیقه',
+  '1h': '۱ ساعت',
+  '2h': '۲ ساعت',
+  '4h': '۴ ساعت',
+  '1D': 'روزانه',
+  '1W': 'هفتگی',
+  '1M': 'ماهانه',
+};
+
+export const ASSET_FA: Readonly<Record<string, string>> = {
+  XAUUSD: 'طلا / دلار',
+  EURUSD: 'یورو / دلار',
+  GBPUSD: 'پوند / دلار',
+  AUDUSD: 'دلار استرالیا / دلار',
+  NAS100: 'شاخص نزدک ۱۰۰',
+};
+
+export const SESSION_FA: Readonly<Record<string, string>> = {
+  asia: 'آسیا',
+  london: 'لندن',
+  'new-york': 'نیویورک',
+  off: 'خارج از سشن',
+};
+
+export { faDigits, faNum };

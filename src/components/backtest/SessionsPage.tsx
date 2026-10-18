@@ -11,12 +11,12 @@ import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { CreateSessionDialog } from './CreateSessionDialog';
-import { money, pnlClass, signedMoney, utcDate, utcDateTime } from './format';
+import { faNum, money, pnlClass, signedMoney, utcDate, utcDateTime } from './format';
 
 const STATUS = {
-  'in-progress': ['In progress', 'bg-accent/15 text-accent'],
-  completed: ['Completed', 'bg-up/15 text-up'],
-  failed: ['Failed', 'bg-down/15 text-down'],
+  'in-progress': ['در جریان', 'bg-accent/15 text-accent'],
+  completed: ['تمام‌شده', 'bg-up/15 text-up'],
+  failed: ['ناموفق', 'bg-down/15 text-down'],
 } as const;
 
 /** `/backtest`: every session as a card, and "New session". */
@@ -40,14 +40,16 @@ export default function SessionsPage() {
 
   return (
     <div className="h-full overflow-y-auto bg-chart text-fg">
-      <AppHeader />
+      <AppHeader fa />
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-2 px-5 pt-6">
         <div className="min-w-0 flex-1">
-          <h1 className="text-[22px] font-bold tracking-tight">Backtesting</h1>
-          <p className="text-[13px] text-muted">Replay the market candle by candle and trade it</p>
+          <h1 className="text-[22px] font-bold">بک‌تست</h1>
+          <p className="text-[13px] leading-6 text-muted">
+            بازار را کندل‌به‌کندل بازپخش کنید و با حساب مجازی معامله کنید
+          </p>
         </div>
         <Button variant="primary" onClick={() => setCreating({})} data-testid="new-session">
-          <Icon name="plus" size={16} /> New session
+          <Icon name="plus" size={16} /> جلسه جدید
         </Button>
       </div>
       <main className="mx-auto max-w-6xl p-5">
@@ -58,13 +60,13 @@ export default function SessionsPage() {
         ) : sessions.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-24 text-center">
             <Icon name="replay" size={36} />
-            <h1 className="text-lg font-semibold">No sessions yet</h1>
-            <p className="max-w-md text-[13px] text-muted">
-              A session replays a date range of the market with a virtual account. Pick an asset, a
-              starting balance and the dates to test.
+            <h1 className="text-lg font-semibold">هنوز جلسه‌ای نساخته‌اید</h1>
+            <p className="max-w-md text-[13px] leading-6 text-muted">
+              هر جلسه یک بازه از بازار را با حساب مجازی بازپخش می‌کند. نماد، موجودی شروع و تاریخ
+              را انتخاب کنید.
             </p>
             <Button variant="primary" onClick={() => setCreating({})}>
-              <Icon name="plus" size={16} /> Create your first session
+              <Icon name="plus" size={16} /> ساخت اولین جلسه
             </Button>
           </div>
         ) : (
@@ -88,7 +90,9 @@ export default function SessionsPage() {
                         {s.name}
                       </h2>
                       <p className="text-[12px] text-muted">
-                        {s.symbol} · {s.type === 'prop' ? 'Prop Firm Session' : 'Backtesting'}
+                        <bdi dir="ltr">{s.symbol}</bdi>
+                        {' · '}
+                        {s.type === 'prop' ? 'جلسه پراپ' : 'بک‌تست'}
                         {s.strategyTag ? ` · ${s.strategyTag}` : ''}
                       </p>
                     </div>
@@ -96,29 +100,30 @@ export default function SessionsPage() {
                       {label}
                     </span>
                   </div>
-                  <p className="mt-3 text-[12px] text-muted">
-                    {utcDate(s.startDate)} → {utcDate(s.endDate)}
+                  <p className="mt-3 text-[12px] leading-6 text-muted">
+                    {utcDate(s.startDate)} تا {utcDate(s.endDate)}
                   </p>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line">
                     <div className="h-full bg-accent" style={{ width: `${progress * 100}%` }} />
                   </div>
-                  <p className="mt-1 text-[11.5px] text-muted">
-                    Replay at {utcDateTime(s.cursor)} UTC
+                  <p className="mt-1 text-[11.5px] leading-5 text-muted">
+                    بازپخش در {utcDateTime(s.cursor)}
+                    <span className="text-[11px]"> · ساعت جهانی</span>
                   </p>
                   <dl className="mt-3 grid grid-cols-3 gap-2 text-[12px]">
                     <div>
-                      <dt className="text-muted">Balance</dt>
+                      <dt className="text-muted">موجودی</dt>
                       <dd className="font-semibold tabular-nums">{money(s.balance)}</dd>
                     </div>
                     <div>
-                      <dt className="text-muted">P&L</dt>
+                      <dt className="text-muted">سود و زیان</dt>
                       <dd className={`font-semibold tabular-nums ${pnlClass(pnl)}`}>
-                        {signedMoney(pnl)} ({((pnl / s.startingBalance) * 100).toFixed(2)}%)
+                        {signedMoney(pnl)} ({faNum((pnl / s.startingBalance) * 100, 2)}٪)
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-muted">Trades</dt>
-                      <dd className="font-semibold tabular-nums">{s.trades}</dd>
+                      <dt className="text-muted">معاملات</dt>
+                      <dd className="font-semibold tabular-nums">{faNum(s.trades)}</dd>
                     </div>
                   </dl>
                   <div className="mt-4 flex flex-wrap gap-1.5">
@@ -127,25 +132,25 @@ export default function SessionsPage() {
                       className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-[13px] font-medium text-accent-fg hover:brightness-110"
                       data-testid="open-session"
                     >
-                      {s.status === 'in-progress' ? 'Continue' : 'Open'}
+                      {s.status === 'in-progress' ? 'ادامه' : 'باز کردن'}
                     </Link>
                     <Link
                       href={`/backtest/${s.id}/analytics`}
                       className="inline-flex h-8 items-center rounded-md border border-line px-3 text-[13px] hover:bg-hover"
                     >
-                      Analytics
+                      عملکرد
                     </Link>
                     <Link
                       href={`/backtest/${s.id}/journal`}
                       className="inline-flex h-8 items-center rounded-md border border-line px-3 text-[13px] hover:bg-hover"
                     >
-                      Journal
+                      دفتر
                     </Link>
                     <div className="flex-1" />
                     <button
                       type="button"
-                      title="Duplicate"
-                      aria-label={`Duplicate ${s.name}`}
+                      title="کپی جلسه"
+                      aria-label={`کپی ${s.name}`}
                       onClick={() => void duplicate(s.id)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-fg"
                     >
@@ -153,8 +158,8 @@ export default function SessionsPage() {
                     </button>
                     <button
                       type="button"
-                      title="Delete"
-                      aria-label={`Delete ${s.name}`}
+                      title="حذف"
+                      aria-label={`حذف ${s.name}`}
                       onClick={() => setDeleting(s)}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-down"
                     >
@@ -177,13 +182,13 @@ export default function SessionsPage() {
       ) : null}
       {deleting ? (
         <Dialog
-          title="Delete session?"
+          title="جلسه حذف شود؟"
           onClose={() => setDeleting(null)}
           width={420}
           footer={
             <>
               <div className="flex-1" />
-              <Button onClick={() => setDeleting(null)}>Cancel</Button>
+              <Button onClick={() => setDeleting(null)}>انصراف</Button>
               <Button
                 variant="danger"
                 onClick={() => {
@@ -192,14 +197,14 @@ export default function SessionsPage() {
                   void services.repo.remove(id).then(refresh);
                 }}
               >
-                Delete
+                حذف
               </Button>
             </>
           }
         >
-          <p className="p-5 text-[13px]">
-            “{deleting.name}” and its {deleting.trades} trades, journal and screenshots will be
-            deleted. This cannot be undone.
+          <p className="p-5 text-[13px] leading-6">
+            «{deleting.name}» به همراه {faNum(deleting.trades)} معامله، یادداشت‌ها و تصویرها پاک
+            می‌شود. این کار برگشت‌پذیر نیست.
           </p>
         </Dialog>
       ) : null}

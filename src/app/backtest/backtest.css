@@ -1,0 +1,25 @@
+/* Persian chrome for /backtest. The chart island stays dir=ltr (see ChartWorkspace). */
+
+html.bt-fa,
+html.bt-fa body {
+  font-family: Vazirmatn, Tahoma, sans-serif;
+}
+
+/* Persian digits for any Latin digits still rendered by the font. */
+html.bt-fa body {
+  font-feature-settings: 'ss01';
+}
+
+/* Numbers stay a single left-to-right unit so signs, $ and decimals do not split. */
+html.bt-fa .tabular-nums {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* Letter-spacing tuned for Latin looks broken on Persian. */
+html.bt-fa .tracking-tight,
+html.bt-fa .tracking-wider,
+html.bt-fa .uppercase {
+  letter-spacing: 0;
+  text-transform: none;
+}

@@ -5,10 +5,20 @@ import { rMultiple, type Trade } from '@/lib/backtest';
 import { Icon } from '../ui/Icon';
 import { captureChart } from './capture';
 import { useBacktest } from './context';
-import { EXIT_REASON_LABEL, lots, money, num, pnlClass, signedMoney, utcDateTime } from './format';
+import {
+  EXIT_REASON_LABEL,
+  SIDE_FA,
+  faNum,
+  lots,
+  money,
+  num,
+  pnlClass,
+  signedMoney,
+  utcDateTime,
+} from './format';
 import { useBacktestStore } from './store';
 
-const th = 'px-2 py-1.5 text-left font-medium text-muted whitespace-nowrap';
+const th = 'px-2 py-1.5 text-start font-medium text-muted whitespace-nowrap';
 const td = 'px-2 py-1 whitespace-nowrap tabular-nums';
 const act =
   'inline-flex h-6 items-center rounded px-1.5 text-[12px] text-muted hover:bg-hover hover:text-fg disabled:opacity-40';
@@ -26,20 +36,20 @@ export function TradingPanel() {
   if (!snap || panelHidden) return null;
   const p = c.spec.pricePrecision;
   const tabs = [
-    { id: 'positions' as const, label: `Positions (${snap.positions.length})` },
-    { id: 'orders' as const, label: `Orders (${snap.orders.length})` },
-    { id: 'history' as const, label: `History (${snap.trades.length})` },
+    { id: 'positions' as const, label: `معاملات باز (${faNum(snap.positions.length)})` },
+    { id: 'orders' as const, label: `سفارش‌ها (${faNum(snap.orders.length)})` },
+    { id: 'history' as const, label: `تاریخچه (${faNum(snap.trades.length)})` },
   ];
   const active = snap.status === 'active';
   return (
     <section
-      aria-label="Trading panel"
+      aria-label="پنل معاملات"
       className="flex shrink-0 flex-col border-t border-line bg-panel text-[12.5px]"
     >
       <div className="flex h-9 items-center gap-1 overflow-x-auto px-2">
         <button
           type="button"
-          aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+          aria-label={collapsed ? 'باز کردن پنل' : 'جمع کردن پنل'}
           onClick={() => setCollapsed((v) => !v)}
           className="inline-flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-hover"
         >
@@ -47,8 +57,8 @@ export function TradingPanel() {
         </button>
         <button
           type="button"
-          aria-label="Hide panel"
-          title="Hide panel"
+          aria-label="پنهان کردن پنل"
+          title="پنهان کردن پنل"
           data-testid="hide-trading-panel"
           onClick={() => setPanelHidden(true)}
           className="inline-flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-hover"
@@ -73,22 +83,22 @@ export function TradingPanel() {
           ))}
         </div>
         <div className="flex-1" />
-        <Summary label="Balance" value={money(snap.balance)} testId="bt-balance" />
-        <Summary label="Equity" value={money(snap.equity)} testId="bt-equity" />
+        <Summary label="موجودی" value={money(snap.balance)} testId="bt-balance" />
+        <Summary label="ارزش خالص" value={money(snap.equity)} testId="bt-equity" />
         <Summary
-          label="Floating P&L"
+          label="سود شناور"
           value={signedMoney(snap.floating)}
           cls={pnlClass(snap.floating)}
           testId="bt-floating"
         />
         <Summary
-          label="Realized P&L"
+          label="سود قطعی"
           value={signedMoney(snap.realized)}
           cls={pnlClass(snap.realized)}
         />
         <Summary
-          label="Win rate"
-          value={snap.trades.length ? `${(snap.winRate * 100).toFixed(1)}%` : '—'}
+          label="نرخ برد"
+          value={snap.trades.length ? `${faNum(snap.winRate * 100, 1)}٪` : '—'}
         />
       </div>
       {collapsed ? null : (
@@ -99,16 +109,16 @@ export function TradingPanel() {
                 <tr>
                   {[
                     '#',
-                    'Symbol',
-                    'Side',
-                    'Volume',
-                    'Entry',
-                    'Current',
-                    'SL',
-                    'TP',
-                    'Pips',
-                    'P&L',
-                    'Opened',
+                    'نماد',
+                    'جهت',
+                    'حجم',
+                    'ورود',
+                    'فعلی',
+                    'حد ضرر',
+                    'حد سود',
+                    'پیپ',
+                    'سود',
+                    'زمان ورود',
                     '',
                   ].map((h) => (
                     <th key={h} className={th}>
@@ -125,30 +135,30 @@ export function TradingPanel() {
                     <td
                       className={`${td} font-semibold ${x.side === 'buy' ? 'text-accent' : 'text-down'}`}
                     >
-                      {x.side.toUpperCase()}
+                      {SIDE_FA[x.side]}
                     </td>
                     <td className={td}>{lots(x.volume)}</td>
                     <td className={td}>{num(x.entryPrice, p)}</td>
                     <td className={td}>{num(x.current, p)}</td>
                     <td className={td}>
                       {num(x.sl, p)}
-                      {x.breakEven ? ' (BE)' : ''}
+                      {x.breakEven ? ' (سربه‌سر)' : ''}
                     </td>
                     <td className={td}>{num(x.tp, p)}</td>
-                    <td className={`${td} ${pnlClass(x.pips)}`}>{x.pips.toFixed(1)}</td>
+                    <td className={`${td} ${pnlClass(x.pips)}`}>{faNum(x.pips, 1)}</td>
                     <td className={`${td} font-semibold ${pnlClass(x.floating)}`}>
                       {signedMoney(x.floating)}
                     </td>
                     <td className={td}>{utcDateTime(x.entryTime)}</td>
-                    <td className={`${td} text-right`}>
+                    <td className={`${td} text-end`}>
                       <button
                         type="button"
                         className={act}
                         disabled={!active}
                         onClick={() => c.trading.breakEven(x.id)}
-                        title="Move stop loss to entry"
+                        title="انتقال حد ضرر به قیمت ورود"
                       >
-                        BE
+                        سربه‌سر
                       </button>
                       <button
                         type="button"
@@ -156,7 +166,7 @@ export function TradingPanel() {
                         disabled={!active}
                         onClick={() => openModal({ type: 'partial-close', positionId: x.id })}
                       >
-                        Partial
+                        بستن جزئی
                       </button>
                       <button
                         type="button"
@@ -164,14 +174,14 @@ export function TradingPanel() {
                         disabled={!active}
                         onClick={() => openModal({ type: 'edit-position', positionId: x.id })}
                       >
-                        Edit
+                        ویرایش
                       </button>
                       <button
                         type="button"
                         className={act}
                         disabled={!active}
                         onClick={() => c.trading.close(x.id)}
-                        aria-label={`Close position ${x.id}`}
+                        aria-label={`بستن معامله ${x.id}`}
                         data-testid={`close-${x.id}`}
                       >
                         ✕
@@ -183,14 +193,14 @@ export function TradingPanel() {
               {snap.positions.length > 1 ? (
                 <tfoot>
                   <tr>
-                    <td colSpan={12} className="px-2 py-1 text-right">
+                    <td colSpan={12} className="px-2 py-1 text-end">
                       <button
                         type="button"
                         className={act}
                         disabled={!active}
                         onClick={() => c.trading.closeAll()}
                       >
-                        Close all
+                        بستن همه
                       </button>
                     </td>
                   </tr>
@@ -202,7 +212,7 @@ export function TradingPanel() {
             <table className="w-full">
               <thead className="sticky top-0 bg-panel">
                 <tr>
-                  {['#', 'Symbol', 'Type', 'Volume', 'Price', 'SL', 'TP', 'Placed', ''].map((h) => (
+                  {['#', 'نماد', 'نوع', 'حجم', 'قیمت', 'حد ضرر', 'حد سود', 'زمان ثبت', ''].map((h) => (
                     <th key={h} className={th}>
                       {h}
                     </th>
@@ -217,28 +227,28 @@ export function TradingPanel() {
                     <td
                       className={`${td} font-semibold ${o.side === 'buy' ? 'text-accent' : 'text-down'}`}
                     >
-                      {o.side === 'buy' ? 'Buy' : 'Sell'} {o.kind === 'limit' ? 'Limit' : 'Stop'}
+                      {o.side === 'buy' ? 'خرید' : 'فروش'} {o.kind === 'limit' ? 'لیمیت' : 'استاپ'}
                     </td>
                     <td className={td}>{lots(o.volume)}</td>
                     <td className={td}>{num(o.price, p)}</td>
                     <td className={td}>{num(o.sl, p)}</td>
                     <td className={td}>{num(o.tp, p)}</td>
                     <td className={td}>{utcDateTime(o.placedAt)}</td>
-                    <td className={`${td} text-right`}>
+                    <td className={`${td} text-end`}>
                       <button
                         type="button"
                         className={act}
                         disabled={!active}
                         onClick={() => openModal({ type: 'edit-order', orderId: o.id })}
                       >
-                        Edit
+                        ویرایش
                       </button>
                       <button
                         type="button"
                         className={act}
                         disabled={!active}
                         onClick={() => c.trading.cancel(o.id)}
-                        aria-label={`Cancel order ${o.id}`}
+                        aria-label={`لغو سفارش ${o.id}`}
                       >
                         ✕
                       </button>
@@ -249,14 +259,14 @@ export function TradingPanel() {
               {snap.orders.length > 1 ? (
                 <tfoot>
                   <tr>
-                    <td colSpan={9} className="px-2 py-1 text-right">
+                    <td colSpan={9} className="px-2 py-1 text-end">
                       <button
                         type="button"
                         className={act}
                         disabled={!active}
                         onClick={() => c.trading.cancelAll()}
                       >
-                        Cancel all
+                        لغو همه
                       </button>
                     </td>
                   </tr>
@@ -270,10 +280,10 @@ export function TradingPanel() {
           (tab === 'history' && snap.trades.length === 0) ? (
             <p className="p-4 text-center text-muted">
               {tab === 'positions'
-                ? 'No open positions'
+                ? 'معاملهٔ بازی ندارید'
                 : tab === 'orders'
-                  ? 'No pending orders'
-                  : 'No closed trades yet'}
+                  ? 'سفارش معلقی ندارید'
+                  : 'هنوز معامله‌ای بسته نشده'}
             </p>
           ) : null}
         </div>
@@ -297,19 +307,19 @@ function HistoryTable({
         <tr>
           {[
             '#',
-            'Side',
-            'Volume',
-            'Entry time',
-            'Entry',
-            'Exit time',
-            'Exit',
-            'SL',
-            'TP',
-            'Pips',
-            'Commission',
-            'P&L',
+            'جهت',
+            'حجم',
+            'زمان ورود',
+            'ورود',
+            'زمان خروج',
+            'خروج',
+            'حد ضرر',
+            'حد سود',
+            'پیپ',
+            'کارمزد',
+            'سود',
             'R',
-            'Exit reason',
+            'علت خروج',
             '',
           ].map((h) => (
             <th key={h} className={th}>
@@ -329,7 +339,7 @@ function HistoryTable({
               <td
                 className={`${td} font-semibold ${t.side === 'buy' ? 'text-accent' : 'text-down'}`}
               >
-                {t.side.toUpperCase()}
+                {SIDE_FA[t.side]}
               </td>
               <td className={td}>{lots(t.initialVolume)}</td>
               <td className={td}>{utcDateTime(t.entryTime)}</td>
@@ -338,30 +348,32 @@ function HistoryTable({
               <td className={td}>{num(t.closePrice, precision)}</td>
               <td className={td}>{num(t.initialSl, precision)}</td>
               <td className={td}>{num(t.initialTp, precision)}</td>
-              <td className={`${td} ${pnlClass(pips)}`}>{pips.toFixed(1)}</td>
+              <td className={`${td} ${pnlClass(pips)}`}>{faNum(pips, 1)}</td>
               <td className={td}>{money(t.commission)}</td>
               <td className={`${td} font-semibold ${pnlClass(t.netPnl)}`}>
                 {signedMoney(t.netPnl)}
               </td>
               <td className={`${td} ${pnlClass(r ?? 0)}`}>
-                {r === null ? '—' : `${r.toFixed(2)}R`}
+                {r === null ? '—' : `${faNum(r, 2)}R`}
               </td>
               <td className={td}>
-                {t.exits.length > 1 ? `${t.exits.length} exits · ` : ''}
+                {t.exits.length > 1 ? `${faNum(t.exits.length)} خروج · ` : ''}
                 {EXIT_REASON_LABEL[t.closeReason]}
               </td>
-              <td className={`${td} text-right`}>
+              <td className={`${td} text-end`}>
                 <button
                   type="button"
                   className={act}
-                  title="Save a screenshot of the chart to this trade's journal"
-                  aria-label={`Screenshot for trade ${t.id}`}
+                  title="ذخیره تصویر نمودار در دفتر این معامله"
+                  aria-label={`تصویر معامله ${t.id}`}
                   onClick={() => {
                     const shot = captureChart();
                     if (shot)
                       void c
                         .addScreenshot(t.id, shot)
-                        .then(() => c.notice('success', `Screenshot added to trade #${t.id}`));
+                        .then(() =>
+                          c.notice('success', `تصویر به دفتر معامله ${faNum(Number(t.id))} اضافه شد`),
+                        );
                   }}
                 >
                   <Icon name="camera" size={14} />

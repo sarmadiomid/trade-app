@@ -33,34 +33,34 @@ export function backtestShortcuts(get: Get): Array<ShortcutDefinition<ChartApp>>
     },
   });
   return [
-    def('next', ['Ctrl+Space'], 'Emit next candle', (c) => void c.next(), true),
-    def('play', ['Alt+1'], 'Play / pause', (c) => c.togglePlay()),
-    def('freq-down', ['Alt+2'], 'Decrease frequency', (c) => c.shiftFrequency(-1)),
-    def('freq-up', ['Alt+3'], 'Increase frequency', (c) => c.shiftFrequency(1)),
-    def('ticker-down', ['Alt+4'], 'Decrease ticker value', (c) => c.shiftTickerValue(-1)),
-    def('ticker-up', ['Alt+5'], 'Increase ticker value', (c) => c.shiftTickerValue(1)),
-    def('rewind', ['Alt+Z'], 'Rewind one candle', (c) => c.requestRewind(), true),
-    def('new-order', ['Alt+,'], 'New order', (c) =>
+    def('next', ['Ctrl+Space'], 'کندل بعدی', (c) => void c.next(), true),
+    def('play', ['Alt+1'], 'پخش / مکث', (c) => c.togglePlay()),
+    def('freq-down', ['Alt+2'], 'کم کردن سرعت پخش', (c) => c.shiftFrequency(-1)),
+    def('freq-up', ['Alt+3'], 'زیاد کردن سرعت پخش', (c) => c.shiftFrequency(1)),
+    def('ticker-down', ['Alt+4'], 'کوچک کردن گام کندل', (c) => c.shiftTickerValue(-1)),
+    def('ticker-up', ['Alt+5'], 'بزرگ کردن گام کندل', (c) => c.shiftTickerValue(1)),
+    def('rewind', ['Alt+Z'], 'یک کندل به عقب', (c) => c.requestRewind(), true),
+    def('new-order', ['Alt+,'], 'سفارش جدید', (c) =>
       c.command({ type: 'order-ticket', orderType: null }),
     ),
-    def('new-limit', ['Alt+B'], 'New limit order', (c) =>
+    def('new-limit', ['Alt+B'], 'سفارش لیمیت', (c) =>
       c.command({ type: 'order-ticket', orderType: 'limit' }),
     ),
-    def('new-stop', ['Alt+N'], 'New stop order', (c) =>
+    def('new-stop', ['Alt+N'], 'سفارش استاپ', (c) =>
       c.command({ type: 'order-ticket', orderType: 'stop' }),
     ),
-    def('new-market', ['Alt+M'], 'New market order', (c) =>
+    def('new-market', ['Alt+M'], 'سفارش بازار', (c) =>
       c.command({ type: 'order-ticket', orderType: 'market' }),
     ),
     def(
       'prop-rules',
       ['Tab'],
-      'Prop Firm Rules panel',
+      'قوانین پراپ',
       (c) => c.command({ type: 'prop-rules' }),
       false,
       (c) => c.session.settings.type === 'prop',
     ),
-    def('shortcut-list', ['Ctrl+Alt+H', 'Ctrl+Shift+H'], 'Show shortcuts', (c) =>
+    def('shortcut-list', ['Ctrl+Alt+H', 'Ctrl+Shift+H'], 'نمایش میانبرها', (c) =>
       c.command({ type: 'shortcuts' }),
     ),
   ];

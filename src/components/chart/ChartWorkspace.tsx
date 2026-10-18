@@ -110,7 +110,7 @@ export default function ChartWorkspace({
 
   return (
     <AppContext.Provider value={app}>
-      <div className="flex h-full w-full flex-col bg-chart text-fg">
+      <div dir="ltr" className="flex h-full w-full flex-col bg-chart text-fg">
         {app ? (
           <TopToolbar
             end={toolbarEnd}

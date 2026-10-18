@@ -294,8 +294,8 @@ export class BacktestController {
   /** Go to: forward jump to `time`, processing every minute in between. */
   async goTo(time: number): Promise<string | null> {
     const target = Math.min(time, this.end);
-    if (target <= this.cursor) return 'Go to only moves forward. Use rewind to go back.';
-    if (this.ended) return 'This session has ended';
+    if (target <= this.cursor) return 'پرش فقط به جلو است. برای برگشت از بازگردانی استفاده کنید.';
+    if (this.ended) return 'این جلسه تمام شده است';
     this.pause();
     const from = this.cursor;
     await this.withLoading(async () => {

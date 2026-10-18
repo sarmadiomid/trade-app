@@ -19,9 +19,13 @@ import { Icon } from '../ui/Icon';
 import {
   duration,
   EXIT_REASON_LABEL,
+  faNum,
   lots,
   num,
+  ORDER_KIND_FA,
   pnlClass,
+  SESSION_FA,
+  SIDE_FA,
   signedMoney,
   utcDateTime,
 } from './format';
@@ -63,14 +67,14 @@ export default function JournalView({ id }: { readonly id: string }) {
 
   if (state.status === 'loading')
     return (
-      <div className="flex h-full items-center justify-center bg-chart text-muted">Loading…</div>
+      <div className="flex h-full items-center justify-center bg-chart text-muted">در حال بارگذاری…</div>
     );
   if (!ready)
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-chart text-fg">
-        <p className="text-muted">This session does not exist.</p>
+        <p className="text-muted">این جلسه وجود ندارد.</p>
         <Link href="/backtest" className="text-accent">
-          Back to sessions
+          بازگشت به جلسه‌ها
         </Link>
       </div>
     );
@@ -85,80 +89,80 @@ export default function JournalView({ id }: { readonly id: string }) {
           href="/backtest"
           className="inline-flex items-center gap-1 text-[13px] text-muted hover:text-fg"
         >
-          <Icon name="chevronLeft" size={16} /> Sessions
+          <Icon name="chevronLeft" size={16} className="rtl:-scale-x-100" /> جلسه‌ها
         </Link>
         <h1 className="truncate text-[15px] font-semibold">
-          {ready.session.settings.name} · Journal
+          {ready.session.settings.name} · دفتر معاملات
         </h1>
         <div className="flex-1" />
         <Link
           href={`/backtest/${id}/analytics`}
           className="inline-flex h-8 items-center rounded-md border border-line px-3 text-[13px] hover:bg-hover"
         >
-          Analytics
+          عملکرد
         </Link>
         <Link
           href={`/backtest/${id}`}
           className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-[13px] font-medium text-accent-fg"
         >
-          Open chart
+          باز کردن نمودار
         </Link>
       </header>
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-panel px-5 py-2 text-[13px]">
         <input
-          aria-label="Search notes and tags"
-          placeholder="Search words, tags or phrases…"
+          aria-label="جستجو در یادداشت و برچسب"
+          placeholder="جستجوی کلمه، برچسب یا عبارت…"
           className={`${sel} w-64`}
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select
-          aria-label="Side"
+          aria-label="جهت"
           className={sel}
           value={side}
           onChange={(e) => setSide(e.target.value)}
         >
-          <option value="">All sides</option>
-          <option value="buy">Long</option>
-          <option value="sell">Short</option>
+          <option value="">همه جهت‌ها</option>
+          <option value="buy">خرید</option>
+          <option value="sell">فروش</option>
         </select>
         <select
-          aria-label="Outcome"
+          aria-label="نتیجه"
           className={sel}
           value={outcome}
           onChange={(e) => setOutcome(e.target.value)}
         >
-          <option value="">All outcomes</option>
-          <option value="win">Wins</option>
-          <option value="loss">Losses</option>
-          <option value="breakeven">Break even</option>
+          <option value="">همه نتایج</option>
+          <option value="win">سود</option>
+          <option value="loss">ضرر</option>
+          <option value="breakeven">سربه‌سر</option>
         </select>
         <select
-          aria-label="Tag"
+          aria-label="برچسب"
           className={sel}
           value={tag}
           onChange={(e) => setTag(e.target.value)}
         >
-          <option value="">All tags</option>
+          <option value="">همه برچسب‌ها</option>
           {allTags.map((t) => (
             <option key={t}>{t}</option>
           ))}
         </select>
         <select
-          aria-label="Trading session"
+          aria-label="سشن معاملاتی"
           className={sel}
           value={tsession}
           onChange={(e) => setTsession(e.target.value)}
         >
-          <option value="">All trading sessions</option>
+          <option value="">همه سشن‌ها</option>
           {TRADING_SESSIONS.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.label}
+              {SESSION_FA[s.id] ?? s.label} ({faNum(s.from)}:۰۰ تا {faNum(s.to)}:۰۰ جهانی)
             </option>
           ))}
         </select>
         <span className="text-muted">
-          {trades.length} trades{open.length ? ` · ${open.length} open` : ''}
+          {faNum(trades.length)} معامله{open.length ? ` · ${faNum(open.length)} باز` : ''}
         </span>
       </div>
       <div className="flex min-h-0 flex-1">
@@ -168,22 +172,22 @@ export default function JournalView({ id }: { readonly id: string }) {
               <tr>
                 {[
                   '#',
-                  'Closed',
-                  'Side',
-                  'Volume',
-                  'Entry',
-                  'Exit',
-                  'P&L',
+                  'بسته‌شدن',
+                  'جهت',
+                  'حجم',
+                  'ورود',
+                  'خروج',
+                  'سود',
                   'R',
-                  'Duration',
-                  'Exit',
-                  'Session',
-                  'Tags',
-                  'Notes',
+                  'مدت',
+                  'علت',
+                  'سشن',
+                  'برچسب',
+                  'یادداشت',
                 ].map((h, i) => (
                   <th
                     key={`${h}${i}`}
-                    className="whitespace-nowrap px-2 py-2 text-left font-medium"
+                    className="whitespace-nowrap px-2 py-2 text-start font-medium"
                   >
                     {h}
                   </th>
@@ -200,12 +204,12 @@ export default function JournalView({ id }: { readonly id: string }) {
                     onClick={() => setSelected(t.id)}
                     className={`cursor-pointer border-t border-line/60 hover:bg-hover/50 ${selected === t.id ? 'bg-hover' : ''}`}
                   >
-                    <td className="px-2 py-1.5">{t.id}</td>
+                    <td className="px-2 py-1.5">{faNum(Number(t.id))}</td>
                     <td className="whitespace-nowrap px-2">{utcDateTime(t.closeTime)}</td>
                     <td
                       className={`px-2 font-semibold ${t.side === 'buy' ? 'text-accent' : 'text-down'}`}
                     >
-                      {t.side.toUpperCase()}
+                      {SIDE_FA[t.side]}
                     </td>
                     <td className="px-2 tabular-nums">{lots(t.initialVolume)}</td>
                     <td className="px-2 tabular-nums">{num(t.entryPrice, p)}</td>
@@ -213,19 +217,19 @@ export default function JournalView({ id }: { readonly id: string }) {
                     <td className={`px-2 font-semibold tabular-nums ${pnlClass(t.netPnl)}`}>
                       {signedMoney(t.netPnl)}
                     </td>
-                    <td className="px-2 tabular-nums">{r === null ? '—' : `${r.toFixed(2)}R`}</td>
+                    <td className="px-2 tabular-nums">{r === null ? '—' : `${faNum(r, 2)}R`}</td>
                     <td className="whitespace-nowrap px-2">
                       {duration(t.closeTime - t.entryTime)}
                     </td>
                     <td className="px-2">{EXIT_REASON_LABEL[t.closeReason]}</td>
                     <td className="px-2">
-                      {TRADING_SESSIONS.find((s) => s.id === tradingSessionOf(t.entryTime))?.label}
+                      {SESSION_FA[tradingSessionOf(t.entryTime)] ?? ''}
                     </td>
                     <td className="px-2">
                       {j.tags.map((x) => (
                         <span
                           key={x}
-                          className="mr-1 rounded bg-accent/15 px-1 text-[11px] text-accent"
+                          className="me-1 rounded bg-accent/15 px-1 text-[11px] text-accent"
                         >
                           {x}
                         </span>
@@ -239,7 +243,7 @@ export default function JournalView({ id }: { readonly id: string }) {
           </table>
           {trades.length === 0 ? (
             <p className="p-8 text-center text-muted">
-              No trades match. Every trade you close in the session is journaled automatically.
+              معامله‌ای با این فیلتر پیدا نشد. هر معامله‌ای که در جلسه ببندید خودش به دفتر می‌آید.
             </p>
           ) : null}
         </div>
@@ -314,7 +318,7 @@ function TradeDetail({
   const row = (k: string, v: React.ReactNode) => (
     <>
       <dt className="text-muted">{k}</dt>
-      <dd className="text-right tabular-nums">{v}</dd>
+      <dd className="text-end tabular-nums">{v}</dd>
     </>
   );
   const addTag = () => {
@@ -325,19 +329,17 @@ function TradeDetail({
   };
   return (
     <aside
-      className="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-line bg-panel p-4 text-[12.5px]"
-      aria-label={`Trade ${t.id}`}
+      className="flex w-96 shrink-0 flex-col overflow-y-auto border-s border-line bg-panel p-4 text-[12.5px]"
+      aria-label={`معامله ${t.id}`}
     >
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-[14px] font-semibold">
-          Trade #{t.id} ·{' '}
-          <span className={t.side === 'buy' ? 'text-accent' : 'text-down'}>
-            {t.side === 'buy' ? 'Long' : 'Short'}
-          </span>
+          معامله {faNum(Number(t.id))} ·{' '}
+          <span className={t.side === 'buy' ? 'text-accent' : 'text-down'}>{SIDE_FA[t.side]}</span>
         </h2>
         <button
           type="button"
-          aria-label="Close"
+          aria-label="بستن"
           onClick={onClose}
           className="inline-flex h-7 w-7 items-center justify-center rounded text-muted hover:bg-hover"
         >
@@ -345,20 +347,20 @@ function TradeDetail({
         </button>
       </div>
       <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-        {row('Net P&L', <span className={pnlClass(t.netPnl)}>{signedMoney(t.netPnl)}</span>)}
-        {row('Gross / fees', `${signedMoney(t.grossPnl)} / ${signedMoney(-t.commission)}`)}
-        {row('R multiple', r === null ? '—' : `${r.toFixed(2)}R`)}
-        {row('Planned R:R', rr === null ? '—' : `1 : ${rr.toFixed(2)}`)}
-        {row('Entry', `${num(t.entryPrice, precision)} · ${t.entryKind}`)}
-        {row('Opened', utcDateTime(t.entryTime))}
-        {row('Exit (avg)', num(t.closePrice, precision))}
-        {row('Closed', utcDateTime(t.closeTime))}
-        {row('Duration', duration(t.closeTime - t.entryTime))}
-        {row('Size', `${lots(t.initialVolume)} lots`)}
-        {row('Initial SL / TP', `${num(t.initialSl, precision)} / ${num(t.initialTp, precision)}`)}
-        {row('MAE / MFE', exc ? `${exc.mae.toFixed(2)}R / ${exc.mfe.toFixed(2)}R` : '—')}
+        {row('سود خالص', <span className={pnlClass(t.netPnl)}>{signedMoney(t.netPnl)}</span>)}
+        {row('ناخالص / کارمزد', `${signedMoney(t.grossPnl)} / ${signedMoney(-t.commission)}`)}
+        {row('ضریب R', r === null ? '—' : `${faNum(r, 2)}R`)}
+        {row('ریسک به ریوارد برنامه', rr === null ? '—' : `۱ : ${faNum(rr, 2)}`)}
+        {row('ورود', `${num(t.entryPrice, precision)} · ${ORDER_KIND_FA[t.entryKind] ?? t.entryKind}`)}
+        {row('زمان ورود', utcDateTime(t.entryTime))}
+        {row('خروج (میانگین)', num(t.closePrice, precision))}
+        {row('زمان خروج', utcDateTime(t.closeTime))}
+        {row('مدت', duration(t.closeTime - t.entryTime))}
+        {row('حجم', `${lots(t.initialVolume)} لات`)}
+        {row('حد ضرر / حد سود اولیه', `${num(t.initialSl, precision)} / ${num(t.initialTp, precision)}`)}
+        {row('بیشترین ضرر / بیشترین سود مسیر', exc ? `${faNum(exc.mae, 2)}R / ${faNum(exc.mfe, 2)}R` : '—')}
       </dl>
-      <h3 className="mb-1 mt-3 font-semibold">Exits</h3>
+      <h3 className="mb-1 mt-3 font-semibold">خروج‌ها</h3>
       {t.exits.map((x, i) => (
         <div key={i} className="flex justify-between border-t border-line/60 py-0.5 tabular-nums">
           <span>
@@ -367,15 +369,15 @@ function TradeDetail({
           <span className={pnlClass(x.pnl)}>{signedMoney(x.pnl - x.commission)}</span>
         </div>
       ))}
-      <h3 className="mb-1 mt-3 font-semibold">Confidence</h3>
-      <div className="flex gap-1" role="radiogroup" aria-label="Confidence">
+      <h3 className="mb-1 mt-3 font-semibold">اطمینان</h3>
+      <div className="flex gap-1" role="radiogroup" aria-label="اطمینان">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             type="button"
             role="radio"
             aria-checked={entry.confidence === n}
-            aria-label={`${n} of 5`}
+            aria-label={`${faNum(n)} از ۵`}
             onClick={() => void onSave({ confidence: entry.confidence === n ? null : n })}
             className={(entry.confidence ?? 0) >= n ? 'text-[#f7a600]' : 'text-muted'}
           >
@@ -383,7 +385,7 @@ function TradeDetail({
           </button>
         ))}
       </div>
-      <h3 className="mb-1 mt-3 font-semibold">Tags</h3>
+      <h3 className="mb-1 mt-3 font-semibold">برچسب‌ها</h3>
       <div className="flex flex-wrap gap-1">
         {entry.tags.map((x) => (
           <span
@@ -393,7 +395,7 @@ function TradeDetail({
             {x}
             <button
               type="button"
-              aria-label={`Remove tag ${x}`}
+              aria-label={`حذف برچسب ${x}`}
               onClick={() => void onSave({ tags: entry.tags.filter((y) => y !== x) })}
             >
               ×
@@ -403,25 +405,25 @@ function TradeDetail({
       </div>
       <div className="mt-1 flex gap-1">
         <input
-          aria-label="New tag"
-          placeholder="Add a tag (e.g. A+ setup)"
+          aria-label="برچسب جدید"
+          placeholder="مثلاً ستاپ الف"
           className={`${sel} flex-1`}
           value={tagText}
           onChange={(e) => setTagText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTag()}
         />
-        <Button onClick={addTag}>Add</Button>
+        <Button onClick={addTag}>افزودن</Button>
       </div>
-      <h3 className="mb-1 mt-3 font-semibold">Notes</h3>
+      <h3 className="mb-1 mt-3 font-semibold">یادداشت</h3>
       <textarea
-        aria-label="Notes"
+        aria-label="یادداشت"
         className="min-h-28 w-full rounded-md border border-line bg-chart p-2 text-fg outline-none focus:border-accent"
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         onBlur={() => notes !== entry.notes && void onSave({ notes })}
-        placeholder="Why you took it, how you managed it, what you learned…"
+        placeholder="چرا وارد شدید، چطور مدیریت کردید، چه چیزی یاد گرفتید…"
       />
-      <h3 className="mb-1 mt-3 font-semibold">Screenshots</h3>
+      <h3 className="mb-1 mt-3 font-semibold">تصویرها</h3>
       <div className="grid grid-cols-2 gap-2">
         {shots.map((s) => (
           <a key={s.id} href={s.url} target="_blank" rel="noreferrer">
@@ -429,14 +431,14 @@ function TradeDetail({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={s.url}
-              alt={`Screenshot of trade ${t.id}`}
+              alt={`تصویر معامله ${t.id}`}
               className="rounded border border-line"
             />
           </a>
         ))}
       </div>
       <label className="mt-2 inline-flex h-8 cursor-pointer items-center gap-1.5 self-start rounded-md border border-line px-3 hover:bg-hover">
-        <Icon name="camera" size={15} /> Add image
+        <Icon name="camera" size={15} /> افزودن تصویر
         <input
           type="file"
           accept="image/*"
@@ -452,7 +454,7 @@ function TradeDetail({
         />
       </label>
       <p className="mt-1 text-[11px] text-muted">
-        In the session, “📷” in the History tab captures the chart.
+        در خود جلسه، از تب تاریخچه می‌توانید تصویر نمودار را به همین معامله بچسبانید.
       </p>
     </aside>
   );

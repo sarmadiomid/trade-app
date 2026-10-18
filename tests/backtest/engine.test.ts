@@ -123,7 +123,7 @@ describe('market orders and P&L', () => {
       }),
     ];
     for (const r of bad) expect(r.ok).toBe(false);
-    expect(bad[3]).toMatchObject({ error: expect.stringContaining('below the current Ask') });
+    expect(bad[3]).toMatchObject({ error: expect.stringContaining('پایین‌تر از Ask فعلی') });
     expect(e.state.positions).toHaveLength(0);
     expect(e.state.orders).toHaveLength(0);
   });

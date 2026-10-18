@@ -202,19 +202,19 @@ export function validateSettings(
   s: SessionSettings,
   range: { start: number; end: number },
 ): string | null {
-  if (!s.name.trim()) return 'Session name is required';
-  if (s.name.length > 60) return 'Session name must be at most 60 characters';
-  if (!(s.startingBalance > 0)) return 'Account balance must be greater than 0';
-  if (s.startDate < range.start) return 'Start date is before the available data';
-  if (sessionEnd(s) > range.end) return 'End date is after the available data';
-  if (s.endDate < s.startDate) return 'End date must be on or after the start date';
-  if (s.spreadEnabled && !(s.spread >= 0)) return 'Spread must be 0 or more';
-  if (s.commissionEnabled && !(s.commissionPerLot >= 0)) return 'Commission must be 0 or more';
+  if (!s.name.trim()) return 'نام جلسه را وارد کنید';
+  if (s.name.length > 60) return 'نام جلسه حداکثر ۶۰ نویسه است';
+  if (!(s.startingBalance > 0)) return 'موجودی باید بیشتر از صفر باشد';
+  if (s.startDate < range.start) return 'تاریخ شروع قبل از دادهٔ موجود است';
+  if (sessionEnd(s) > range.end) return 'تاریخ پایان بعد از دادهٔ موجود است';
+  if (s.endDate < s.startDate) return 'تاریخ پایان باید همان روز شروع یا بعد از آن باشد';
+  if (s.spreadEnabled && !(s.spread >= 0)) return 'اسپرد نمی‌تواند منفی باشد';
+  if (s.commissionEnabled && !(s.commissionPerLot >= 0)) return 'کارمزد نمی‌تواند منفی باشد';
   if (s.type === 'prop') {
     const r = s.propRules;
-    if (!r) return 'Prop firm rules are required';
+    if (!r) return 'قوانین پراپ لازم است';
     for (const v of [r.profitTargetPct, r.maxDailyLossPct, r.maxTotalLossPct])
-      if (!(v > 0 && v < 100)) return 'Prop firm rules must be percentages between 0 and 100';
+      if (!(v > 0 && v < 100)) return 'قوانین پراپ باید درصدی بین ۰ و ۱۰۰ باشند';
   }
   return null;
 }
