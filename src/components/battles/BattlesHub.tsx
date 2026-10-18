@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNod
 import {
   RANKED_FORMATS,
   RANKS,
-  WIN_CONDITIONS,
   levelFor,
   rankFor,
   rankProgress,
@@ -16,6 +15,7 @@ import {
   type QueueStatus,
   type RankedFormat,
 } from '@/lib/battles';
+import { faNum } from '@/lib/locale/jalali';
 import { useThemeCssVars } from '../hooks/useThemeCssVars';
 import { AppHeader, initials } from '../platform/AppHeader';
 import { api, type Me } from '../platform/api';
@@ -25,23 +25,31 @@ import { NewBattleDialog } from './NewBattleDialog';
 import { RankEmblem } from './RankEmblem';
 import {
   ASSET_COLORS,
+  RANK_FA,
   STATUS,
+  WIN_FA,
   ago,
+  battleTitle,
+  clockFa,
   compactMoney,
+  faMessage,
+  minutes,
   ordinal,
   pctClass,
+  rankLabel,
   signed,
   signedPct,
+  traders,
   winConditionName,
 } from './format';
 
 type Tab = 'play' | 'browse' | 'mine' | 'leaderboard';
 
 const TABS: ReadonlyArray<{ id: Tab; label: string; icon: IconName }> = [
-  { id: 'play', label: 'Play', icon: 'bolt' },
-  { id: 'browse', label: 'Browse', icon: 'globe' },
-  { id: 'mine', label: 'My Battles', icon: 'list' },
-  { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
+  { id: 'play', label: 'بازی', icon: 'bolt' },
+  { id: 'browse', label: 'عمومی', icon: 'globe' },
+  { id: 'mine', label: 'نبردهای من', icon: 'list' },
+  { id: 'leaderboard', label: 'برترین‌ها', icon: 'trophy' },
 ];
 
 /** `/battle`: the Battles home: play (ranked matchmaking, custom battles), browse, history, leaderboard. */
@@ -84,20 +92,18 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
 
   return (
     <div className="h-full overflow-y-auto bg-chart text-fg">
-      <AppHeader user={{ ...user, name }} />
+      <AppHeader fa user={{ ...user, name }} />
       <div className="pointer-events-none absolute inset-x-0 top-14 h-80 bg-[radial-gradient(50%_90%_at_15%_0%,rgba(41,98,255,0.20),transparent_70%),radial-gradient(30%_70%_at_85%_0%,rgba(255,92,122,0.10),transparent_70%)]" />
       <main className="relative mx-auto max-w-[1400px] px-4 pb-16 pt-7 sm:px-6">
         <section className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.22em] text-accent">
-              Battles
-            </p>
-            <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight sm:text-[34px]">
-              Trade head-to-head
+            <p className="text-[12px] font-semibold text-accent">نبرد</p>
+            <h1 className="mt-1 text-[28px] font-bold leading-tight sm:text-[34px]">
+              معامله، رو در رو
             </h1>
-            <p className="mt-2 max-w-2xl text-[14px] leading-6 text-muted">
-              Every trader gets the same historical market, revealed candle by candle in real time.
-              Out-trade them on return, win ranked battles and climb from Rookie to Master.
+            <p className="mt-2 max-w-2xl text-[14px] leading-7 text-muted">
+              همه یک بازار تاریخی را می‌بینند؛ کندل به کندل و زنده. بازده‌ات را از بقیه جلو
+              بینداز، نبرد رتبه‌ای را ببر و از تازه‌کار تا استاد بالا برو.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -108,7 +114,7 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
               data-testid="new-battle"
               className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-accent px-4 text-[13.5px] font-semibold text-accent-fg shadow-[0_10px_30px_-12px_rgba(41,98,255,0.9)] transition hover:brightness-110"
             >
-              <Icon name="plus" size={16} /> New Battle
+              <Icon name="plus" size={16} /> نبرد تازه
             </button>
           </div>
         </section>
@@ -120,15 +126,15 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
           >
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-up" />
             <span className="flex-1">
-              <span className="font-semibold">Battle in progress:</span> {active.name}
+              <span className="font-semibold">نبرد در جریان است:</span> {battleTitle(active.name)}
             </span>
-            <span className="font-semibold text-up">Rejoin →</span>
+            <span className="font-semibold text-up">بازگشت</span>
           </Link>
         ) : null}
 
         <div
           role="tablist"
-          aria-label="Battles"
+          aria-label="نبردها"
           className="mt-7 flex gap-1 overflow-x-auto border-b border-line"
         >
           {TABS.map((t) => (
@@ -197,7 +203,7 @@ function JoinById() {
       });
       router.push(`/battle/${r.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not join');
+      setError(err instanceof Error ? faMessage(err.message) : faMessage('Could not join'));
       setBusy(false);
     }
   };
@@ -209,23 +215,24 @@ function JoinById() {
           setCode(e.target.value.toUpperCase());
           setError(null);
         }}
-        placeholder="Battle ID"
-        aria-label="Battle ID"
+        placeholder="شناسه نبرد"
+        aria-label="شناسه نبرد"
         maxLength={8}
+        dir="ltr"
         data-testid="join-code"
-        className={`h-10 w-36 rounded-l-lg border bg-panel px-3 font-mono text-[13px] uppercase tracking-widest outline-none focus:border-accent ${
+        className={`h-10 w-36 rounded-s-lg border bg-panel px-3 text-center font-mono text-[13px] tracking-widest outline-none focus:border-accent ${
           error ? 'border-down' : 'border-line'
         }`}
       />
       <button
         type="submit"
         disabled={busy || !code.trim()}
-        className="h-10 rounded-r-lg border border-l-0 border-line bg-panel px-3 text-[13px] font-medium hover:bg-hover disabled:opacity-50"
+        className="h-10 rounded-e-lg border border-s-0 border-line bg-panel px-3 text-[13px] font-medium hover:bg-hover disabled:opacity-50"
       >
-        {busy ? '…' : 'Join'}
+        {busy ? '…' : 'ورود'}
       </button>
       {error ? (
-        <span className="absolute left-0 top-11 whitespace-nowrap text-[11.5px] text-down">
+        <span className="absolute start-0 top-11 whitespace-nowrap text-[11.5px] text-down">
           {error}
         </span>
       ) : null}
@@ -257,7 +264,7 @@ function PlayTab({
     try {
       setQueue(await api<QueueStatus>('/api/battles/queue', { method: 'POST', body: { format } }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start matchmaking');
+      setError(e instanceof Error ? faMessage(e.message) : faMessage('Could not start matchmaking'));
     }
   }, []);
 
@@ -304,8 +311,8 @@ function PlayTab({
       <section>
         <SectionTitle
           icon="bolt"
-          title="Ranked"
-          text="Matchmaking pairs you with a trader of similar Elo. Ranked results move your rating."
+          title="رتبه‌ای"
+          text="حریف‌یابی تو را با معامله‌گری هم‌سطح خودت جفت می‌کند. نتیجه این نبردها امتیاز الو را جابه‌جا می‌کند."
         />
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {RANKED_FORMATS.map((f) => (
@@ -324,48 +331,48 @@ function PlayTab({
       <section>
         <SectionTitle
           icon="users"
-          title="Casual"
-          text="Custom battles with your own rules. No Elo at stake."
+          title="آزاد"
+          text="نبرد سفارشی با قانون‌های خودت. امتیاز الو این‌جا تکان نمی‌خورد."
         />
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <ActionCard
             icon="swords"
-            title="Create a custom battle"
-            text="Pick the battle type, up to five assets, the balance, the timer and the drawdown rules. Invite friends with the battle ID."
-            cta="New Battle"
+            title="نبرد سفارشی بساز"
+            text="نوع نبرد، حداکثر پنج نماد، موجودی، زمان و سقف افت را خودت تعیین کن. شناسه را برای دوستانت بفرست."
+            cta="نبرد تازه"
             onClick={onCustom}
             testId="custom-battle"
           />
           <ActionCard
             icon="globe"
-            title="Join a public lobby"
-            text="Browse open battles in Standby or already in progress (when they accept late entries)."
-            cta="Browse battles"
+            title="به لابی عمومی بپیوند"
+            text="نبردهای باز را ببین؛ آن‌هایی که هنوز شروع نشده‌اند، یا در جریان‌اند و ورود دیرهنگام را قبول می‌کنند."
+            cta="نبردهای عمومی"
             onClick={onBrowse}
           />
         </div>
       </section>
 
       <section>
-        <SectionTitle icon="info" title="How battles work" />
+        <SectionTitle icon="info" title="نبرد چطور پیش می‌رود" />
         <ol className="mt-3 grid gap-3 md:grid-cols-3">
           {[
             [
-              'Join or create',
-              'Queue for a ranked match, join a lobby, or host a custom battle and share its ID.',
+              'بپیوند یا بساز',
+              'برای نبرد رتبه‌ای صف بکش، به یک لابی برو، یا خودت نبرد بساز و شناسه‌اش را بفرست.',
             ],
             [
-              'Trade the same candles',
-              'When the countdown ends, everyone gets the same market, revealed candle by candle on a shared clock. Market, limit and stop orders with SL/TP.',
+              'همان کندل‌ها را معامله کن',
+              'با پایان شمارش، همه یک بازار را می‌بینند؛ کندل به کندل و روی یک ساعت مشترک. سفارش بازار، لیمیت و استاپ، با حد ضرر و حد سود.',
             ],
             [
-              'Win and rank up',
-              'Highest return or first to the profit target wins. Break a drawdown rule and you are disqualified. Elo and Composite Score update at the end.',
+              'ببر و رتبه بگیر',
+              'بیشترین بازده، یا اولین رسیدن به هدف سود، برنده است. اگر از سقف افت رد شوی حذف می‌شوی. در پایان، الو و امتیاز ترکیبی به‌روز می‌شود.',
             ],
           ].map(([t, d], i) => (
             <li key={t} className="rounded-xl border border-line bg-panel p-4">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/15 text-[12px] font-bold text-accent">
-                {i + 1}
+                {faNum(i + 1)}
               </span>
               <h3 className="mt-2 text-[14px] font-semibold">{t}</h3>
               <p className="mt-1 text-[12.5px] leading-5 text-muted">{d}</p>
@@ -413,12 +420,12 @@ function RankedCard({
 }) {
   const s = format.settings;
   const chips = [
-    '1v1',
-    `${s.durationMin} min`,
-    WIN_CONDITIONS[s.winCondition].name,
+    'یک‌به‌یک',
+    minutes(s.durationMin),
+    WIN_FA[s.winCondition].name,
     compactMoney(s.startingBalance),
-    s.profitTargetPct ? `Target +${s.profitTargetPct}%` : null,
-    s.maxDrawdownPct ? `Max DD ${s.maxDrawdownPct}%` : null,
+    s.profitTargetPct ? `هدف +${faNum(s.profitTargetPct)}٪` : null,
+    s.maxDrawdownPct ? `افت ${faNum(s.maxDrawdownPct)}٪` : null,
   ].filter(Boolean) as string[];
   return (
     <article
@@ -429,10 +436,10 @@ function RankedCard({
       <div className="relative flex items-start justify-between gap-3">
         <div>
           <h3 className="text-[17px] font-bold">{format.name}</h3>
-          <p className="mt-0.5 text-[12.5px] text-muted">
+          <p className="mt-0.5 text-[12.5px] leading-5 text-muted">
             {format.id === 'duel'
-              ? 'The classic: ten minutes, the best return wins.'
-              : 'Fast and sharp: first to close at +2% takes it.'}
+              ? 'همان نبرد کلاسیک: ده دقیقه، بیشترین بازده برنده است.'
+              : 'سریع و تیز: هرکس زودتر معامله را روی ۲٪ سود ببندد، برنده است.'}
           </p>
         </div>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
@@ -456,7 +463,7 @@ function RankedCard({
         data-testid={`find-${format.id}`}
         className="relative mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-accent text-[13.5px] font-semibold text-accent-fg transition hover:brightness-110 disabled:opacity-50"
       >
-        <Icon name="bolt" size={16} /> {searching ? 'Searching…' : 'Find match'}
+        <Icon name="bolt" size={16} /> {searching ? 'در حال جست‌وجو…' : 'پیدا کردن حریف'}
       </button>
     </article>
   );
@@ -490,7 +497,7 @@ function ActionCard({
         data-testid={testId}
         className="mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-line text-[13px] font-medium hover:bg-hover"
       >
-        {cta} <Icon name="chevronRight" size={15} />
+        {cta} <Icon name="chevronRight" size={15} className="rtl:-scale-x-100" />
       </button>
     </article>
   );
@@ -519,7 +526,7 @@ function MatchmakingOverlay({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       role="dialog"
-      aria-label="Matchmaking"
+      aria-label="حریف‌یابی"
       data-testid="matchmaking"
     >
       <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 text-center shadow-2xl">
@@ -535,21 +542,22 @@ function MatchmakingOverlay({
           <RankEmblem elo={profile?.elo ?? 1000} size={72} />
         </div>
         <h2 className="mt-4 text-[18px] font-bold">
-          {matched ? 'Opponent found!' : 'Finding an opponent'}
+          {matched ? 'حریف پیدا شد' : 'در حال پیدا کردن حریف'}
         </h2>
         {matched ? (
-          <p className="mt-1 text-[13px] text-muted">Loading the battle…</p>
+          <p className="mt-1 text-[13px] text-muted">نبرد در حال باز شدن است…</p>
         ) : queue.status === 'searching' ? (
           <>
             <p className="mt-1 text-[13px] text-muted">
-              {format?.name ?? 'Ranked'} · {format?.summary}
+              {format?.name ?? 'رتبه‌ای'} · {format?.summary}
             </p>
-            <p className="mt-4 font-mono text-[28px] font-bold tabular-nums">
-              {Math.floor(waited / 60)}:{String(waited % 60).padStart(2, '0')}
+            <p className="mt-4 font-mono text-[28px] font-bold tabular-nums" dir="ltr">
+              {clockFa(
+                `${Math.floor(waited / 60)}:${String(waited % 60).padStart(2, '0')}`,
+              )}
             </p>
             <p className="mt-1 text-[12px] text-muted">
-              Elo range ±{queue.range} · {queue.searching} trader{queue.searching === 1 ? '' : 's'}{' '}
-              searching
+              بازه الو ±{faNum(queue.range)} · {traders(queue.searching)} در جست‌وجو
             </p>
             <button
               type="button"
@@ -557,7 +565,7 @@ function MatchmakingOverlay({
               data-testid="cancel-search"
               className="mt-5 inline-flex h-9 items-center rounded-lg border border-line px-4 text-[13px] hover:bg-hover"
             >
-              Cancel
+              لغو
             </button>
           </>
         ) : null}
@@ -577,7 +585,7 @@ function useList(tab: 'browse' | 'mine') {
         setList(r.battles);
         setError(null);
       },
-      (e: unknown) => setError(e instanceof Error ? e.message : 'Could not load battles'),
+      (e: unknown) => setError(e instanceof Error ? faMessage(e.message) : faMessage('Could not load battles')),
     );
   }, [tab]);
   useEffect(() => {
@@ -603,9 +611,9 @@ function BrowseTab({ onCreate }: { readonly onCreate: () => void }) {
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
-            ['all', 'All'],
-            ['standby', 'Standby'],
-            ['live', 'In Progress'],
+            ['all', 'همه'],
+            ['standby', 'در انتظار'],
+            ['live', 'در جریان'],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -626,7 +634,7 @@ function BrowseTab({ onCreate }: { readonly onCreate: () => void }) {
           onClick={reload}
           className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[12.5px] text-muted hover:bg-hover hover:text-fg"
         >
-          <Icon name="rotate" size={14} /> Refresh
+          <Icon name="rotate" size={14} /> تازه‌سازی
         </button>
       </div>
       {error ? <p className="mt-3 text-[13px] text-down">{error}</p> : null}
@@ -635,9 +643,9 @@ function BrowseTab({ onCreate }: { readonly onCreate: () => void }) {
       ) : shown.length === 0 ? (
         <EmptyState
           icon="swords"
-          title="No public battles right now"
-          text="Create one and share the battle ID, or queue for a ranked match."
-          cta="New Battle"
+          title="الان نبرد عمومی باز نیست"
+          text="یکی بساز و شناسه‌اش را بفرست، یا برای نبرد رتبه‌ای صف بکش."
+          cta="نبرد تازه"
           onClick={onCreate}
         />
       ) : (
@@ -663,7 +671,7 @@ function BattleRow({ b }: { readonly b: BattleSummary }) {
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-[14.5px] font-semibold">{b.name}</span>
+            <span className="truncate text-[14.5px] font-semibold">{battleTitle(b.name)}</span>
             <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${cls}`}>
               {label}
             </span>
@@ -672,10 +680,10 @@ function BattleRow({ b }: { readonly b: BattleSummary }) {
             </span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
-            <span>Host {b.hostName ?? '—'}</span>
-            <span>{compactMoney(b.startingBalance)}</span>
-            <span>{b.durationMin} min</span>
-            {b.profitTargetPct ? <span>Target +{b.profitTargetPct}%</span> : null}
+            <span>میزبان {b.hostName ?? '—'}</span>
+            <span className="tabular-nums">{compactMoney(b.startingBalance)}</span>
+            <span>{minutes(b.durationMin)}</span>
+            {b.profitTargetPct ? <span>هدف +{faNum(b.profitTargetPct)}٪</span> : null}
             <span className="flex items-center gap-1">
               {b.assets.map((a) => (
                 <span
@@ -685,23 +693,25 @@ function BattleRow({ b }: { readonly b: BattleSummary }) {
                   title={a}
                 />
               ))}
-              <span className="ml-0.5">{b.assets.join(' · ')}</span>
+              <bdi dir="ltr" className="ms-0.5">
+                {b.assets.join(' · ')}
+              </bdi>
             </span>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <span
             className="flex items-center gap-1.5 text-[12.5px] tabular-nums text-muted"
-            title="Traders"
+            title="معامله‌گرها"
           >
-            <Icon name="users" size={15} /> {b.participants}/{b.maxParticipants}
+            <Icon name="users" size={15} /> {faNum(b.participants)}/{faNum(b.maxParticipants)}
           </span>
           <span
             className={`inline-flex h-9 min-w-24 items-center justify-center rounded-lg px-4 text-[13px] font-semibold ${
               canJoin ? 'bg-accent text-accent-fg' : 'border border-line'
             }`}
           >
-            {b.joined ? 'Open' : canJoin ? 'Join' : full ? 'Full' : 'View'}
+            {b.joined ? 'ورود' : canJoin ? 'بپیوند' : full ? 'تکمیل' : 'مشاهده'}
           </span>
         </div>
       </Link>
@@ -722,21 +732,21 @@ function MineTab() {
       ) : list.length === 0 ? (
         <EmptyState
           icon="list"
-          title="No battles yet"
-          text="Battles you create or join show up here with your results."
+          title="هنوز نبردی نداری"
+          text="نبردهایی که می‌سازی یا به آن‌ها می‌پیوندی، با نتیجه‌ات این‌جا می‌آیند."
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-line bg-panel">
           <table className="w-full min-w-[640px] text-[13px]" data-testid="my-battles">
             <thead>
-              <tr className="text-left text-[11.5px] text-muted">
-                <th className="px-4 py-2.5 font-medium">Battle</th>
-                <th className="px-3 py-2.5 font-medium">Mode</th>
-                <th className="px-3 py-2.5 font-medium">Status</th>
-                <th className="px-3 py-2.5 text-right font-medium">Place</th>
-                <th className="px-3 py-2.5 text-right font-medium">Return</th>
-                <th className="px-3 py-2.5 text-right font-medium">Elo</th>
-                <th className="px-4 py-2.5 text-right font-medium">When</th>
+              <tr className="text-start text-[11.5px] text-muted">
+                <th className="px-4 py-2.5 font-medium">نبرد</th>
+                <th className="px-3 py-2.5 font-medium">حالت</th>
+                <th className="px-3 py-2.5 font-medium">وضعیت</th>
+                <th className="px-3 py-2.5 text-end font-medium">رتبه</th>
+                <th className="px-3 py-2.5 text-end font-medium">بازده</th>
+                <th className="px-3 py-2.5 text-end font-medium">الو</th>
+                <th className="px-4 py-2.5 text-end font-medium">زمان</th>
               </tr>
             </thead>
             <tbody>
@@ -746,18 +756,18 @@ function MineTab() {
                   <tr key={b.id} className="border-t border-line hover:bg-hover/50">
                     <td className="px-4 py-2.5">
                       <Link href={`/battle/${b.id}`} className="font-medium hover:text-accent">
-                        {b.name}
+                        {battleTitle(b.name)}
                       </Link>
                       <div className="text-[11.5px] text-muted">
-                        {winConditionName(b.winCondition)} · {b.participants} traders
-                        {b.winnerName ? ` · winner ${b.winnerName}` : ''}
+                        {winConditionName(b.winCondition)} · {traders(b.participants)}
+                        {b.winnerName ? ` · برنده ${b.winnerName}` : ''}
                       </div>
                     </td>
                     <td className="px-3 py-2.5">
                       <span
                         className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${b.mode === 'ranked' ? 'bg-accent/15 text-accent' : 'bg-hover text-muted'}`}
                       >
-                        {b.mode === 'ranked' ? 'Ranked' : 'Casual'}
+                        {b.mode === 'ranked' ? 'رتبه‌ای' : 'آزاد'}
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
@@ -765,20 +775,20 @@ function MineTab() {
                         {label}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
-                      {b.myPlace ? `${ordinal(b.myPlace)}/${b.participants}` : '—'}
+                    <td className="px-3 py-2.5 text-end font-semibold tabular-nums">
+                      {b.myPlace ? `${ordinal(b.myPlace)} از ${faNum(b.participants)}` : '—'}
                     </td>
                     <td
-                      className={`px-3 py-2.5 text-right font-semibold tabular-nums ${b.myReturn === null ? 'text-muted' : pctClass(b.myReturn)}`}
+                      className={`px-3 py-2.5 text-end font-semibold tabular-nums ${b.myReturn === null ? 'text-muted' : pctClass(b.myReturn)}`}
                     >
                       {b.myReturn === null ? '—' : signedPct(b.myReturn)}
                     </td>
                     <td
-                      className={`px-3 py-2.5 text-right tabular-nums ${b.myEloChange === null ? 'text-muted' : b.myEloChange >= 0 ? 'text-up' : 'text-down'}`}
+                      className={`px-3 py-2.5 text-end tabular-nums ${b.myEloChange === null ? 'text-muted' : b.myEloChange >= 0 ? 'text-up' : 'text-down'}`}
                     >
                       {b.myEloChange === null ? '—' : signed(b.myEloChange)}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-muted">{ago(b.createdAt, now)}</td>
+                    <td className="px-4 py-2.5 text-end text-muted">{ago(b.createdAt, now)}</td>
                   </tr>
                 );
               })}
@@ -810,8 +820,8 @@ function LeaderboardTab() {
       <div className="flex items-center gap-2">
         {(
           [
-            ['elo', 'Elo'],
-            ['xp', 'Composite Score'],
+            ['elo', 'الو'],
+            ['xp', 'امتیاز ترکیبی'],
           ] as const
         ).map(([id, label]) => (
           <button
@@ -829,10 +839,10 @@ function LeaderboardTab() {
             {label}
           </button>
         ))}
-        <span className="ml-auto text-[12px] text-muted">
+        <span className="ms-auto text-[12px] text-muted">
           {sort === 'elo'
-            ? 'Ranked rating, updated after every ranked battle'
-            : 'XP earned in every battle, win or lose'}
+            ? 'امتیاز رتبه‌ای؛ بعد از هر نبرد رتبه‌ای به‌روز می‌شود'
+            : 'امتیازی که در هر نبرد، برد یا باخت، جمع می‌شود'}
         </span>
       </div>
       {entries === null ? (
@@ -840,24 +850,24 @@ function LeaderboardTab() {
       ) : entries.length === 0 ? (
         <EmptyState
           icon="trophy"
-          title="The leaderboard is empty"
+          title="جدول هنوز خالی است"
           text={
             sort === 'elo'
-              ? 'Win a ranked battle to take the first spot.'
-              : 'Finish a battle to earn Composite Score.'
+              ? 'یک نبرد رتبه‌ای را ببر تا صدر جدول مال تو شود.'
+              : 'یک نبرد را تمام کن تا امتیاز ترکیبی بگیری.'
           }
         />
       ) : (
         <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-panel">
           <table className="w-full min-w-[560px] text-[13px]" data-testid="leaderboard">
             <thead>
-              <tr className="text-left text-[11.5px] text-muted">
+              <tr className="text-start text-[11.5px] text-muted">
                 <th className="w-14 px-4 py-2.5 font-medium">#</th>
-                <th className="px-3 py-2.5 font-medium">Trader</th>
-                <th className="px-3 py-2.5 font-medium">Rank</th>
-                <th className="px-3 py-2.5 text-right font-medium">Elo</th>
-                <th className="px-3 py-2.5 text-right font-medium">Ranked W/L</th>
-                <th className="px-4 py-2.5 text-right font-medium">XP</th>
+                <th className="px-3 py-2.5 font-medium">معامله‌گر</th>
+                <th className="px-3 py-2.5 font-medium">رتبه</th>
+                <th className="px-3 py-2.5 text-end font-medium">الو</th>
+                <th className="px-3 py-2.5 text-end font-medium">برد / باخت</th>
+                <th className="px-4 py-2.5 text-end font-medium">امتیاز</th>
               </tr>
             </thead>
             <tbody>
@@ -880,7 +890,7 @@ function LeaderboardTab() {
                                 : 'text-muted'
                         }`}
                       >
-                        {e.place}
+                        {faNum(e.place)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5">
@@ -890,7 +900,7 @@ function LeaderboardTab() {
                         </span>
                         <span className="font-medium">{e.name}</span>
                         {e.isMe ? (
-                          <span className="text-[10.5px] font-semibold text-accent">YOU</span>
+                          <span className="text-[10.5px] font-semibold text-accent">تو</span>
                         ) : null}
                       </span>
                     </td>
@@ -898,17 +908,15 @@ function LeaderboardTab() {
                       <span className="flex items-center gap-1.5">
                         <RankEmblem elo={e.elo} size={20} />
                         <span className="font-medium" style={{ color: rank.color }}>
-                          {rank.name}
+                          {RANK_FA[rank.id] ?? rank.name}
                         </span>
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{e.elo}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-muted">
-                      {e.rankedWins}/{e.rankedGames - e.rankedWins}
+                    <td className="px-3 py-2.5 text-end font-semibold tabular-nums">{faNum(e.elo)}</td>
+                    <td className="px-3 py-2.5 text-end tabular-nums text-muted">
+                      {faNum(e.rankedWins)}/{faNum(e.rankedGames - e.rankedWins)}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">
-                      {e.xp.toLocaleString('en-US')}
-                    </td>
+                    <td className="px-4 py-2.5 text-end tabular-nums">{faNum(e.xp)}</td>
                   </tr>
                 );
               })}
@@ -917,16 +925,16 @@ function LeaderboardTab() {
         </div>
       )}
       <div className="mt-5 rounded-xl border border-line bg-panel p-4">
-        <h3 className="text-[13px] font-semibold">Ranks</h3>
+        <h3 className="text-[13px] font-semibold">رتبه‌ها</h3>
         <ol className="mt-3 grid grid-cols-4 gap-3 sm:grid-cols-8">
           {RANKS.map((r) => (
             <li key={r.id} className="flex flex-col items-center gap-1 text-center">
               <RankEmblem elo={r.min} size={34} />
               <span className="text-[11.5px] font-semibold" style={{ color: r.color }}>
-                {r.name}
+                {RANK_FA[r.id] ?? r.name}
               </span>
               <span className="text-[10.5px] tabular-nums text-muted">
-                {r.min === 0 ? '<1100' : `${r.min}+`}
+                {r.min === 0 ? `زیر ${faNum(1100)}` : `${faNum(r.min)}+`}
               </span>
             </li>
           ))}
@@ -960,7 +968,7 @@ function ProfilePanel({
   const lvl = levelFor(profile.xp);
   const winRate =
     profile.rankedGames > 0
-      ? `${((profile.rankedWins / profile.rankedGames) * 100).toFixed(0)}%`
+      ? `${faNum(Math.round((profile.rankedWins / profile.rankedGames) * 100))}٪`
       : '—';
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -970,21 +978,23 @@ function ProfilePanel({
       setError(null);
       onRenamed();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save');
+      setError(err instanceof Error ? faMessage(err.message) : faMessage('Could not save'));
     }
   };
   const stats: Array<[string, ReactNode]> = [
-    ['Battles', profile.battles],
-    ['Wins', profile.wins],
-    ['Podiums', profile.podiums],
-    ['Ranked win rate', winRate],
-    ['Best streak', profile.bestStreak],
+    ['نبردها', faNum(profile.battles)],
+    ['بردها', faNum(profile.wins)],
+    ['سکو', faNum(profile.podiums)],
+    ['برد رتبه‌ای', winRate],
+    ['بهترین برد پیاپی', faNum(profile.bestStreak)],
     [
-      'Trade win rate',
-      profile.trades > 0 ? `${((profile.winningTrades / profile.trades) * 100).toFixed(0)}%` : '—',
+      'برد معاملات',
+      profile.trades > 0
+        ? `${faNum(Math.round((profile.winningTrades / profile.trades) * 100))}٪`
+        : '—',
     ],
     [
-      'Avg return',
+      'میانگین بازده',
       profile.avgReturn === null ? (
         '—'
       ) : (
@@ -992,7 +1002,7 @@ function ProfilePanel({
       ),
     ],
     [
-      'Best return',
+      'بهترین بازده',
       profile.bestReturn === null ? (
         '—'
       ) : (
@@ -1021,20 +1031,20 @@ function ProfilePanel({
                 onChange={(e) => setName(e.target.value)}
                 maxLength={20}
                 autoFocus
-                aria-label="Display name"
+                aria-label="نام نمایشی"
                 className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-chart px-3 text-[13px] outline-none focus:border-accent"
               />
               <button
                 type="submit"
                 className="h-9 rounded-lg bg-accent px-3 text-[13px] font-semibold text-accent-fg"
               >
-                Save
+                ذخیره
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(false)}
                 className="h-9 rounded-lg border border-line px-2 text-[13px]"
-                aria-label="Cancel"
+                aria-label="لغو"
               >
                 <Icon name="close" size={14} />
               </button>
@@ -1048,7 +1058,7 @@ function ProfilePanel({
                   setName(profile.name);
                   setEditing(true);
                 }}
-                aria-label="Edit display name"
+                aria-label="ویرایش نام نمایشی"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-fg"
               >
                 <Icon name="edit" size={14} />
@@ -1058,19 +1068,23 @@ function ProfilePanel({
           {error ? <p className="mt-1 text-[11.5px] text-down">{error}</p> : null}
           <p className="mt-1 text-[13px]">
             <span className="font-semibold" style={{ color: rank.color }}>
-              {rank.name}
+              {rankLabel(profile.elo)}
             </span>{' '}
-            · <span className="font-semibold tabular-nums">{profile.elo}</span>{' '}
-            <span className="text-muted">Elo</span>
+            · <span className="font-semibold tabular-nums">{faNum(profile.elo)}</span>{' '}
+            <span className="text-muted">الو</span>
             {profile.globalRank ? (
-              <span className="text-muted"> · #{profile.globalRank}</span>
+              <span className="text-muted"> · رتبه {faNum(profile.globalRank)}</span>
             ) : null}
           </p>
         </div>
         <div className="mt-4">
           <div className="flex justify-between text-[11.5px] text-muted">
-            <span>Peak {profile.peakElo}</span>
-            <span>{next ? `${next.min - profile.elo} to ${next.name}` : 'Top rank'}</span>
+            <span>اوج {faNum(profile.peakElo)}</span>
+            <span>
+              {next
+                ? `${faNum(next.min - profile.elo)} تا ${RANK_FA[next.id] ?? next.name}`
+                : 'بالاترین رتبه'}
+            </span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line">
             <div
@@ -1089,8 +1103,8 @@ function ProfilePanel({
         </dl>
         <div className="mt-3 rounded-lg border border-line p-3">
           <div className="flex items-center justify-between text-[12px]">
-            <span className="font-medium">Composite Score · Lv {lvl.level}</span>
-            <span className="tabular-nums text-muted">{profile.xp.toLocaleString('en-US')} XP</span>
+            <span className="font-medium">امتیاز ترکیبی · سطح {faNum(lvl.level)}</span>
+            <span className="tabular-nums text-muted">{faNum(profile.xp)} امتیاز</span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
             <div
@@ -1099,7 +1113,7 @@ function ProfilePanel({
             />
           </div>
           <p className="mt-1 text-[11px] text-muted">
-            {lvl.needed - lvl.into} XP to level {lvl.level + 1}
+            {faNum(lvl.needed - lvl.into)} امتیاز تا سطح {faNum(lvl.level + 1)}
           </p>
         </div>
       </div>

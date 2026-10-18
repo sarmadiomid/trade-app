@@ -19,14 +19,16 @@ import {
   type BattleSettings,
   type WinCondition,
 } from '@/lib/battles';
+import { faNum } from '@/lib/locale/jalali';
 import { api } from '../platform/api';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
-import { ASSET_COLORS, compactMoney } from './format';
+import { duration } from '../backtest/format';
+import { ASSET_COLORS, WIN_FA, compactMoney, faMessage, minutes } from './format';
 
-const STEPS = ['Battle type', 'Market', 'Rules', 'Review'] as const;
+const STEPS = ['نوع نبرد', 'بازار', 'قانون‌ها', 'بازبینی'] as const;
 
 const field =
   'h-9 w-full rounded-lg border border-line bg-chart px-3 text-[13px] outline-none focus:border-accent';
@@ -42,7 +44,7 @@ export function NewBattleDialog({
   readonly onCreated: (id: string) => void;
 }) {
   const [step, setStep] = useState(0);
-  const [s, setS] = useState<BattleSettings>({ ...DEFAULT_SETTINGS, name: `${hostName}'s battle` });
+  const [s, setS] = useState<BattleSettings>({ ...DEFAULT_SETTINGS, name: `نبرد ${hostName}` });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (patch: Partial<BattleSettings>) => {
@@ -51,13 +53,16 @@ export function NewBattleDialog({
   };
 
   const stepError = (i: number): string | null => {
-    if (i === 0) return s.name.trim() ? null : 'Battle name is required';
+    if (i === 0) return s.name.trim() ? null : faMessage('Battle name is required');
     if (i === 1) {
-      if (s.assets.length === 0) return 'Pick at least one asset';
-      if (marketSpanMs(s) > MAX_MARKET_SPAN_MS) return 'Lower the duration or the speed';
+      if (s.assets.length === 0) return faMessage('Pick at least one asset');
+      if (marketSpanMs(s) > MAX_MARKET_SPAN_MS) return faMessage('Lower the duration or the speed');
       return null;
     }
-    if (i === 2) return validateBattleSettings(normalizeSettings(s));
+    if (i === 2) {
+      const e = validateBattleSettings(normalizeSettings(s));
+      return e ? faMessage(e) : null;
+    }
     return null;
   };
 
@@ -70,26 +75,27 @@ export function NewBattleDialog({
   const create = async () => {
     const settings = normalizeSettings(s);
     const e = validateBattleSettings(settings);
-    if (e) return setError(e);
+    if (e) return setError(faMessage(e));
     setBusy(true);
     try {
       const r = await api<{ id: string }>('/api/battles', { method: 'POST', body: { settings } });
       onCreated(r.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create the battle');
+      setError(err instanceof Error ? faMessage(err.message) : faMessage('Could not create the battle'));
       setBusy(false);
     }
   };
 
   const toggleAsset = (a: string) => {
     const has = s.assets.includes(a);
-    if (!has && s.assets.length >= MAX_ASSETS) return setError(`Pick at most ${MAX_ASSETS} assets`);
+    if (!has && s.assets.length >= MAX_ASSETS)
+      return setError(faMessage(`Pick at most ${MAX_ASSETS} assets`));
     set({ assets: has ? s.assets.filter((x) => x !== a) : [...s.assets, a] });
   };
 
   return (
     <Dialog
-      title="New Battle"
+      title="نبرد تازه"
       onClose={onClose}
       width={600}
       initialFocus="#battle-name"
@@ -97,16 +103,16 @@ export function NewBattleDialog({
         <>
           {step > 0 ? (
             <Button onClick={() => setStep((x) => x - 1)}>
-              <Icon name="chevronLeft" size={15} /> Back
+              <Icon name="chevronLeft" size={15} className="rtl:-scale-x-100" /> بازگشت
             </Button>
           ) : null}
           <div className="flex-1 text-[12px] text-down" role="alert">
             {error}
           </div>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose}>لغو</Button>
           {step < STEPS.length - 1 ? (
             <Button variant="primary" onClick={next} data-testid="battle-next">
-              Next <Icon name="chevronRight" size={15} />
+              بعد <Icon name="chevronRight" size={15} className="rtl:-scale-x-100" />
             </Button>
           ) : (
             <Button
@@ -115,7 +121,7 @@ export function NewBattleDialog({
               disabled={busy}
               data-testid="battle-create"
             >
-              {busy ? 'Creating…' : 'Create battle'}
+              {busy ? 'در حال ساخت…' : 'ساخت نبرد'}
             </Button>
           )}
         </>
@@ -133,7 +139,7 @@ export function NewBattleDialog({
                     : 'bg-hover text-muted'
               }`}
             >
-              {i < step ? <Icon name="check" size={13} strokeWidth={2.4} /> : i + 1}
+              {i < step ? <Icon name="check" size={13} strokeWidth={2.4} /> : faNum(i + 1)}
             </span>
             <span
               className={`hidden text-[12px] sm:inline ${i === step ? 'font-semibold' : 'text-muted'}`}
@@ -148,7 +154,7 @@ export function NewBattleDialog({
         {step === 0 ? (
           <div className="flex flex-col gap-5">
             <label className="block">
-              <span className="mb-1.5 block font-medium">Battle name</span>
+              <span className="mb-1.5 block font-medium">نام نبرد</span>
               <input
                 id="battle-name"
                 value={s.name}
@@ -159,7 +165,7 @@ export function NewBattleDialog({
               />
             </label>
             <div>
-              <span className="mb-1.5 block font-medium">Battle type</span>
+              <span className="mb-1.5 block font-medium">نوع نبرد</span>
               <div className="grid gap-2 sm:grid-cols-2">
                 {(Object.keys(WIN_CONDITIONS) as WinCondition[]).map((w) => (
                   <Choice
@@ -172,11 +178,11 @@ export function NewBattleDialog({
                       })
                     }
                     icon={w === 'time-trial' ? 'clock' : 'target'}
-                    title={WIN_CONDITIONS[w].name}
+                    title={WIN_FA[w].name}
                     text={
                       w === 'time-trial'
-                        ? 'Everyone trades until the timer runs out. The highest return wins.'
-                        : 'The first trader to close at the profit target wins. If nobody gets there, the highest return wins.'
+                        ? 'همه تا پایان زمان معامله می‌کنند. بیشترین بازده برنده است.'
+                        : 'اولین کسی که معامله را روی هدف سود ببندد برنده است. اگر کسی نرسد، بیشترین بازده برنده می‌شود.'
                     }
                     testId={`type-${w}`}
                   />
@@ -184,27 +190,27 @@ export function NewBattleDialog({
               </div>
             </div>
             <div>
-              <span className="mb-1.5 block font-medium">Visibility</span>
+              <span className="mb-1.5 block font-medium">نمایش</span>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Choice
                   selected={s.visibility === 'public'}
                   onClick={() => set({ visibility: 'public' })}
                   icon="globe"
-                  title="Public"
-                  text="Listed in Browse. Any trader can join."
+                  title="عمومی"
+                  text="در فهرست نبردهای عمومی دیده می‌شود و هر معامله‌گری می‌تواند بپیوندد."
                 />
                 <Choice
                   selected={s.visibility === 'private'}
                   onClick={() => set({ visibility: 'private' })}
                   icon="lock"
-                  title="Private"
-                  text="Hidden. Traders join with the battle ID or your invite link."
+                  title="خصوصی"
+                  text="در فهرست نیست. ورود فقط با شناسه نبرد یا لینک دعوت تو ممکن است."
                   testId="visibility-private"
                 />
               </div>
             </div>
             <p className="rounded-lg bg-hover/60 px-3 py-2 text-[12px] text-muted">
-              Custom battles are casual: they award Composite Score but never change your Elo.
+              نبرد سفارشی آزاد است: امتیاز ترکیبی می‌دهد، ولی الو را عوض نمی‌کند.
             </p>
           </div>
         ) : null}
@@ -213,9 +219,9 @@ export function NewBattleDialog({
           <div className="flex flex-col gap-5">
             <div>
               <span className="mb-1.5 flex items-baseline justify-between font-medium">
-                Assets
+                نمادها
                 <span className="text-[11.5px] font-normal text-muted">
-                  {s.assets.length}/{MAX_ASSETS} · the market is drawn from these at the start
+                  {faNum(s.assets.length)}/{faNum(MAX_ASSETS)} · بازار موقع شروع از بین همین‌ها کشیده می‌شود
                 </span>
               </span>
               <div className="flex flex-wrap gap-2">
@@ -233,7 +239,7 @@ export function NewBattleDialog({
                       }`}
                     >
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-                      {a}
+                      <bdi dir="ltr">{a}</bdi>
                       {on ? <Icon name="check" size={13} /> : null}
                     </button>
                   );
@@ -241,7 +247,7 @@ export function NewBattleDialog({
               </div>
             </div>
             <div>
-              <span className="mb-1.5 block font-medium">Starting balance</span>
+              <span className="mb-1.5 block font-medium">موجودی اولیه</span>
               <div className="flex flex-wrap gap-2">
                 {STARTING_BALANCES.map((b) => (
                   <button
@@ -262,8 +268,8 @@ export function NewBattleDialog({
             </div>
             <label className="block">
               <span className="mb-1.5 flex items-baseline justify-between font-medium">
-                Duration
-                <span className="text-[13px] font-semibold tabular-nums">{s.durationMin} min</span>
+                مدت
+                <span className="text-[13px] font-semibold tabular-nums">{minutes(s.durationMin)}</span>
               </span>
               <input
                 type="range"
@@ -272,16 +278,16 @@ export function NewBattleDialog({
                 value={s.durationMin}
                 onChange={(e) => set({ durationMin: Number(e.target.value) })}
                 className="w-full"
-                aria-label="Duration in minutes"
+                aria-label="مدت به دقیقه"
                 data-testid="duration"
               />
               <span className="flex justify-between text-[11px] text-muted">
-                <span>{MIN_DURATION} min</span>
-                <span>{MAX_DURATION} min</span>
+                <span>{minutes(MIN_DURATION)}</span>
+                <span>{minutes(MAX_DURATION)}</span>
               </span>
             </label>
             <div>
-              <span className="mb-1.5 block font-medium">Replay speed</span>
+              <span className="mb-1.5 block font-medium">سرعت بازپخش</span>
               <div className="grid grid-cols-3 gap-2">
                 {BATTLE_SPEEDS.map((sp) => (
                   <button
@@ -289,17 +295,19 @@ export function NewBattleDialog({
                     type="button"
                     aria-pressed={s.speed === sp}
                     onClick={() => set({ speed: sp })}
-                    className={`rounded-lg border px-3 py-2 text-left transition ${
+                    className={`rounded-lg border px-3 py-2 text-start transition ${
                       s.speed === sp ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'
                     }`}
                   >
-                    <span className="block font-semibold">{sp}×</span>
-                    <span className="block text-[11px] text-muted">1m candle every {60 / sp}s</span>
+                    <span className="block font-semibold tabular-nums">{faNum(sp)}×</span>
+                    <span className="block text-[11px] text-muted">
+                      هر کندل یک‌دقیقه‌ای، {faNum(60 / sp)} ثانیه
+                    </span>
                   </button>
                 ))}
               </div>
               <p className="mt-1.5 text-[11.5px] text-muted">
-                Replays {formatSpan(marketSpanMs(s))} of market history.
+                {duration(marketSpanMs(s))} از تاریخ بازار بازپخش می‌شود.
               </p>
             </div>
           </div>
@@ -309,8 +317,8 @@ export function NewBattleDialog({
           <div className="flex flex-col gap-4">
             {s.winCondition === 'profit-target' ? (
               <NumberRow
-                label="Profit target"
-                hint="Close trades for this gain to win"
+                label="هدف سود"
+                hint="معامله را روی این سود ببند تا ببری"
                 value={s.profitTargetPct}
                 suffix="%"
                 step={0.5}
@@ -319,16 +327,16 @@ export function NewBattleDialog({
               />
             ) : null}
             <NumberRow
-              label="Max drawdown"
-              hint="From the starting balance; breaking it disqualifies"
+              label="حداکثر افت"
+              hint="از موجودی اولیه؛ رد شدن از آن یعنی حذف"
               value={s.maxDrawdownPct}
               suffix="%"
               step={0.5}
               onChange={(v) => set({ maxDrawdownPct: v })}
             />
             <NumberRow
-              label="Max daily drawdown"
-              hint="Loss within one market day"
+              label="حداکثر افت روزانه"
+              hint="ضرر در یک روز بازار"
               value={s.maxDailyDrawdownPct}
               suffix="%"
               step={0.5}
@@ -336,24 +344,24 @@ export function NewBattleDialog({
             />
             <div className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2.5">
               <span>
-                <span className="block font-medium">Max participants</span>
+                <span className="block font-medium">سقف نفرات</span>
                 <span className="block text-[11.5px] text-muted">
-                  {MIN_PARTICIPANTS}–{MAX_PARTICIPANTS} traders
+                  {faNum(MIN_PARTICIPANTS)} تا {faNum(MAX_PARTICIPANTS)} معامله‌گر
                 </span>
               </span>
               <span className="flex items-center gap-1">
                 <Step
-                  label="Fewer"
+                  label="کمتر"
                   icon="minus"
                   onClick={() =>
                     set({ maxParticipants: Math.max(MIN_PARTICIPANTS, s.maxParticipants - 1) })
                   }
                 />
                 <span className="w-8 text-center text-[15px] font-bold tabular-nums">
-                  {s.maxParticipants}
+                  {faNum(s.maxParticipants)}
                 </span>
                 <Step
-                  label="More"
+                  label="بیشتر"
                   icon="plus"
                   onClick={() =>
                     set({ maxParticipants: Math.min(MAX_PARTICIPANTS, s.maxParticipants + 1) })
@@ -363,9 +371,9 @@ export function NewBattleDialog({
             </div>
             <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-line px-3 py-2.5">
               <span>
-                <span className="block font-medium">Allow late entries</span>
+                <span className="block font-medium">ورود در حین نبرد</span>
                 <span className="block text-[11.5px] text-muted">
-                  Traders can join while the battle is in progress
+                  معامله‌گرها می‌توانند بعد از شروع هم بپیوندند
                 </span>
               </span>
               <input
@@ -382,28 +390,32 @@ export function NewBattleDialog({
           <dl className="divide-y divide-line rounded-xl border border-line">
             {(
               [
-                ['Name', s.name.trim()],
-                ['Battle type', WIN_CONDITIONS[s.winCondition].name],
-                ['Visibility', s.visibility === 'public' ? 'Public' : 'Private'],
-                ['Assets', s.assets.join(', ')],
-                ['Starting balance', compactMoney(s.startingBalance)],
-                ['Duration', `${s.durationMin} min at ${s.speed}×`],
+                ['نام', s.name.trim()],
+                ['نوع نبرد', WIN_FA[s.winCondition].name],
+                ['نمایش', s.visibility === 'public' ? 'عمومی' : 'خصوصی'],
+                ['نمادها', s.assets.join('، ')],
+                ['موجودی اولیه', compactMoney(s.startingBalance)],
+                ['مدت', `${minutes(s.durationMin)} با سرعت ${faNum(s.speed)}×`],
                 [
-                  'Profit target',
-                  s.winCondition === 'profit-target' ? `${s.profitTargetPct}%` : 'Not set',
+                  'هدف سود',
+                  s.winCondition === 'profit-target' && s.profitTargetPct !== null
+                    ? `${faNum(s.profitTargetPct)}٪`
+                    : 'تعیین نشده',
                 ],
-                ['Max drawdown', s.maxDrawdownPct === null ? 'Not set' : `${s.maxDrawdownPct}%`],
+                ['حداکثر افت', s.maxDrawdownPct === null ? 'تعیین نشده' : `${faNum(s.maxDrawdownPct)}٪`],
                 [
-                  'Max daily drawdown',
-                  s.maxDailyDrawdownPct === null ? 'Not set' : `${s.maxDailyDrawdownPct}%`,
+                  'حداکثر افت روزانه',
+                  s.maxDailyDrawdownPct === null ? 'تعیین نشده' : `${faNum(s.maxDailyDrawdownPct)}٪`,
                 ],
-                ['Participants', `Up to ${s.maxParticipants}`],
-                ['Late entries', s.allowLateJoin ? 'Allowed' : 'Not allowed'],
+                ['نفرات', `تا ${faNum(s.maxParticipants)} نفر`],
+                ['ورود دیرهنگام', s.allowLateJoin ? 'مجاز' : 'غیرمجاز'],
               ] as const
             ).map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3 px-4 py-2">
                 <dt className="text-muted">{k}</dt>
-                <dd className="text-right font-medium">{v}</dd>
+                <dd className="text-end font-medium" dir={k === 'نمادها' ? 'ltr' : undefined}>
+                  {v}
+                </dd>
               </div>
             ))}
           </dl>
@@ -411,11 +423,6 @@ export function NewBattleDialog({
       </div>
     </Dialog>
   );
-}
-
-function formatSpan(ms: number): string {
-  const h = ms / 3_600_000;
-  return h >= 24 ? `${(h / 24).toFixed(1)} days` : `${+h.toFixed(1)} hours`;
 }
 
 function Choice({
@@ -439,7 +446,7 @@ function Choice({
       aria-pressed={selected}
       onClick={onClick}
       data-testid={testId}
-      className={`flex gap-3 rounded-xl border p-3 text-left transition ${
+      className={`flex gap-3 rounded-xl border p-3 text-start transition ${
         selected ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'
       }`}
     >
@@ -490,9 +497,9 @@ function NumberRow({
               checked={on}
               onChange={(e) => onChange(e.target.checked ? 5 : null)}
               className="h-4 w-4 accent-[var(--tc-accent)]"
-              aria-label={`Set ${label}`}
+              aria-label={`${label} را تعیین کن`}
             />
-            {on ? 'On' : 'Not set'}
+            {on ? 'فعال' : 'خاموش'}
           </label>
         ) : null}
         {on ? (
@@ -505,9 +512,10 @@ function NumberRow({
               value={value ?? ''}
               onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
               aria-label={label}
-              className="h-8 w-16 bg-transparent px-2 text-right tabular-nums outline-none"
+              dir="ltr"
+              className="h-8 w-16 bg-transparent px-2 text-end tabular-nums outline-none"
             />
-            <span className="pr-2 text-muted">{suffix}</span>
+            <span className="pe-2 text-muted">{suffix === '%' ? '٪' : suffix}</span>
           </span>
         ) : null}
       </span>

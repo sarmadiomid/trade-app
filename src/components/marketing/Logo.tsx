@@ -27,7 +27,7 @@ export function Logo() {
       <LogoMark />
       <span className="flex flex-col leading-none">
         <span className="text-[19px] font-extrabold tracking-tight">{BRAND_FA}</span>
-        <span className="mt-1 text-[10px] font-medium tracking-[0.28em] text-[var(--mk-muted)]" dir="ltr">
+        <span className="mt-1 hidden text-[10px] font-medium tracking-[0.28em] text-[var(--mk-muted)] sm:block" dir="ltr">
           {BRAND_EN.toUpperCase()}
         </span>
       </span>

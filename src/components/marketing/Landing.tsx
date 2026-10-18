@@ -1,18 +1,45 @@
 ﻿import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { HeroChart } from './HeroChart';
+import { LandingChart } from './LandingChart';
 import { BRAND_FA, Logo, LogoMark } from './Logo';
 
 export const PRICE_TOMAN = 199_000;
 const faNumber = (n: number) => n.toLocaleString('fa-IR');
 
+/* ───────────────────────── design tokens ───────────────────────── */
+
+const UP = '#4a9dff';
+const DOWN = '#ef5b7a';
+
+const WRAP = 'mx-auto w-full max-w-[1200px] px-5 lg:px-8';
+const CARD = 'rounded-2xl border border-white/[0.08] bg-[#080c17]';
+const CARD_HOVER = `${CARD} transition-colors duration-300 hover:border-white/[0.18]`;
+const BTN_PRIMARY =
+  'inline-flex items-center justify-center gap-2 rounded-xl bg-[#2f7bff] font-bold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.14)_inset,0_12px_32px_-12px_rgba(47,123,255,0.9)] transition hover:bg-[#4388ff]';
+const BTN_GHOST =
+  'inline-flex items-center justify-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.03] font-semibold text-[#dbe4f8] transition hover:border-white/25 hover:bg-white/[0.07]';
+const GRADIENT_TEXT =
+  'bg-gradient-to-l from-[#8cbcff] via-[#38d3ff] to-[#2f7bff] bg-clip-text text-transparent';
+
+const GRID_BG = {
+  backgroundImage:
+    'linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)',
+  backgroundSize: '56px 56px',
+  maskImage: 'radial-gradient(ellipse 75% 65% at 50% 0%, #000 25%, transparent 100%)',
+  WebkitMaskImage: 'radial-gradient(ellipse 75% 65% at 50% 0%, #000 25%, transparent 100%)',
+} as const;
+
 const NAV = [
-  { href: '#markets', label: 'بازارها' },
+  { href: '#product', label: 'محصول' },
+  { href: '#chart', label: 'نمودار' },
+  { href: '#battle', label: 'مسابقه و نبرد' },
   { href: '#features', label: 'امکانات' },
-  { href: '#backtest', label: 'بک‌تست' },
   { href: '#pricing', label: 'قیمت' },
   { href: '#faq', label: 'سوالات متداول' },
 ];
+
+/* ───────────────────────── icons ───────────────────────── */
 
 function Svg({ d, className = 'h-5 w-5' }: { d: string; className?: string }) {
   return (
@@ -35,98 +62,180 @@ const I = {
   arrow: 'M19 12H5M11 18l-6-6 6-6',
   check: 'M5 12.5l4.2 4.2L19 7',
   pen: 'M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20zM14 6l3 3',
-  bolt: 'M13 2L4 14h7l-1 8 9-12h-7l1-8z',
   wave: 'M2 12c2.5 0 2.5-6 5-6s2.5 12 5 12 2.5-9 5-9 2.5 3 5 3',
-  layers: 'M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17.5l9 5 9-5',
   candles: 'M7 3v4M7 15v6M17 3v2M17 13v8M5 7h4v8H5zM15 5h4v8h-4z',
   replay: 'M3 12a9 9 0 1 0 3-6.7M3 4v5h5M10 9l5 3-5 3z',
   phone: 'M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2',
-  key: 'M15 7a4 4 0 1 1-3.9 5H3v3h3v3h3v-3h2.1A4 4 0 0 1 15 7zM16 11h.01',
-  chart: 'M3 3v18h18M7 15l4-4 3 3 6-7',
   shield: 'M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3zM9 12l2 2 4-4',
-  keyboard: 'M3 6h18v12H3zM7 10h.01M11 10h.01M15 10h.01M7 14h10',
   plus: 'M12 5v14M5 12h14',
-  globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z',
-  target: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zM12 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2z',
-  search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
   play: 'M7 4l13 8-13 8z',
-  step: 'M5 4l10 8-10 8zM19 5v14',
-  pause: 'M7 4h3v16H7zM14 4h3v16h-3z',
+  journal: 'M6 3h10a2 2 0 0 1 2 2v16l-3-2-3 2-3-2-3 2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6',
+  swords: 'M14.5 4.5l5 5M4 20l6.5-6.5M16 3l5 5-8.5 8.5H7.5V11.5L16 3zM4 4l6 6',
+  stats: 'M4 19h16M7 16V9M12 16V5M17 16v-7',
+  trophy: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3',
+  stepBack: 'M19 5l-9 7 9 7V5zM5 5v14',
+  stepFwd: 'M5 5l9 7-9 7V5zM19 5v14',
+  cursor: 'M5 3l14 7-6 2-2 6L5 3z',
+  trend: 'M4 19L20 5M4 19h.01M20 5h.01',
+  fib: 'M4 6h16M4 11h16M4 16h10M4 21h6',
+  ruler: 'M3 17L17 3l4 4L7 21l-4-4zM8 12l2 2M11 9l2 2M14 6l2 2',
+  text: 'M5 6V4h14v2M12 4v16M9 20h6',
+  crown: 'M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z',
 };
 
-const TICKER = [
-  ['BTCUSDT', 2.41],
-  ['ETHUSDT', 1.87],
-  ['XAUUSD', 0.62],
-  ['EURUSD', -0.14],
-  ['US500', 0.38],
-  ['NAS100', 0.71],
-  ['AAPL', -0.52],
-  ['TSLA', 3.12],
-  ['شاخص کل', 0.94],
-  ['USOIL', -1.08],
-  ['GBPUSD', 0.09],
-  ['SOLUSDT', 4.25],
-  ['فولاد', 1.6],
-  ['NVDA', 2.05],
-] as const;
+/* ───────────────────────── tiny shared pieces ───────────────────────── */
 
 function Eyebrow({ children }: { children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-[var(--mk-line)] bg-[rgba(47,123,255,0.08)] px-3 py-1 text-xs font-semibold text-[var(--mk-blue-2)]">
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--mk-cyan)]" />
+    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-semibold text-[#9cc4ff]">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#38d3ff] shadow-[0_0_10px_#38d3ff]" />
       {children}
     </span>
   );
 }
 
-function SectionTitle({
+function SectionHead({
   eyebrow,
   title,
   desc,
+  align = 'center',
 }: {
   eyebrow: string;
   title: ReactNode;
   desc?: string;
+  align?: 'center' | 'start';
 }) {
   return (
-    <div className="mx-auto max-w-2xl text-center">
+    <div className={align === 'center' ? 'mx-auto max-w-2xl text-center' : 'max-w-xl'}>
       <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight sm:text-[42px] sm:leading-[1.25]">
+      <h2 className="mt-5 text-[28px] font-black leading-[1.4] tracking-tight text-white sm:text-[38px] sm:leading-[1.35]">
         {title}
       </h2>
-      {desc ? <p className="mt-4 text-base leading-8 text-[var(--mk-muted)]">{desc}</p> : null}
+      {desc ? <p className="mt-4 text-[15px] leading-8 text-[#8b98b8]">{desc}</p> : null}
     </div>
   );
 }
 
-function Sparkline({ seed, up, className = '' }: { seed: number; up: boolean; className?: string }) {
+function IconBadge({ d }: { d: string }) {
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#5aa2ff]/25 bg-[#2f7bff]/10 text-[#8cbcff]">
+      <Svg d={d} className="h-5 w-5" />
+    </span>
+  );
+}
+
+/** deterministic pseudo-random candles (no hydration mismatch) */
+function makeCandles(n: number, seed: number) {
   let s = seed;
   const rnd = () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
   };
-  const pts: number[] = [];
-  let v = 20;
-  for (let i = 0; i < 24; i++) {
-    v += (up ? -0.55 : 0.55) + (rnd() - 0.5) * 4;
-    pts.push(Math.max(3, Math.min(37, v)));
+  let p = 50;
+  const out: { o: number; h: number; l: number; c: number }[] = [];
+  for (let i = 0; i < n; i++) {
+    const o = p;
+    const c = o + (rnd() - 0.45) * 7;
+    const h = Math.max(o, c) + rnd() * 3.5;
+    const l = Math.min(o, c) - rnd() * 3.5;
+    out.push({ o, h, l, c });
+    p = c;
   }
-  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${(i * 120) / 23},${p.toFixed(1)}`).join(' ');
-  const color = up ? '#4a9dff' : '#ef5b7a';
+  return out;
+}
+
+function MiniCandles({
+  n = 28,
+  seed = 7,
+  hiddenFrom,
+  className = 'h-full w-full',
+}: {
+  n?: number;
+  seed?: number;
+  hiddenFrom?: number;
+  className?: string;
+}) {
+  const cs = makeCandles(n, seed);
+  const step = 14;
+  const W = n * step;
+  const H = 180;
+  const lo = Math.min(...cs.map((c) => c.l));
+  const hi = Math.max(...cs.map((c) => c.h));
+  const y = (v: number) => 12 + (1 - (v - lo) / (hi - lo)) * (H - 24);
+  const cut = hiddenFrom ?? n;
+  const cx = cut * step;
   return (
-    <svg viewBox="0 0 120 40" className={className} preserveAspectRatio="none" aria-hidden="true">
-      <path d={`${d} L120,40 L0,40 Z`} fill={color} opacity=".12" />
-      <path d={d} stroke={color} strokeWidth="1.6" fill="none" vectorEffect="non-scaling-stroke" />
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="none"
+      className={className}
+      aria-hidden="true"
+    >
+      {[0.2, 0.4, 0.6, 0.8].map((g) => (
+        <line key={g} x1="0" x2={W} y1={H * g} y2={H * g} stroke="rgba(255,255,255,0.05)" />
+      ))}
+      {cs.slice(0, cut).map((c, i) => {
+        const up = c.c >= c.o;
+        const col = up ? UP : DOWN;
+        const x = i * step + step / 2;
+        const top = y(Math.max(c.o, c.c));
+        const h = Math.max(2, Math.abs(y(c.o) - y(c.c)));
+        return (
+          <g key={i}>
+            <line
+              x1={x}
+              x2={x}
+              y1={y(c.h)}
+              y2={y(c.l)}
+              stroke={col}
+              strokeWidth="1.2"
+              vectorEffect="non-scaling-stroke"
+            />
+            <rect x={x - 4} y={top} width="8" height={h} rx="1" fill={col} />
+          </g>
+        );
+      })}
+      {hiddenFrom !== undefined ? (
+        <>
+          <rect x={cx} y="0" width={W - cx} height={H} fill="rgba(255,255,255,0.025)" />
+          <line
+            x1={cx}
+            x2={cx}
+            y1="0"
+            y2={H}
+            stroke="#38d3ff"
+            strokeDasharray="4 4"
+            strokeWidth="1.2"
+            vectorEffect="non-scaling-stroke"
+          />
+        </>
+      ) : null}
     </svg>
   );
 }
 
+function Row({ k, v, tone }: { k: string; v: string; tone?: 'up' | 'down' }) {
+  return (
+    <div className="flex items-center justify-between py-2 text-[12.5px]">
+      <span className="text-[#7d8bac]">{k}</span>
+      <span
+        className="font-mono font-semibold"
+        style={{ color: tone === 'up' ? UP : tone === 'down' ? DOWN : '#dbe4f8' }}
+        dir="ltr"
+      >
+        {v}
+      </span>
+    </div>
+  );
+}
+
+/* ───────────────────────── header ───────────────────────── */
+
 function Header({ signedIn }: { signedIn: boolean }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--mk-line)] bg-[rgba(3,10,28,0.72)] backdrop-blur-xl">
-      <div className="mx-auto flex h-[72px] max-w-7xl items-center gap-8 px-5 lg:px-8">
-        <Link href="/" aria-label={BRAND_FA}>
+    <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#04070f]/80 backdrop-blur-xl">
+      <div className={`${WRAP} flex h-16 items-center gap-8`}>
+        <Link href="/" aria-label={BRAND_FA} className="min-w-0 shrink-0">
           <Logo />
         </Link>
         <nav className="hidden items-center gap-1 md:flex" aria-label="ناوبری اصلی">
@@ -134,7 +243,7 @@ function Header({ signedIn }: { signedIn: boolean }) {
             <a
               key={n.href}
               href={n.href}
-              className="rounded-lg px-3.5 py-2 text-sm text-[var(--mk-muted)] transition hover:bg-white/5 hover:text-white"
+              className="rounded-lg px-3 py-2 text-[13.5px] font-medium text-[#8b98b8] transition hover:bg-white/[0.05] hover:text-white"
             >
               {n.label}
             </a>
@@ -142,10 +251,7 @@ function Header({ signedIn }: { signedIn: boolean }) {
         </nav>
         <div className="flex-1" />
         {signedIn ? (
-          <Link
-            href="/home"
-            className="mk-btn-primary inline-flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold text-white"
-          >
+          <Link href="/home" className={`${BTN_PRIMARY} h-9 px-4 text-[13px]`}>
             ورود به داشبورد
             <Svg d={I.arrow} className="h-4 w-4" />
           </Link>
@@ -153,44 +259,152 @@ function Header({ signedIn }: { signedIn: boolean }) {
           <div className="flex items-center gap-2">
             <Link
               href="/login"
-              className="hidden h-11 items-center rounded-xl px-4 text-sm font-semibold text-[var(--mk-text)] transition hover:bg-white/5 sm:inline-flex"
+              className="hidden h-9 items-center rounded-lg px-3 text-[13.5px] font-semibold text-[#c9d4f0] transition hover:text-white sm:inline-flex"
             >
               ورود
             </Link>
-            <Link
-              href="/login"
-              className="mk-btn-primary inline-flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold text-white"
-            >
+            <Link href="/login" className={`${BTN_PRIMARY} h-9 px-4 text-[13px]`}>
               شروع کنید
               <Svg d={I.arrow} className="h-4 w-4" />
             </Link>
           </div>
         )}
       </div>
+      {/* mobile nav: scrollable row, no JS needed */}
+      <nav
+        className="flex gap-1 overflow-x-auto border-t border-white/[0.06] px-4 py-2 md:hidden"
+        aria-label="ناوبری موبایل"
+      >
+        {NAV.map((n) => (
+          <a
+            key={n.href}
+            href={n.href}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-[13px] text-[#8b98b8] hover:text-white"
+          >
+            {n.label}
+          </a>
+        ))}
+      </nav>
     </header>
   );
 }
 
-function FloatingBadge({
-  className,
-  icon,
-  title,
-  sub,
-}: {
-  className: string;
-  icon: string;
-  title: ReactNode;
-  sub: string;
-}) {
+/* ───────────────────────── hero ───────────────────────── */
+
+function PlatformFrame() {
+  const rail = [I.cursor, I.trend, I.fib, I.pen, I.text, I.ruler];
   return (
-    <div className={`mk-card absolute items-center gap-3 rounded-2xl px-4 py-3 ${className}`}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#2f7bff] to-[#1640c9] text-white shadow-lg shadow-blue-900/50">
-        <Svg d={icon} className="h-[18px] w-[18px]" />
-      </span>
-      <span className="flex flex-col">
-        <span className="text-[13px] font-bold">{title}</span>
-        <span className="text-[11px] text-[var(--mk-muted)]">{sub}</span>
-      </span>
+    <div
+      dir="ltr"
+      className="overflow-hidden rounded-2xl border border-white/10 bg-[#070b16] shadow-[0_60px_140px_-40px_rgba(30,90,255,0.65)]"
+    >
+      {/* top toolbar */}
+      <div className="flex h-11 items-center gap-3 border-b border-white/[0.08] bg-[#0a1020] px-3">
+        <span className="hidden items-center gap-1.5 sm:flex">
+          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
+        </span>
+        <span className="rounded-md bg-white/[0.06] px-2 py-1 text-[12px] font-bold text-white">
+          XAUUSD
+        </span>
+        <span className="hidden items-center gap-0.5 text-[11px] text-[#7d93c9] sm:flex">
+          {['1m', '5m', '15m', '1H', '4H'].map((t) => (
+            <span
+              key={t}
+              className={`rounded px-1.5 py-0.5 ${t === '15m' ? 'bg-[#2f7bff]/25 text-[#9cc4ff]' : ''}`}
+            >
+              {t}
+            </span>
+          ))}
+        </span>
+        <span className="hidden items-center gap-1.5 rounded bg-[#f5c451]/10 px-2 py-0.5 text-[11px] font-semibold text-[#f5c451] md:flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#f5c451]" />
+          REPLAY
+        </span>
+        <span className="flex-1" />
+        <span className="font-mono text-[11px] text-[#7d93c9]">12 Mar 2025 · 14:15</span>
+      </div>
+
+      <div className="flex">
+        {/* drawing rail */}
+        <div className="hidden w-11 shrink-0 flex-col items-center gap-1 border-r border-white/[0.08] bg-[#0a1020] py-2 sm:flex">
+          {rail.map((d, i) => (
+            <span
+              key={d}
+              className={`flex h-8 w-8 items-center justify-center rounded-md ${
+                i === 0 ? 'bg-[#2f7bff]/20 text-[#9cc4ff]' : 'text-[#6f82b3]'
+              }`}
+            >
+              <Svg d={d} className="h-[17px] w-[17px]" />
+            </span>
+          ))}
+        </div>
+
+        {/* chart */}
+        <div className="min-w-0 flex-1">
+          <HeroChart />
+        </div>
+
+        {/* order ticket */}
+        <aside className="hidden w-[228px] shrink-0 flex-col border-l border-white/[0.08] bg-[#0a1020] p-3 lg:flex">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-[#6f82b3]">
+            Order
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-[#ef5b7a]/15 px-2 py-2 text-center">
+              <div className="text-[10px] font-semibold text-[#ef5b7a]">SELL</div>
+              <div className="font-mono text-[13px] font-bold text-white">2341.05</div>
+            </div>
+            <div className="rounded-lg bg-[#4a9dff]/15 px-2 py-2 text-center">
+              <div className="text-[10px] font-semibold text-[#4a9dff]">BUY</div>
+              <div className="font-mono text-[13px] font-bold text-white">2341.35</div>
+            </div>
+          </div>
+          <div className="mt-3 divide-y divide-white/[0.06]">
+            <Row k="Size" v="0.40 lot" />
+            <Row k="Stop loss" v="2334.80" tone="down" />
+            <Row k="Take profit" v="2352.40" tone="up" />
+            <Row k="Spread" v="0.30" />
+            <Row k="Risk / Reward" v="1 : 1.7" />
+          </div>
+          <div className="mt-3 rounded-lg bg-[#2f7bff] py-2 text-center text-[12px] font-bold text-white">
+            Buy XAUUSD
+          </div>
+          <div className="mt-auto rounded-lg border border-white/[0.08] bg-white/[0.02] p-3">
+            <div className="text-[10px] uppercase tracking-wider text-[#6f82b3]">Balance</div>
+            <div className="mt-0.5 font-mono text-[15px] font-bold text-white">$10,000.00</div>
+            <div className="font-mono text-[11px]" style={{ color: UP }}>
+              +$186.40 open
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* replay controls */}
+      <div className="flex h-12 items-center gap-3 border-t border-white/[0.08] bg-[#0a1020] px-3">
+        <span className="flex items-center gap-1 text-[#9cb3e6]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/5">
+            <Svg d={I.stepBack} className="h-4 w-4" />
+          </span>
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#2f7bff] text-white">
+            <Svg d={I.play} className="h-3.5 w-3.5" />
+          </span>
+          <span className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/5">
+            <Svg d={I.stepFwd} className="h-4 w-4" />
+          </span>
+        </span>
+        <span className="rounded bg-white/[0.06] px-2 py-0.5 font-mono text-[11px] text-[#9cc4ff]">
+          5x
+        </span>
+        <div className="relative h-1 flex-1 rounded-full bg-white/10">
+          <div className="absolute inset-y-0 left-0 w-[62%] rounded-full bg-gradient-to-r from-[#2f7bff] to-[#38d3ff]" />
+          <div className="absolute left-[62%] top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#38d3ff] bg-[#04070f]" />
+        </div>
+        <span className="hidden font-mono text-[11px] text-[#7d93c9] sm:inline">
+          12 Mar → 18 Mar
+        </span>
+      </div>
     </div>
   );
 }
@@ -198,168 +412,93 @@ function FloatingBadge({
 function Hero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="relative overflow-hidden">
-      <div className="mk-glow pointer-events-none absolute inset-0" />
-      <div className="mk-grid-bg pointer-events-none absolute inset-0" />
-      <div className="relative mx-auto max-w-7xl px-5 pb-20 pt-16 lg:px-8 lg:pb-28 lg:pt-24">
+      <div className="pointer-events-none absolute inset-0" style={GRID_BG} />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-[radial-gradient(50%_60%_at_50%_0%,rgba(47,123,255,0.30),transparent_72%)]" />
+
+      <div className={`${WRAP} relative pb-6 pt-16 sm:pt-20 lg:pt-28`}>
         <div className="mx-auto max-w-3xl text-center">
-          <div className="mk-fade-up inline-flex items-center gap-2.5 rounded-full border border-[var(--mk-line)] bg-[rgba(10,26,70,0.6)] py-1.5 pe-4 ps-1.5 text-xs text-[var(--mk-muted)]">
-            <span className="flex items-center gap-1.5 rounded-full bg-[var(--mk-blue)] px-2.5 py-1 text-[11px] font-bold text-white">
-              <span className="mk-pulse-dot h-1.5 w-1.5 rounded-full bg-white" />
-              لحظه‌ای
+          <a
+            href="#chart"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] py-1 pe-3 ps-1 text-[12.5px] text-[#b8c6e6] transition hover:border-white/20"
+          >
+            <span className="rounded-full bg-[#2f7bff] px-2.5 py-0.5 text-[11px] font-bold text-white">
+              جدید
             </span>
-            داده زنده کریپتو، فارکس، سهام، بورس ایران، طلا و شاخص‌ها
-          </div>
-          <h1 className="mk-fade-up mt-7 text-[40px] font-black leading-[1.3] tracking-tight [animation-delay:80ms] sm:text-6xl sm:leading-[1.25] lg:text-[68px]">
-            همه بازارهای مالی،
+            محیط تمرین معامله، به زبان فارسی
+            <Svg d={I.arrow} className="h-3.5 w-3.5" />
+          </a>
+
+          <h1 className="mt-7 text-[38px] font-black leading-[1.35] tracking-tight text-white sm:text-[54px] sm:leading-[1.3] lg:text-[66px]">
+            معامله با اطمینان،
             <br />
-            <span className="mk-gradient-text">روی یک نمودار حرفه‌ای</span>
+            <span className={GRADIENT_TEXT}>از بک‌تست شروع می‌شود</span>
           </h1>
-          <p className="mk-fade-up mx-auto mt-6 max-w-2xl text-base leading-8 text-[var(--mk-muted)] [animation-delay:160ms] sm:text-lg sm:leading-9">
-            {BRAND_FA} پلتفرم تحلیل تکنیکال در سطح تریدینگ‌ویو است: قیمت لحظه‌ای هزاران نماد، صدها
-            اندیکاتور، ابزارهای ترسیم حرفه‌ای و بک‌تست استراتژی با ری‌پلی بازار؛ همه در مرورگر و بدون
-            نصب.
+          <p className="mx-auto mt-6 max-w-xl text-[15px] leading-8 text-[#8b98b8] sm:text-[17px] sm:leading-9">
+            بازار را به گذشته برگردانید، کندل‌به‌کندل معامله کنید و قبل از ریسک واقعی بفهمید
+            استراتژی‌تان کار می‌کند یا نه.
           </p>
-          <div className="mk-fade-up mt-9 flex flex-col items-center justify-center gap-3 [animation-delay:240ms] sm:flex-row">
+
+          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href={signedIn ? '/home' : '/login'}
-              className="mk-btn-primary inline-flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl px-8 text-base font-bold text-white sm:w-auto"
+              className={`${BTN_PRIMARY} h-12 w-full px-8 text-[15px] sm:w-auto`}
             >
-              {signedIn ? 'ورود به داشبورد' : 'شروع تحلیل'}
-              <Svg d={I.arrow} className="h-5 w-5" />
+              {signedIn ? 'ورود به داشبورد' : 'شروع کنید'}
+              <Svg d={I.arrow} className="h-4 w-4" />
             </Link>
-            <a
-              href="#pricing"
-              className="mk-btn-ghost inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl px-7 text-base font-semibold sm:w-auto"
-            >
-              مشاهده قیمت
-              <span className="text-[var(--mk-muted)]">— {faNumber(PRICE_TOMAN)} تومان</span>
+            <a href="#chart" className={`${BTN_GHOST} h-12 w-full px-7 text-[15px] sm:w-auto`}>
+              <Svg d={I.play} className="h-3.5 w-3.5" />
+              نمودار را امتحان کنید
             </a>
           </div>
-          <div className="mk-fade-up mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13px] text-[var(--mk-muted)] [animation-delay:320ms]">
-            {['داده لحظه‌ای همه بازارها', 'بیش از ۱۰۰ اندیکاتور', 'بک‌تست با ری‌پلی'].map((t) => (
-              <span key={t} className="flex items-center gap-1.5">
-                <Svg d={I.check} className="h-4 w-4 text-[var(--mk-cyan)]" />
+
+          <ul className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13px] text-[#7d8bac]">
+            {['حساب مجازی', 'بازپخش تاریخی', 'ژورنال خودکار', 'مسابقه و نبرد'].map((t) => (
+              <li key={t} className="flex items-center gap-1.5">
+                <span className="text-[#38d3ff]">
+                  <Svg d={I.check} className="h-4 w-4" />
+                </span>
                 {t}
-              </span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
-        <div className="mk-fade-up relative mx-auto mt-16 max-w-5xl [animation-delay:400ms] lg:mt-20">
-          <div className="absolute -inset-x-10 -top-10 bottom-0 rounded-[40px] bg-[radial-gradient(50%_50%_at_50%_40%,rgba(47,123,255,0.35),transparent_70%)] blur-2xl" />
-          <div
-            className="mk-ring relative overflow-hidden rounded-[22px] bg-[#071330] shadow-[0_40px_120px_-30px_rgba(16,60,180,0.7)]"
-            dir="ltr"
-          >
-            <div className="flex h-11 items-center gap-3 border-b border-[var(--mk-line)] bg-[#0a1838] px-4">
-              <span className="flex gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#ef5b7a]/80" />
-                <span className="h-2.5 w-2.5 rounded-full bg-[#f5c451]/80" />
-                <span className="h-2.5 w-2.5 rounded-full bg-[#4a9dff]/80" />
-              </span>
-              <span className="ml-2 flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1 text-[12px] font-bold text-white">
-                <Svg d={I.search} className="h-3.5 w-3.5 text-[#7d93c9]" />
-                BTCUSDT
-              </span>
-              <span className="hidden gap-1 text-[11px] text-[#7d93c9] sm:flex">
-                {['1m', '15m', '1H', '4H', '1D'].map((t) => (
-                  <span
-                    key={t}
-                    className={`rounded px-1.5 py-0.5 ${t === '1H' ? 'bg-[#2f7bff]/25 text-[#9cc4ff]' : ''}`}
-                  >
-                    {t}
-                  </span>
-                ))}
-              </span>
-              <span className="hidden items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[#7d93c9] md:flex">
-                <Svg d={I.wave} className="h-3.5 w-3.5" />
-                Indicators
-              </span>
-              <span className="hidden items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[#7d93c9] md:flex">
-                <Svg d={I.replay} className="h-3.5 w-3.5" />
-                Replay
-              </span>
-              <span className="flex-1" />
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--mk-cyan)]">
-                <span className="mk-pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--mk-cyan)]" />
-                LIVE
-              </span>
-            </div>
-            <div className="flex">
-              <div className="hidden w-11 shrink-0 flex-col items-center gap-3 border-r border-[var(--mk-line)] bg-[#0a1838] py-4 text-[#7d93c9] sm:flex">
-                {[I.chart, I.pen, I.layers, I.target, I.replay].map((d, i) => (
-                  <span
-                    key={d}
-                    className={`flex h-7 w-7 items-center justify-center rounded-md ${i === 1 ? 'bg-[#2f7bff]/25 text-[#9cc4ff]' : ''}`}
-                  >
-                    <Svg d={d} className="h-4 w-4" />
-                  </span>
-                ))}
-              </div>
-              <div className="min-w-0 flex-1 p-2">
-                <HeroChart />
-              </div>
-            </div>
+        <div className="relative mx-auto mt-14 max-w-[1080px] sm:mt-16">
+          <div className="absolute -inset-x-10 -top-10 bottom-10 rounded-[48px] bg-[radial-gradient(50%_60%_at_50%_40%,rgba(47,123,255,0.35),transparent_72%)] blur-3xl" />
+          <div className="relative">
+            <PlatformFrame />
           </div>
-          <FloatingBadge
-            className="mk-float -right-3 top-24 hidden lg:flex xl:-right-16"
-            icon={I.bolt}
-            title={
-              <span dir="ltr" className="flex items-center gap-2">
-                XAUUSD <span className="text-[#4a9dff]">+0.62%</span>
-              </span>
-            }
-            sub="قیمت لحظه‌ای · بدون تاخیر"
-          />
-          <FloatingBadge
-            className="mk-float-slow -left-3 bottom-24 hidden lg:flex xl:-left-16"
-            icon={I.replay}
-            title="بک‌تست با ری‌پلی"
-            sub="بازپخش کندل به کندل بازار"
-          />
+          <div className="pointer-events-none absolute inset-x-0 -bottom-px h-24 bg-gradient-to-t from-[#04070f] to-transparent" />
         </div>
       </div>
     </section>
   );
 }
 
-function Ticker() {
-  const row = (copy: number) => (
-    <div className="flex shrink-0 items-center gap-10 pe-10" aria-hidden={copy > 0}>
-      {TICKER.map(([sym, ch]) => (
-        <span key={sym} className="flex items-center gap-2.5 whitespace-nowrap text-sm" dir="ltr">
-          <span className="font-bold text-[var(--mk-text)]">{sym}</span>
-          <span className={`font-mono text-[13px] ${ch >= 0 ? 'text-[#4a9dff]' : 'text-[#ef5b7a]'}`}>
-            {ch >= 0 ? '▲' : '▼'} {Math.abs(ch).toFixed(2)}%
-          </span>
-        </span>
-      ))}
-    </div>
-  );
-  return (
-    <div className="mk-marquee-wrap overflow-hidden border-y border-[var(--mk-line)] bg-[rgba(6,18,51,0.6)] py-4">
-      <div className="mk-marquee flex w-max">
-        {row(0)}
-        {row(1)}
-      </div>
-    </div>
-  );
-}
+/* ───────────────────────── facts strip ───────────────────────── */
 
-function Stats() {
-  const stats = [
-    { value: '+۱۰٬۰۰۰', label: 'نماد معاملاتی' },
-    { value: '+۱۰۰', label: 'اندیکاتور فنی' },
-    { value: '۱۸', label: 'ابزار ترسیم' },
-    { value: '+۱۶', label: 'نوع نمودار' },
+function FactsStrip() {
+  const items = [
+    { v: 'کندل‌به‌کندل', l: 'بازپخش با سرعت دلخواه' },
+    { v: '۱m تا ۴H', l: 'تغییر تایم‌فریم وسط جلسه' },
+    { v: 'طلا · فارکس · شاخص', l: 'XAUUSD · EURUSD · GBPUSD · NAS100' },
+    { v: 'مسابقه و نبرد', l: 'رتبه‌بندی با امتیاز الو' },
   ];
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16 lg:px-8">
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-[var(--mk-line)] bg-[var(--mk-line)] lg:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.label} className="bg-[var(--mk-bg)] px-6 py-8 text-center">
-            <div className="mk-gradient-text text-4xl font-black sm:text-5xl">{s.value}</div>
-            <div className="mt-2 text-sm text-[var(--mk-muted)]">{s.label}</div>
+    <section className="border-y border-white/[0.07] bg-white/[0.015]">
+      <div className={`${WRAP} grid grid-cols-2 lg:grid-cols-4`}>
+        {items.map((it, i) => (
+          <div
+            key={it.v}
+            className={`px-4 py-7 text-center ${i % 2 === 0 ? 'border-e border-white/[0.07]' : ''} ${
+              i < 2 ? 'border-b border-white/[0.07] lg:border-b-0' : ''
+            } ${i === 1 ? 'lg:border-e' : ''}`}
+          >
+            <div className="text-[17px] font-extrabold text-white">{it.v}</div>
+            <div className="mt-1 text-[12px] text-[#7d8bac]" dir="auto">
+              {it.l}
+            </div>
           </div>
         ))}
       </div>
@@ -367,276 +506,177 @@ function Stats() {
   );
 }
 
-function Markets() {
-  const markets = [
-    { title: 'ارزهای دیجیتال', symbols: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'], up: true, seed: 11 },
-    { title: 'فارکس', symbols: ['EURUSD', 'GBPUSD', 'USDJPY'], up: false, seed: 23 },
-    { title: 'سهام جهانی', symbols: ['AAPL', 'NVDA', 'TSLA'], up: true, seed: 37 },
-    { title: 'بورس ایران', symbols: ['شاخص کل', 'فولاد', 'خودرو'], up: true, seed: 41 },
-    { title: 'طلا و کالا', symbols: ['XAUUSD', 'XAGUSD', 'USOIL'], up: true, seed: 53 },
-    { title: 'شاخص‌های جهانی', symbols: ['US500', 'NAS100', 'DAX40'], up: false, seed: 67 },
+/* ───────────────────────── product: 3 steps ───────────────────────── */
+
+function EquityMini({ className = 'h-full w-full', id }: { className?: string; id: string }) {
+  return (
+    <svg viewBox="0 0 400 140" preserveAspectRatio="none" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#2f7bff" stopOpacity="0.45" />
+          <stop offset="100%" stopColor="#2f7bff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[35, 70, 105].map((g) => (
+        <line key={g} x1="0" x2="400" y1={g} y2={g} stroke="rgba(255,255,255,0.05)" />
+      ))}
+      <path
+        d="M0 112 L30 106 L60 114 L90 92 L120 98 L150 74 L180 82 L210 60 L240 66 L270 44 L300 52 L330 32 L360 38 L400 20 L400 140 L0 140 Z"
+        fill={`url(#${id})`}
+      />
+      <path
+        d="M0 112 L30 106 L60 114 L90 92 L120 98 L150 74 L180 82 L210 60 L240 66 L270 44 L300 52 L330 32 L360 38 L400 20"
+        fill="none"
+        stroke="#4a9dff"
+        strokeWidth="2"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+function HowItWorks({ signedIn }: { signedIn: boolean }) {
+  const steps = [
+    {
+      n: 1,
+      title: 'بازپخش',
+      desc: 'تاریخ شروع را انتخاب کنید. کندل‌های بعد پنهان می‌مانند و بازار همان‌طور که آن روز حرکت کرد جلو می‌آید.',
+      visual: (
+        <div className="relative h-full">
+          <MiniCandles n={22} seed={11} hiddenFrom={15} />
+          <span
+            className="absolute bottom-3 start-3 flex items-center gap-1.5 rounded-md bg-black/40 px-2 py-1 font-mono text-[10px] text-[#9cc4ff]"
+            dir="ltr"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-[#38d3ff]" /> 12 Mar · 14:15
+          </span>
+        </div>
+      ),
+    },
+    {
+      n: 2,
+      title: 'معامله',
+      desc: 'ورود، حد ضرر، حد سود و حجم. اسپرد روی قیمت می‌نشیند؛ نتیجه همان‌طور که در بازار زنده دیده می‌شود.',
+      visual: (
+        <div className="relative h-full" dir="ltr">
+          <MiniCandles n={22} seed={5} />
+          {[
+            { top: '18%', label: 'TP', color: UP },
+            { top: '50%', label: 'ENTRY', color: '#dbe4f8' },
+            { top: '78%', label: 'SL', color: DOWN },
+          ].map((l) => (
+            <div
+              key={l.label}
+              className="absolute inset-x-0 flex items-center"
+              style={{ top: l.top }}
+            >
+              <div
+                className="h-px flex-1 border-t border-dashed"
+                style={{ borderColor: l.color, opacity: 0.7 }}
+              />
+              <span
+                className="rounded px-1.5 py-0.5 font-mono text-[9px] font-bold"
+                style={{ background: `${l.color}26`, color: l.color }}
+              >
+                {l.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      n: 3,
+      title: 'مرور نتیجه',
+      desc: 'نرخ برد، فاکتور سود، افت سرمایه، تقویم سود و زیان و ژورنال هر معامله، برای همان جلسه.',
+      visual: (
+        <div className="relative h-full">
+          <EquityMini id="eq-step" />
+          <span
+            className="absolute top-3 start-3 rounded-md bg-black/40 px-2 py-1 font-mono text-[11px] font-bold"
+            style={{ color: UP }}
+            dir="ltr"
+          >
+            +3.48R
+          </span>
+        </div>
+      ),
+    },
   ];
   return (
-    <section id="markets" className="relative scroll-mt-20 py-24">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <SectionTitle
-          eyebrow="بازارها"
+    <section id="product" className="scroll-mt-20 py-20 lg:py-28">
+      <div className={WRAP}>
+        <SectionHead
+          eyebrow="محصول"
           title={
             <>
-              داده لحظه‌ای <span className="mk-gradient-text">همه بازارهای مالی</span>
+              از تحلیل تا نتیجه،
+              <br />
+              <span className={GRADIENT_TEXT}>سه قدم</span>
             </>
           }
-          desc="از بیت‌کوین تا شاخص کل بورس تهران؛ قیمت‌ها به‌صورت زنده روی نمودار به‌روز می‌شوند و با یک جستجو به هر نماد می‌رسید."
+          desc="هر جلسه یک بازه از بازار است با حساب مجازی. بازپخش کنید، معامله کنید و عملکرد را بسنجید."
         />
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {markets.map((m) => (
-            <article
-              key={m.title}
-              className="mk-card group relative overflow-hidden rounded-3xl p-6 transition duration-300 hover:-translate-y-1 hover:border-[rgba(90,162,255,0.4)]"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold">{m.title}</h3>
-                <span className="flex items-center gap-1.5 rounded-full bg-[rgba(56,211,255,0.1)] px-2.5 py-1 text-[11px] font-semibold text-[var(--mk-cyan)]">
-                  <span className="mk-pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--mk-cyan)]" />
-                  زنده
-                </span>
+        <div className="mt-14 grid gap-4 md:grid-cols-3">
+          {steps.map((s) => (
+            <article key={s.title} className={`${CARD_HOVER} group overflow-hidden`}>
+              <div className="relative h-44 overflow-hidden border-b border-white/[0.07] bg-[#060a14]">
+                {s.visual}
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_0%,rgba(47,123,255,0.14),transparent_70%)]" />
               </div>
-              <Sparkline seed={m.seed} up={m.up} className="mt-5 h-16 w-full" />
-              <div className="mt-5 flex flex-wrap gap-2">
-                {m.symbols.map((s) => (
-                  <span
-                    key={s}
-                    className="rounded-lg border border-[var(--mk-line)] bg-[rgba(3,10,28,0.55)] px-2.5 py-1 font-mono text-xs text-[#9cc4ff]"
-                  >
-                    {s}
+              <div className="p-6">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/15 text-[12px] font-black text-[#9cc4ff]">
+                    {faNumber(s.n)}
                   </span>
-                ))}
+                  <h3 className="text-[17px] font-extrabold text-white">{s.title}</h3>
+                </div>
+                <p className="mt-3 text-[13.5px] leading-7 text-[#8b98b8]">{s.desc}</p>
               </div>
             </article>
           ))}
         </div>
+        <div className="mt-10 flex justify-center">
+          <Link
+            href={signedIn ? '/backtest' : '/login'}
+            className={`${BTN_GHOST} h-11 px-6 text-sm`}
+          >
+            {signedIn ? 'جلسه‌های من' : 'اولین جلسه را بسازید'}
+            <Svg d={I.arrow} className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
     </section>
   );
 }
 
-function FeatureCard({
-  icon,
-  title,
-  desc,
-  className = '',
-  children,
-}: {
-  icon: string;
-  title: string;
-  desc: string;
-  className?: string;
-  children?: ReactNode;
-}) {
-  return (
-    <article
-      className={`mk-card group relative overflow-hidden rounded-3xl p-7 transition duration-300 hover:-translate-y-1 hover:border-[rgba(90,162,255,0.4)] ${className}`}
-    >
-      <div className="pointer-events-none absolute -left-16 -top-16 h-40 w-40 rounded-full bg-[var(--mk-blue)] opacity-0 blur-3xl transition duration-500 group-hover:opacity-20" />
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(90,162,255,0.3)] bg-[rgba(47,123,255,0.12)] text-[var(--mk-blue-2)]">
-        <Svg d={icon} className="h-6 w-6" />
-      </span>
-      <h3 className="mt-5 text-lg font-bold">{title}</h3>
-      <p className="mt-2 text-sm leading-7 text-[var(--mk-muted)]">{desc}</p>
-      {children}
-    </article>
-  );
-}
+/* ───────────────────────── live chart demo ───────────────────────── */
 
-function Chips({ items }: { items: readonly string[] }) {
+function ChartDemo() {
   return (
-    <div className="mt-5 flex flex-wrap gap-2" dir="ltr">
-      {items.map((t) => (
-        <span
-          key={t}
-          className="rounded-lg border border-[var(--mk-line)] bg-[rgba(3,10,28,0.55)] px-2.5 py-1 font-mono text-[11px] text-[#9cc4ff]"
-        >
-          {t}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function Features() {
-  return (
-    <section id="features" className="relative scroll-mt-20 py-24">
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <SectionTitle
-          eyebrow="امکانات"
-          title={
-            <>
-              هر ابزاری که یک معامله‌گر حرفه‌ای
-              <br className="hidden sm:block" /> <span className="mk-gradient-text">نیاز دارد</span>
-            </>
-          }
-          desc="همان تجربه‌ای که از تریدینگ‌ویو می‌شناسید؛ سریع، دقیق و کامل."
+    <section id="chart" className="relative scroll-mt-20 overflow-hidden py-20 lg:py-28">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_40%_at_50%_50%,rgba(47,123,255,0.12),transparent_70%)]" />
+      <div className={`${WRAP} relative`}>
+        <SectionHead
+          eyebrow="نمودار زنده"
+          title="همین الان روی نمودار تمرین کنید"
+          desc="این همان موتور نمودار پلتفرم است؛ با داده تاریخی و بازپخش روشن. بکشید، زوم کنید، ابزار بگذارید."
         />
-        <div className="mt-16 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          <FeatureCard
-            className="lg:col-span-2"
-            icon={I.wave}
-            title="بیش از ۱۰۰ اندیکاتور فنی"
-            desc="اندیکاتورهای روند، مومنتوم، نوسان و حجم را با یک کلیک به نمودار اضافه کنید، پارامترها و رنگ‌هایشان را تنظیم کنید و چند اندیکاتور را هم‌زمان در پنل‌های جداگانه ببینید."
-          >
-            <Chips
-              items={['RSI', 'MACD', 'Bollinger Bands', 'Ichimoku', 'EMA', 'SMA', 'VWAP', 'Stochastic', 'ATR', 'SuperTrend', 'OBV', 'ADX']}
-            />
-          </FeatureCard>
-          <FeatureCard
-            icon={I.bolt}
-            title="قیمت لحظه‌ای، بدون تاخیر"
-            desc="کندل‌ها هم‌زمان با بازار ساخته می‌شوند. تاریخچه کامل قیمت برای تحلیل‌های بلندمدت هم در دسترس است."
-          />
-          <FeatureCard
-            icon={I.pen}
-            title="۱۸ ابزار ترسیم حرفه‌ای"
-            desc="خط روند، پرتو، کانال موازی، فیبوناچی اصلاحی، مستطیل، متن، مسیر، منحنی، هایلایتر، پروفایل حجم و ابزار پوزیشن خرید و فروش؛ با مگنت و قالب‌های شخصی."
-          />
-          <FeatureCard
-            icon={I.candles}
-            title="بیش از ۱۶ نوع نمودار"
-            desc="شمعی، میله‌ای، خطی، هیکن آشی، شمع توخالی، رنکو، کاگی، شکست خط، نقطه و رقم، رنج، TPO، فوت‌پرینت حجمی و پروفایل حجم جلسه."
-          />
-          <FeatureCard
-            icon={I.replay}
-            title="بک‌تست با ری‌پلی بازار"
-            desc="به هر تاریخی در گذشته برگردید و بازار را کندل به کندل بازپخش کنید؛ استراتژی‌تان را بدون ریسک و در شرایط واقعی بازار بسنجید."
-          />
-          <FeatureCard
-            className="md:col-span-2"
-            icon={I.keyboard}
-            title="سرعت یک ترمینال حرفه‌ای"
-            desc="موتور رندر اختصاصی که با ده‌ها هزار کندل هم روان می‌ماند، تایم‌فریم‌های متنوع، جستجوی سریع نماد، بازگشت و تکرار نامحدود و میانبرهای صفحه‌کلید برای همه کارها."
-          >
-            <Chips items={['1m', '5m', '15m', '1H', '4H', '1D', '1W', 'Ctrl+K', 'Ctrl+Z', 'Alt+T']} />
-          </FeatureCard>
-          <FeatureCard
-            icon={I.layers}
-            title="شخصی‌سازی کامل"
-            desc="تم و رنگ‌بندی نمودار، سبک کندل‌ها، مقیاس لگاریتمی و درصدی و قالب‌های اختصاصی ابزارها؛ نمودار دقیقاً همان‌طور که می‌خواهید."
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Backtest() {
-  const N = 34;
-  const REVEALED = 24;
-  let s = 5;
-  const rnd = () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-  const candles: Array<{ o: number; c: number; h: number; l: number }> = [];
-  let p = 60;
-  for (let i = 0; i < N; i++) {
-    const o = p;
-    const c = o + (i < 12 ? 1.2 : i < 20 ? -1.4 : 1.6) + (rnd() - 0.5) * 4;
-    candles.push({ o, c, h: Math.max(o, c) + rnd() * 2.5, l: Math.min(o, c) - rnd() * 2.5 });
-    p = c;
-  }
-  const lo = Math.min(...candles.map((c) => c.l)) - 4;
-  const hi = Math.max(...candles.map((c) => c.h)) + 4;
-  const y = (v: number) => 10 + ((hi - v) / (hi - lo)) * 180;
-  const x = (i: number) => 14 + i * 11;
-  const entry = candles[REVEALED - 1]!.c;
-  const stop = entry - 6;
-  const target = entry + 15;
-
-  return (
-    <section id="backtest" className="scroll-mt-20 py-24">
-      <div className="mx-auto grid max-w-7xl items-center gap-14 px-5 lg:grid-cols-2 lg:px-8">
-        <div>
-          <Eyebrow>بک‌تست و ری‌پلی</Eyebrow>
-          <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-tight sm:text-[42px] sm:leading-[1.3]">
-            استراتژی را <span className="mk-gradient-text">قبل از ریسک</span> روی بازار واقعی بسنجید
-          </h2>
-          <p className="mt-4 text-base leading-8 text-[var(--mk-muted)]">
-            حالت ری‌پلی شما را به هر لحظه از گذشته می‌برد. آینده پنهان می‌شود و بازار کندل به کندل جلو
-            می‌رود؛ دقیقاً مثل معامله زنده، اما بدون از دست دادن سرمایه.
-          </p>
-          <ul className="mt-8 space-y-4">
-            {[
-              ['انتخاب هر تاریخ و هر تایم‌فریم', 'نقطه شروع را روی نمودار یا با تاریخ دقیق انتخاب کنید و حتی وسط ری‌پلی تایم‌فریم را عوض کنید.'],
-              ['پخش، توقف و جلو رفتن کندل به کندل', 'سرعت بازپخش را تنظیم کنید یا با یک کلید، فقط یک کندل جلو بروید.'],
-              ['ثبت پوزیشن و محاسبه سود و زیان', 'با ابزار پوزیشن خرید و فروش، حد ضرر و حد سود بگذارید و نسبت ریسک به ریوارد و نتیجه معامله را ببینید.'],
-            ].map(([t, d]) => (
-              <li key={t} className="flex gap-4">
-                <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[rgba(47,123,255,0.15)] text-[var(--mk-cyan)]">
-                  <Svg d={I.check} className="h-4 w-4" />
-                </span>
-                <span>
-                  <span className="block font-bold">{t}</span>
-                  <span className="mt-1 block text-sm leading-7 text-[var(--mk-muted)]">{d}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="relative">
-          <div className="absolute inset-0 rounded-[32px] bg-[radial-gradient(60%_60%_at_50%_50%,rgba(47,123,255,0.3),transparent_70%)] blur-2xl" />
-          <div className="mk-card mk-ring relative overflow-hidden rounded-[28px]" dir="ltr">
-            <div className="flex items-center justify-between border-b border-[var(--mk-line)] px-5 py-3 text-xs">
-              <span className="font-bold text-white">ETHUSDT · 4H</span>
-              <span className="rounded-md bg-[#f5c451]/15 px-2 py-0.5 font-semibold text-[#f5c451]">
-                REPLAY · 2025-03-14
+        <div className="relative mx-auto mt-12 max-w-[1120px]">
+          <div className="absolute -inset-x-6 -top-6 bottom-4 rounded-[36px] bg-[radial-gradient(50%_50%_at_50%_30%,rgba(47,123,255,0.28),transparent_70%)] blur-2xl" />
+          <div className="relative overflow-hidden rounded-[20px] border border-white/10 bg-[#070b16] shadow-[0_40px_100px_-40px_rgba(0,0,0,0.9)]">
+            <div
+              className="flex h-9 items-center gap-2 border-b border-white/[0.08] bg-[#0a1020] px-4"
+              dir="ltr"
+            >
+              <span className="h-2 w-2 rounded-full bg-[#ef5b7a]/70" />
+              <span className="h-2 w-2 rounded-full bg-[#f5c451]/70" />
+              <span className="h-2 w-2 rounded-full bg-[#4a9dff]/70" />
+              <span className="ms-3 font-mono text-[11px] text-[#6f82b3]">
+                interactive demo · historical data
               </span>
             </div>
-            <svg viewBox="0 0 400 200" className="h-auto w-full" aria-hidden="true">
-              <rect x={x(REVEALED - 1)} y={y(target)} width={400 - x(REVEALED - 1)} height={y(entry) - y(target)} fill="#4a9dff" opacity=".16" />
-              <rect x={x(REVEALED - 1)} y={y(entry)} width={400 - x(REVEALED - 1)} height={y(stop) - y(entry)} fill="#ef5b7a" opacity=".16" />
-              <line x1={x(REVEALED - 1)} x2="400" y1={y(entry)} y2={y(entry)} stroke="#9cc4ff" strokeDasharray="3 3" />
-              {candles.map((c, i) => {
-                const up = c.c >= c.o;
-                const color = up ? '#4a9dff' : '#ef5b7a';
-                const top = y(Math.max(c.o, c.c));
-                return (
-                  <g key={i} opacity={i < REVEALED ? 1 : 0.1}>
-                    <line x1={x(i)} x2={x(i)} y1={y(c.h)} y2={y(c.l)} stroke={color} />
-                    <rect x={x(i) - 3.5} y={top} width="7" height={Math.max(1, y(Math.min(c.o, c.c)) - top)} fill={color} rx="1" />
-                  </g>
-                );
-              })}
-              <line x1={x(REVEALED - 1) + 5.5} x2={x(REVEALED - 1) + 5.5} y1="0" y2="200" stroke="#38d3ff" strokeWidth="1.5" />
-            </svg>
-            <div className="grid grid-cols-3 gap-px border-t border-[var(--mk-line)] bg-[var(--mk-line)] text-center">
-              {[
-                ['Position', 'LONG', 'text-[#4a9dff]'],
-                ['Risk / Reward', '1 : 2.5', 'text-white'],
-                ['P&L', '+4.82%', 'text-[#4a9dff]'],
-              ].map(([k, v, c]) => (
-                <div key={k} className="bg-[#061233] px-3 py-3">
-                  <div className="text-[10px] uppercase tracking-wider text-[var(--mk-muted)]">{k}</div>
-                  <div className={`mt-1 font-mono text-sm font-bold ${c}`}>{v}</div>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-center gap-2 border-t border-[var(--mk-line)] bg-[#0a1838] px-4 py-3 text-[#9cc4ff]">
-              {[I.pause, I.play, I.step].map((d, i) => (
-                <span
-                  key={d}
-                  className={`flex h-8 w-8 items-center justify-center rounded-lg ${i === 1 ? 'bg-[var(--mk-blue)] text-white' : 'bg-white/5'}`}
-                >
-                  <Svg d={d} className="h-4 w-4" />
-                </span>
-              ))}
-              <span className="ml-3 flex gap-1 text-[11px]">
-                {['1x', '3x', '10x'].map((sp) => (
-                  <span key={sp} className={`rounded px-2 py-1 ${sp === '3x' ? 'bg-[#2f7bff]/25 text-white' : 'text-[var(--mk-muted)]'}`}>
-                    {sp}
-                  </span>
-                ))}
-              </span>
-            </div>
+            <LandingChart />
           </div>
         </div>
       </div>
@@ -644,176 +684,779 @@ function Backtest() {
   );
 }
 
-function Workflow() {
-  const steps = [
+/* ───────────────────────── battle (مسابقه و نبرد) ───────────────────────── */
+
+const BATTLE_GRADIENT =
+  'bg-gradient-to-l from-[#ffd978] via-[#f5c451] to-[#7db4ff] bg-clip-text text-transparent';
+
+function Battle({ signedIn }: { signedIn: boolean }) {
+  const board = [
+    { r: 1, name: 'معامله‌گر A', tier: 'استاد', elo: '۲٬۴۱۰', pnl: '+4.80R', d: '+۲۴' },
+    { r: 2, name: 'معامله‌گر B', tier: 'الماس', elo: '۲٬۲۸۰', pnl: '+3.10R', d: '+۱۲' },
+    { r: 3, name: 'شما', tier: 'طلا', elo: '۱٬۹۶۰', pnl: '+1.62R', d: '+۹', me: true },
+    { r: 4, name: 'معامله‌گر C', tier: 'طلا', elo: '۱٬۸۴۰', pnl: '−0.40R', d: '−۷' },
+    { r: 5, name: 'معامله‌گر D', tier: 'نقره', elo: '۱٬۶۵۰', pnl: '−1.90R', d: '−۱۵' },
+  ];
+  const pillars = [
     {
-      icon: I.phone,
-      title: 'شماره موبایل را وارد کنید',
-      desc: 'بدون رمز عبور و فرم‌های طولانی؛ فقط شماره موبایل.',
+      icon: I.candles,
+      title: 'همه روی یک بازار',
+      desc: 'یک بازه تاریخی مشترک؛ همه روی همان کندل‌ها معامله می‌کنند، پس فقط مهارت فرق می‌کند.',
     },
     {
-      icon: I.key,
-      title: 'کد تایید را بزنید',
-      desc: 'کد یک‌بار مصرف پیامک‌شده را وارد کنید تا وارد حساب شوید.',
-    },
-    {
-      icon: I.chart,
-      title: 'بازار را تحلیل کنید',
-      desc: 'نماد را انتخاب کنید، اندیکاتور اضافه کنید و تحلیل را شروع کنید.',
+      icon: I.stats,
+      title: 'رتبه با امتیاز الو',
+      desc: 'بعد از هر نبرد امتیازتان بالا یا پایین می‌رود و رتبه‌تان جابه‌جا می‌شود.',
     },
   ];
   return (
-    <section className="relative overflow-hidden py-24">
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-[480px] -translate-y-1/2 bg-[radial-gradient(50%_50%_at_50%_50%,rgba(16,60,180,0.25),transparent_70%)]" />
-      <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
-        <SectionTitle
-          eyebrow="شروع کار"
-          title={
-            <>
-              در کمتر از <span className="mk-gradient-text">یک دقیقه</span> روی نمودار باشید
-            </>
-          }
-        />
-        <div className="relative mt-16">
-          <div className="pointer-events-none absolute inset-x-[16%] top-10 hidden h-px bg-gradient-to-l from-transparent via-[rgba(90,162,255,0.5)] to-transparent md:block" />
-          <ol className="relative grid gap-10 md:grid-cols-3 md:gap-6">
-            {steps.map((s, i) => (
-              <li key={s.title} className="text-center">
-                <div className="relative mx-auto flex h-20 w-20 items-center justify-center rounded-3xl border border-[rgba(90,162,255,0.35)] bg-[linear-gradient(180deg,#0d2260,#061233)] text-[var(--mk-blue-2)] shadow-[0_20px_50px_-20px_rgba(47,123,255,0.8)]">
-                  <Svg d={s.icon} className="h-8 w-8" />
-                  <span className="absolute -left-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--mk-blue)] text-xs font-black text-white ring-4 ring-[var(--mk-bg)]">
-                    {faNumber(i + 1)}
-                  </span>
+    <section id="battle" className="relative scroll-mt-20 overflow-hidden py-20 lg:py-28">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_40%_at_50%_25%,rgba(245,196,81,0.10),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_40%_at_50%_65%,rgba(47,123,255,0.16),transparent_70%)]" />
+
+      <div className={`${WRAP} relative`}>
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#f5c451]/30 bg-[#f5c451]/10 px-3 py-1 text-xs font-bold text-[#f5c451]">
+            <Svg d={I.swords} className="h-3.5 w-3.5" />
+            رقابت با معامله‌گران دیگر
+          </span>
+          <h2 className="mt-5 text-[34px] font-black leading-[1.35] tracking-tight text-white sm:text-[52px] sm:leading-[1.3]">
+            <span className={BATTLE_GRADIENT}>مسابقه و نبرد</span>
+            <br />
+            روی همان کندل‌ها
+          </h2>
+          <p className="mt-5 text-[15px] leading-8 text-[#8b98b8] sm:text-base sm:leading-9">
+            یک بازه تاریخی مشترک برای همه شرکت‌کننده‌ها. هرکس روی همان کندل‌ها معامله می‌کند و رتبه
+            با امتیاز الو جابه‌جا می‌شود؛ از تازه‌کار تا استاد.
+          </p>
+        </div>
+
+        {/* arena */}
+        <div className="relative mx-auto mt-14 max-w-[1080px]">
+          <div className="absolute -inset-x-8 -top-8 bottom-8 rounded-[48px] bg-[radial-gradient(50%_60%_at_50%_40%,rgba(245,196,81,0.14),transparent_72%)] blur-3xl" />
+          <div
+            dir="ltr"
+            className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#070b16] shadow-[0_60px_140px_-40px_rgba(47,123,255,0.55),0_30px_90px_-50px_rgba(245,196,81,0.35)]"
+          >
+            {/* toolbar */}
+            <div className="flex h-11 items-center gap-3 border-b border-white/[0.08] bg-[#0a1020] px-3">
+              <span className="flex items-center gap-1.5 rounded-md bg-[#f5c451]/15 px-2 py-1 text-[11px] font-black tracking-wider text-[#f5c451]">
+                <Svg d={I.swords} className="h-3.5 w-3.5" />
+                BATTLE
+              </span>
+              <span className="rounded-md bg-white/[0.06] px-2 py-1 text-[12px] font-bold text-white">
+                XAUUSD
+              </span>
+              <span className="rounded bg-[#2f7bff]/25 px-1.5 py-0.5 text-[11px] text-[#9cc4ff]">
+                15m
+              </span>
+              <span className="flex-1" />
+              <span className="hidden font-mono text-[11px] text-[#7d93c9] sm:inline">
+                same candles · every player
+              </span>
+            </div>
+
+            <div className="flex flex-col lg:flex-row">
+              {/* chart side */}
+              <div className="relative h-[280px] min-w-0 flex-1 bg-[#060a14] lg:h-auto lg:min-h-[360px]">
+                <div className="absolute inset-0 px-2 py-6">
+                  <MiniCandles n={60} seed={33} hiddenFrom={44} />
                 </div>
-                <h3 className="mt-6 text-lg font-bold">{s.title}</h3>
-                <p className="mx-auto mt-2 max-w-xs text-sm leading-7 text-[var(--mk-muted)]">
-                  {s.desc}
-                </p>
-              </li>
-            ))}
-          </ol>
+                {[
+                  { left: '24%', top: '58%', t: 'BUY', c: UP },
+                  { left: '46%', top: '30%', t: 'SELL', c: DOWN },
+                ].map((m) => (
+                  <span
+                    key={m.t}
+                    className="absolute -translate-x-1/2 rounded px-1.5 py-0.5 font-mono text-[9px] font-black"
+                    style={{ left: m.left, top: m.top, background: `${m.c}33`, color: m.c }}
+                  >
+                    {m.t}
+                  </span>
+                ))}
+                <span className="absolute left-3 top-3 flex items-center gap-2 rounded-lg border border-[#2f7bff]/40 bg-[#2f7bff]/15 px-2.5 py-1 font-mono text-[11px] font-bold text-[#9cc4ff]">
+                  YOU
+                  <span style={{ color: UP }}>+1.62R</span>
+                </span>
+              </div>
+
+              {/* leaderboard side */}
+              <div
+                dir="rtl"
+                className="border-t border-white/[0.08] bg-[#0a1020] lg:w-[330px] lg:shrink-0 lg:border-l lg:border-t-0"
+              >
+                <div className="flex items-center justify-between px-4 py-3 text-[12px] text-[#7d8bac]">
+                  <span className="flex items-center gap-1.5 font-semibold text-[#c9d4f0]">
+                    <Svg d={I.trophy} className="h-4 w-4 text-[#f5c451]" />
+                    رتبه‌بندی نبرد
+                  </span>
+                  <span>الو</span>
+                </div>
+                <div>
+                  {board.map((b) => (
+                    <div
+                      key={b.r}
+                      className={`flex items-center gap-3 border-t border-white/[0.05] px-4 py-3 ${
+                        b.me ? 'bg-[#2f7bff]/10' : ''
+                      }`}
+                    >
+                      <span className="flex w-5 justify-center">
+                        {b.r === 1 ? (
+                          <span className="text-[#f5c451]">
+                            <Svg d={I.crown} className="h-4 w-4" />
+                          </span>
+                        ) : (
+                          <span className="font-mono text-[12px] text-[#7d8bac]">
+                            {faNumber(b.r)}
+                          </span>
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-semibold text-[#dbe4f8]">
+                          {b.name}
+                        </span>
+                        <span className="text-[11px] text-[#7d8bac]">{b.tier}</span>
+                      </span>
+                      <span className="text-end" dir="ltr">
+                        <span className="block font-mono text-[12.5px] font-bold text-white">
+                          {b.elo}
+                        </span>
+                        <span
+                          className="font-mono text-[11px] font-semibold"
+                          style={{ color: b.d.startsWith('+') ? UP : DOWN }}
+                        >
+                          {b.d}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* progress */}
+            <div className="flex h-11 items-center gap-3 border-t border-white/[0.08] bg-[#0a1020] px-3">
+              <span className="font-mono text-[11px] text-[#7d93c9]">44 / 60</span>
+              <div className="relative h-1 flex-1 rounded-full bg-white/10">
+                <div className="absolute inset-y-0 left-0 w-[73%] rounded-full bg-gradient-to-r from-[#f5c451] to-[#38d3ff]" />
+              </div>
+              <span className="hidden font-mono text-[11px] text-[#7d93c9] sm:inline">rank #3</span>
+            </div>
+          </div>
+          <p className="mt-3 text-center text-[11.5px] text-[#6c7a9c]">
+            داده‌های نمایش‌داده‌شده نمونه است.
+          </p>
+        </div>
+
+        {/* pillars */}
+        <div className="mx-auto mt-10 grid max-w-[1080px] gap-4 md:grid-cols-3">
+          {pillars.map((p) => (
+            <article key={p.title} className={`${CARD_HOVER} p-6`}>
+              <IconBadge d={p.icon} />
+              <h3 className="mt-4 text-[16px] font-extrabold text-white">{p.title}</h3>
+              <p className="mt-2 text-[13.5px] leading-7 text-[#8b98b8]">{p.desc}</p>
+            </article>
+          ))}
+          <article className={`${CARD_HOVER} p-6`}>
+            <IconBadge d={I.trophy} />
+            <h3 className="mt-4 text-[16px] font-extrabold text-white">از تازه‌کار تا استاد</h3>
+            <p className="mt-2 text-[13.5px] leading-7 text-[#8b98b8]">
+              هر سطحی که هستید، با هم‌سطح‌های خودتان رقابت می‌کنید و بالا می‌روید.
+            </p>
+            <div className="mt-4">
+              <div className="h-1.5 rounded-full bg-gradient-to-l from-[#f5c451] via-[#38d3ff] to-[#2f7bff]" />
+              <div className="mt-1.5 flex justify-between text-[11px] text-[#7d8bac]">
+                <span>تازه‌کار</span>
+                <span>استاد</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div className="mt-10 flex justify-center">
+          <Link
+            href={signedIn ? '/home' : '/login'}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#f5c451] px-8 text-[15px] font-bold text-[#1a1304] shadow-[0_12px_32px_-12px_rgba(245,196,81,0.8)] transition hover:bg-[#ffd36b]"
+          >
+            {signedIn ? 'ورود به مسابقه و نبرد' : 'شروع کنید و وارد نبرد شوید'}
+            <Svg d={I.arrow} className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </section>
   );
 }
 
-function Pricing({ signedIn }: { signedIn: boolean }) {
-  const features = [
-    'داده لحظه‌ای همه بازارهای مالی',
-    'بیش از ۱۰۰ اندیکاتور فنی',
-    '۱۸ ابزار ترسیم و بیش از ۱۶ نوع نمودار',
-    'بک‌تست استراتژی با ری‌پلی بازار',
-    'همه تایم‌فریم‌ها و تاریخچه کامل قیمت',
-    'تم، رنگ‌بندی و قالب‌های شخصی',
-    'دسترسی از هر دستگاه',
-  ];
+/* ───────────────────────── bento features ───────────────────────── */
+
+function Bento() {
+  const indicators = ['MA', 'RSI', 'MACD', 'Ichimoku', 'Candles', 'Heikin Ashi', 'Renko', '+'];
   return (
-    <section id="pricing" className="relative scroll-mt-20 overflow-hidden py-24">
-      <div className="mk-grid-bg pointer-events-none absolute inset-0 opacity-60" />
-      <div className="relative mx-auto max-w-7xl px-5 lg:px-8">
-        <SectionTitle
-          eyebrow="قیمت"
-          title={
-            <>
-              یک اشتراک، <span className="mk-gradient-text">همه امکانات</span>
-            </>
-          }
-          desc="بدون پلن‌های پیچیده و هزینه‌های پنهان. همه بازارها و همه ابزارها از روز اول در اختیار شماست."
+    <section id="features" className="scroll-mt-20 py-20 lg:py-28">
+      <div className={WRAP}>
+        <SectionHead
+          eyebrow="امکانات"
+          title="هرچه برای تمرین جدی لازم است"
+          desc="تمرکز روی بازپخش، معامله مجازی و بررسی نتیجه؛ نه روی قیمت لحظه‌ای بازار."
         />
-        <div className="relative mx-auto mt-14 max-w-lg">
-          <div className="absolute -inset-6 rounded-[44px] bg-[radial-gradient(60%_60%_at_50%_40%,rgba(47,123,255,0.45),transparent_70%)] blur-2xl" />
-          <div className="mk-ring relative overflow-hidden rounded-[32px] bg-[linear-gradient(180deg,#0c2265,#06123a_55%,#050e2c)] p-8 sm:p-10">
-            <div className="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[var(--mk-cyan)] opacity-10 blur-3xl" />
-            <div className="flex items-center justify-between gap-3">
+
+        <div className="mt-14 grid gap-4 lg:grid-cols-6">
+          {/* A — replay */}
+          <article className={`${CARD_HOVER} overflow-hidden lg:col-span-4`}>
+            <div className="p-6 pb-0">
               <div className="flex items-center gap-3">
-                <LogoMark size={40} />
-                <div>
-                  <div className="text-lg font-extrabold">اشتراک حرفه‌ای</div>
-                  <div className="text-xs text-[var(--mk-muted)]">دسترسی کامل به {BRAND_FA}</div>
+                <IconBadge d={I.replay} />
+                <h3 className="text-[17px] font-extrabold text-white">هر نموداری را بازپخش کنید</h3>
+              </div>
+              <p className="mt-3 max-w-lg text-[13.5px] leading-7 text-[#8b98b8]">
+                نقطه شروع را روی نمودار یا با تاریخ انتخاب کنید. متوقف شوید، یک کندل جلو بروید یا
+                تایم‌فریم را وسط جلسه عوض کنید.
+              </p>
+            </div>
+            <div className="relative mt-5 h-52 border-t border-white/[0.07] bg-[#060a14]" dir="ltr">
+              <MiniCandles n={52} seed={21} hiddenFrom={37} />
+              <div className="absolute left-3 top-3 flex gap-1 text-[11px] text-[#7d93c9]">
+                {['1m', '5m', '15m', '1H', '4H'].map((t) => (
+                  <span
+                    key={t}
+                    className={`rounded px-1.5 py-0.5 ${t === '5m' ? 'bg-[#2f7bff]/25 text-[#9cc4ff]' : ''}`}
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
+              <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-lg border border-white/10 bg-black/50 px-2 py-1 text-[#9cb3e6] backdrop-blur">
+                <Svg d={I.stepBack} className="h-3.5 w-3.5" />
+                <span className="flex h-6 w-6 items-center justify-center rounded bg-[#2f7bff] text-white">
+                  <Svg d={I.play} className="h-3 w-3" />
+                </span>
+                <Svg d={I.stepFwd} className="h-3.5 w-3.5" />
+              </div>
+            </div>
+          </article>
+
+          {/* B — virtual account */}
+          <article className={`${CARD_HOVER} p-6 lg:col-span-2`}>
+            <IconBadge d={I.candles} />
+            <h3 className="mt-4 text-[17px] font-extrabold text-white">مثل حساب واقعی</h3>
+            <p className="mt-2 text-[13.5px] leading-7 text-[#8b98b8]">
+              حجم، حد ضرر، حد سود و اسپرد؛ بدون ریسک سرمایه.
+            </p>
+            <div className="mt-5 divide-y divide-white/[0.06] rounded-xl border border-white/[0.07] bg-[#060a14] px-4">
+              <Row k="Size" v="0.40 lot" />
+              <Row k="Spread" v="0.30" />
+              <Row k="SL" v="2334.80" tone="down" />
+              <Row k="TP" v="2352.40" tone="up" />
+              <Row k="Result" v="+1.62R" tone="up" />
+            </div>
+          </article>
+
+          {/* C — journal (auto-saved + manual images/notes) */}
+          <article className={`${CARD_HOVER} overflow-hidden lg:col-span-4`}>
+            <div className="grid gap-6 p-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+              <div>
+                <IconBadge d={I.journal} />
+                <h3 className="mt-4 text-[17px] font-extrabold text-white">ژورنال خودکار</h3>
+                <p className="mt-2 text-[13.5px] leading-7 text-[#8b98b8]">
+                  هر معامله خودبه‌خود در ژورنال ذخیره می‌شود. یادداشت، تگ و عکس تحلیل را هم هر وقت
+                  خواستید خودتان به همان معامله اضافه کنید.
+                </p>
+                <ul className="mt-4 space-y-2 text-[13px] text-[#c9d4f0]">
+                  {[
+                    'ثبت خودکار هر معامله',
+                    'افزودن عکس و یادداشت دلخواه',
+                    'مرور جلسه بدون گم شدن جزئیات',
+                  ].map((t) => (
+                    <li key={t} className="flex items-center gap-2">
+                      <span className="text-[#38d3ff]">
+                        <Svg d={I.check} className="h-4 w-4" />
+                      </span>
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-xl border border-white/[0.07] bg-[#060a14] p-4">
+                <div className="flex items-center justify-between gap-2" dir="ltr">
+                  <span className="font-mono text-[11.5px] text-[#9cb3e6]">
+                    XAUUSD · BUY · 12 Mar
+                  </span>
+                  <span
+                    className="flex items-center gap-1 rounded-full bg-[#38d3ff]/[0.12] px-2 py-0.5 text-[10.5px] font-semibold text-[#38d3ff]"
+                    dir="rtl"
+                  >
+                    <Svg d={I.check} className="h-3 w-3" />
+                    ذخیره خودکار
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-4 gap-2" dir="ltr">
+                  {[
+                    ['Entry', '2341.20', ''],
+                    ['SL', '2334.80', DOWN],
+                    ['TP', '2352.40', UP],
+                    ['Result', '+1.62R', UP],
+                  ].map(([k, v, c]) => (
+                    <div key={k} className="rounded-lg bg-white/[0.03] px-2 py-1.5">
+                      <div className="text-[9.5px] uppercase tracking-wide text-[#6c7a9c]">{k}</div>
+                      <div
+                        className="font-mono text-[11.5px] font-bold"
+                        style={{ color: c || '#dbe4f8' }}
+                      >
+                        {v}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="my-3 flex items-center gap-2 text-[10.5px] text-[#6c7a9c]">
+                  <span className="h-px flex-1 bg-white/[0.07]" />
+                  افزوده‌شده توسط شما
+                  <span className="h-px flex-1 bg-white/[0.07]" />
+                </div>
+
+                <p className="text-[12.5px] leading-6 text-[#b8c6e6]">
+                  ورود بعد از بازگشت به ناحیه تقاضا؛ منتظر بسته شدن کندل تایید ماندم.
+                </p>
+                <div className="mt-3 flex items-center gap-2" dir="ltr">
+                  <div className="h-14 w-20 overflow-hidden rounded-lg border border-white/10 bg-[#04070f]">
+                    <MiniCandles n={14} seed={9} />
+                  </div>
+                  <div className="h-14 w-20 overflow-hidden rounded-lg border border-white/10 bg-[#04070f]">
+                    <MiniCandles n={14} seed={17} />
+                  </div>
+                  <span className="flex h-14 w-20 flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-white/20 text-[10px] text-[#7d8bac]">
+                    <Svg d={I.plus} className="h-4 w-4" />
+                    <span dir="rtl">افزودن عکس</span>
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {['لندن', 'ریتریسمنت', 'طبق پلن'].map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-md bg-[#2f7bff]/[0.12] px-2 py-0.5 text-[11px] text-[#9cc4ff]"
+                    >
+                      {t}
+                    </span>
+                  ))}
                 </div>
               </div>
-              <span className="rounded-full bg-[var(--mk-blue)] px-3 py-1 text-xs font-bold text-white shadow-lg shadow-blue-900/50">
-                همه امکانات
-              </span>
             </div>
-            <div className="mt-8 flex items-end gap-2">
-              <span className="text-6xl font-black tracking-tight">{faNumber(PRICE_TOMAN)}</span>
-              <span className="mb-2 text-lg font-bold text-[var(--mk-muted)]">تومان</span>
+          </article>
+
+          {/* D — drawing tools */}
+          <article className={`${CARD_HOVER} p-6 lg:col-span-2`}>
+            <IconBadge d={I.pen} />
+            <h3 className="mt-4 text-[17px] font-extrabold text-white">ابزار ترسیم</h3>
+            <p className="mt-2 text-[13.5px] leading-7 text-[#8b98b8]">
+              خط روند، فیبوناچی، کانال و پروفایل حجم روی بازپخش می‌مانند.
+            </p>
+            <div
+              className="mt-5 h-[132px] rounded-xl border border-white/[0.07] bg-[#060a14]"
+              dir="ltr"
+            >
+              <svg viewBox="0 0 300 132" className="h-full w-full" aria-hidden="true">
+                {[
+                  { y: 24, t: '0' },
+                  { y: 52, t: '0.382' },
+                  { y: 80, t: '0.618' },
+                  { y: 108, t: '1' },
+                ].map((l) => (
+                  <g key={l.t}>
+                    <line
+                      x1="14"
+                      x2="286"
+                      y1={l.y}
+                      y2={l.y}
+                      stroke="rgba(90,162,255,0.35)"
+                      strokeDasharray="3 4"
+                    />
+                    <text x="18" y={l.y - 4} fill="#6f82b3" fontSize="9" fontFamily="monospace">
+                      {l.t}
+                    </text>
+                  </g>
+                ))}
+                <path
+                  d="M24 100 L80 70 L120 88 L190 40 L240 56 L276 28"
+                  fill="none"
+                  stroke={UP}
+                  strokeWidth="1.6"
+                />
+                <line x1="24" y1="112" x2="276" y2="20" stroke="#38d3ff" strokeWidth="1.2" />
+                <circle cx="24" cy="112" r="3" fill="#04070f" stroke="#38d3ff" />
+                <circle cx="276" cy="20" r="3" fill="#04070f" stroke="#38d3ff" />
+              </svg>
             </div>
-            <div className="my-8 h-px bg-gradient-to-l from-transparent via-[rgba(90,162,255,0.4)] to-transparent" />
-            <ul className="space-y-3.5">
-              {features.map((f) => (
-                <li key={f} className="flex items-center gap-3 text-[15px]">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgba(56,211,255,0.14)] text-[var(--mk-cyan)]">
-                    <Svg d={I.check} className="h-3.5 w-3.5" />
+          </article>
+
+          {/* E — indicators */}
+          <article className={`${CARD_HOVER} lg:col-span-6`}>
+            <div className="flex flex-col gap-5 p-6 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
+                <IconBadge d={I.wave} />
+                <div>
+                  <h3 className="text-[17px] font-extrabold text-white">
+                    اندیکاتور و انواع نمودار
+                  </h3>
+                  <p className="mt-1.5 text-[13.5px] leading-7 text-[#8b98b8]">
+                    همان نموداری که با آن تحلیل می‌کنید.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 md:max-w-md md:justify-end" dir="ltr">
+                {indicators.map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-lg border border-white/[0.09] bg-white/[0.03] px-2.5 py-1 font-mono text-[11.5px] text-[#c9d4f0]"
+                  >
+                    {t}
                   </span>
-                  {f}
+                ))}
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────────────────── dashboard + stats ───────────────────────── */
+
+const SESSIONS = [
+  {
+    symbol: 'XAUUSD',
+    name: 'اسکالپ لندن',
+    tf: '15m',
+    range: '12 Mar – 18 Mar 2025',
+    pnl: '+۱٬۲۴۰',
+    wr: '۶۲٪',
+    trades: '۱۸',
+    up: true,
+  },
+  {
+    symbol: 'EURUSD',
+    name: 'شکست آسیا',
+    tf: '5m',
+    range: '3 Feb – 7 Feb 2025',
+    pnl: '−۲۱۸',
+    wr: '۴۴٪',
+    trades: '۲۶',
+    up: false,
+  },
+  {
+    symbol: 'NAS100',
+    name: 'روند نیویورک',
+    tf: '1H',
+    range: '20 Jan – 31 Jan 2025',
+    pnl: '+۳٬۴۸۰',
+    wr: '۵۸٪',
+    trades: '۱۴',
+    up: true,
+  },
+  {
+    symbol: 'GBPUSD',
+    name: 'ریتریسمنت ۴ساعته',
+    tf: '4H',
+    range: '8 Dec – 22 Dec 2024',
+    pnl: '+۸۹۵',
+    wr: '۷۱٪',
+    trades: '۹',
+    up: true,
+  },
+] as const;
+
+function Dashboard({ signedIn }: { signedIn: boolean }) {
+  const stats = [
+    { label: 'نرخ برد', value: '۵۸٪', sub: 'از ۱۸ معامله' },
+    { label: 'فاکتور سود', value: '۱٫۸۴', sub: 'سود / زیان' },
+    { label: 'میانگین R', value: '+۰٫۶۲', sub: 'به ازای هر معامله' },
+    { label: 'بیشینه افت', value: '−۴٫۲٪', sub: 'از اوج موجودی' },
+  ];
+  return (
+    <section className="py-16 lg:py-24">
+      <div className={WRAP}>
+        <SectionHead
+          eyebrow="داشبورد و آمار"
+          title="همه جلسه‌ها، یک‌جا؛ نتیجه هر جلسه، روی یک صفحه"
+          desc="از همان‌جا که ماندید ادامه دهید، عملکرد را ببینید و با اعدادی که برای قضاوت استراتژی لازم است تصمیم بگیرید."
+        />
+
+        <div className="mt-14 grid gap-4 lg:grid-cols-2">
+          {/* sessions */}
+          <div className={`${CARD} overflow-hidden`}>
+            <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-3.5 text-[12px] text-[#7d8bac]">
+              <span className="font-semibold text-[#c9d4f0]">جلسه‌های اخیر</span>
+              <span>سود و زیان · نرخ برد</span>
+            </div>
+            <ul>
+              {SESSIONS.map((s, i) => (
+                <li
+                  key={s.symbol + s.name}
+                  className={`flex items-center gap-4 px-5 py-4 transition hover:bg-white/[0.02] ${
+                    i < SESSIONS.length - 1 ? 'border-b border-white/[0.06]' : ''
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[13px] font-bold text-white" dir="ltr">
+                        {s.symbol}
+                      </span>
+                      <span className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-[#9cc4ff]">
+                        {s.tf}
+                      </span>
+                    </div>
+                    <div className="mt-1 truncate text-[12px] text-[#7d8bac]">
+                      {s.name}
+                      <span className="mx-1.5 text-white/20">·</span>
+                      <span dir="ltr">{s.range}</span>
+                    </div>
+                  </div>
+                  <div className="text-end">
+                    <div
+                      className="font-mono text-[13.5px] font-bold"
+                      style={{ color: s.up ? UP : DOWN }}
+                    >
+                      {s.pnl} $
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-[#7d8bac]">
+                      برد {s.wr}
+                      <span className="mx-1 text-white/20">·</span>
+                      {s.trades} معامله
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
-            <Link
-              href={signedIn ? '/home' : '/login'}
-              className="mk-btn-primary mt-10 flex h-14 w-full items-center justify-center gap-2.5 rounded-2xl text-base font-bold text-white"
-            >
-              {signedIn ? 'ورود به داشبورد' : 'همین حالا شروع کنید'}
-              <Svg d={I.arrow} className="h-5 w-5" />
-            </Link>
-            <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-[var(--mk-muted)]">
-              <Svg d={I.shield} className="h-4 w-4" />
-              ثبت‌نام و ورود امن با کد یک‌بار مصرف پیامکی
-            </p>
+            <div className="border-t border-white/[0.07] p-4">
+              <Link
+                href={signedIn ? '/backtest' : '/login'}
+                className={`${BTN_GHOST} h-10 w-full text-[13px]`}
+              >
+                {signedIn ? 'جلسه‌های من' : 'اولین جلسه را بسازید'}
+                <Svg d={I.arrow} className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+
+          {/* stats */}
+          <div className={`${CARD} flex flex-col p-5`}>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+              {stats.map((s) => (
+                <div
+                  key={s.label}
+                  className="rounded-xl border border-white/[0.07] bg-[#060a14] px-4 py-4"
+                >
+                  <div className="text-[12px] text-[#7d8bac]">{s.label}</div>
+                  <div className="mt-1.5 font-mono text-[26px] font-black tracking-tight text-white">
+                    {s.value}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-[#6c7a9c]">{s.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div className="relative mt-3 min-h-[180px] flex-1 overflow-hidden rounded-xl border border-white/[0.07] bg-[#060a14]">
+              <div className="absolute start-4 top-3 z-10 text-[12px] text-[#7d8bac]">
+                منحنی موجودی
+              </div>
+              <div className="absolute inset-0 pt-8">
+                <EquityMini id="eq-dash" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </section>
   );
 }
+
+/* ───────────────────────── trade journal table ───────────────────────── */
+
+const TRADES = [
+  ['12 Mar 14:02', 'خرید', '0.40', '2341.20', '2334.80', '2352.40', '+186.40', '+1.62R'],
+  ['12 Mar 11:18', 'فروش', '0.20', '2356.10', '2362.40', '2344.00', '−48.20', '−0.76R'],
+  ['11 Mar 16:41', 'خرید', '0.30', '2328.50', '2322.00', '2340.80', '+124.00', '+1.90R'],
+  ['11 Mar 09:05', 'فروش', '0.10', '2368.80', '2374.20', '2358.40', '+41.60', '+1.22R'],
+  ['10 Mar 21:12', 'خرید', '0.50', '2312.40', '2304.10', '2328.00', '−92.50', '−1.00R'],
+] as const;
+
+function TradeTable() {
+  return (
+    <section className="py-12 lg:py-16">
+      <div
+        className={`${WRAP} grid items-center gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]`}
+      >
+        <SectionHead
+          align="start"
+          eyebrow="بک‌تست"
+          title="استراتژی را روی بازار واقعی بسنجید"
+          desc="هر ورود ثبت می‌شود: حجم، حد ضرر، حد سود، نتیجه و نسبت ریسک به ریوارد. هر معامله خودکار در ژورنال ذخیره می‌شود."
+        />
+        <div className={`${CARD} overflow-hidden`} dir="ltr">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-[12.5px]">
+              <thead>
+                <tr className="border-b border-white/[0.07] bg-white/[0.02] text-[11px] uppercase tracking-wide text-[#7d8bac]">
+                  {['Time', 'Side', 'Size', 'Entry', 'SL', 'TP', 'P&L', 'R'].map((h) => (
+                    <th key={h} className="px-3 py-3 font-medium">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {TRADES.map((row) => (
+                  <tr
+                    key={row[0]}
+                    className="border-b border-white/[0.05] transition hover:bg-white/[0.02] last:border-0"
+                  >
+                    {row.map((cell, i) => (
+                      <td
+                        key={i}
+                        className="whitespace-nowrap px-3 py-3 font-mono"
+                        style={{
+                          color:
+                            i === 6 || i === 7
+                              ? cell.startsWith('+')
+                                ? UP
+                                : DOWN
+                              : i === 1
+                                ? cell === 'خرید'
+                                  ? UP
+                                  : DOWN
+                                : '#c9d4f0',
+                        }}
+                      >
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────────────────── pricing ───────────────────────── */
+
+function Pricing({ signedIn }: { signedIn: boolean }) {
+  const features = [
+    'جلسات بک‌تست نامحدود',
+    'معامله با حساب مجازی، اسپرد و حجم',
+    'ژورنال معاملات و آمار عملکرد',
+    'بازپخش کندل‌به‌کندل روی طلا، فارکس و شاخص',
+    'ابزار ترسیم و انواع نمودار',
+    'مسابقه و نبرد رتبه‌ای با معامله‌گران دیگر',
+    'ورود با شماره موبایل، از هر دستگاه',
+  ];
+  return (
+    <section id="pricing" className="relative scroll-mt-20 overflow-hidden py-20 lg:py-28">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(45%_45%_at_50%_55%,rgba(47,123,255,0.14),transparent_70%)]" />
+      <div className={`${WRAP} relative`}>
+        <SectionHead
+          eyebrow="قیمت"
+          title="یک اشتراک، همه امکانات"
+          desc="بدون پلن‌های تو در تو. از اولین جلسه، بک‌تست، ژورنال، آمار و مسابقه و نبرد در اختیار شماست."
+        />
+        <div className="relative mx-auto mt-12 max-w-[520px]">
+          <div className="absolute -inset-px rounded-[26px] bg-gradient-to-b from-[#5aa2ff]/60 via-white/10 to-transparent" />
+          <div className="relative overflow-hidden rounded-[25px] bg-[#070c1a] p-8 sm:p-10">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(60%_100%_at_50%_0%,rgba(47,123,255,0.25),transparent_70%)]" />
+            <div className="relative">
+              <div className="flex items-center gap-3">
+                <LogoMark size={40} />
+                <div>
+                  <div className="text-lg font-extrabold text-white">اشتراک کامل</div>
+                  <div className="text-xs text-[#7d8bac]">دسترسی به {BRAND_FA}</div>
+                </div>
+              </div>
+              <div className="mt-8 flex items-end gap-2">
+                <span className="text-[56px] font-black leading-none tracking-tight text-white">
+                  {faNumber(PRICE_TOMAN)}
+                </span>
+                <span className="mb-1.5 text-lg font-bold text-[#7d8bac]">تومان</span>
+              </div>
+              <div className="my-8 h-px bg-gradient-to-l from-transparent via-[#5aa2ff]/40 to-transparent" />
+              <ul className="space-y-3.5">
+                {features.map((f) => (
+                  <li key={f} className="flex items-center gap-3 text-[14.5px] text-[#dbe4f8]">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#38d3ff]/[0.12] text-[#38d3ff]">
+                      <Svg d={I.check} className="h-3.5 w-3.5" />
+                    </span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href={signedIn ? '/home' : '/login'}
+                className={`${BTN_PRIMARY} mt-10 h-12 w-full text-[15px]`}
+              >
+                {signedIn ? 'ورود به داشبورد' : 'شروع کنید'}
+                <Svg d={I.arrow} className="h-4 w-4" />
+              </Link>
+              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-[#7d8bac]">
+                <Svg d={I.shield} className="h-4 w-4" />
+                ورود با کد یک‌بار مصرف پیامکی
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ───────────────────────── faq ───────────────────────── */
 
 function Faq() {
   const items = [
     [
-      'داده چه بازارهایی در دسترس است؟',
-      'ارزهای دیجیتال، فارکس، سهام جهانی، بورس ایران، طلا و کالا و شاخص‌های جهانی؛ همه با قیمت لحظه‌ای و تاریخچه کامل.',
+      'این پلتفرم چیست؟',
+      `${BRAND_FA} محیط تمرین معامله است: بازارهای تاریخی را کندل‌به‌کندل بازپخش می‌کنید، با حساب مجازی معامله می‌کنید و نتیجه را در آمار و ژورنال می‌بینید. قیمت لحظه‌ای بازار زنده موضوع این محصول نیست.`,
     ],
     [
-      'آیا قیمت‌ها واقعاً لحظه‌ای هستند؟',
-      'بله. کندل آخر هم‌زمان با بازار به‌روز می‌شود و تحلیل شما همیشه روی آخرین قیمت انجام می‌شود.',
+      'آیا با سرمایه واقعی معامله می‌شود؟',
+      'خیر. همه معاملات روی حساب مجازی جلسه است. هدف، سنجش استراتژی قبل از ریسک روی حساب واقعی است.',
     ],
     [
-      'چه اندیکاتورهایی می‌توانم به نمودار اضافه کنم؟',
-      'بیش از ۱۰۰ اندیکاتور مثل RSI، MACD، باندهای بولینگر، ایچیموکو، میانگین‌های متحرک، VWAP، استوکاستیک و ATR؛ با امکان تنظیم پارامترها و رنگ‌ها.',
+      'بازپخش چطور کار می‌کند؟',
+      'نقطه شروع را روی نمودار یا با تاریخ انتخاب می‌کنید. کندل‌های بعد پنهان می‌شوند و بازار با سرعت دلخواه جلو می‌آید. می‌توانید متوقف شوید، یک کندل جلو بروید یا تایم‌فریم را عوض کنید.',
     ],
     [
-      'بک‌تست با ری‌پلی چطور کار می‌کند؟',
-      'یک تاریخ در گذشته انتخاب می‌کنید، کندل‌های بعد از آن پنهان می‌شوند و بازار کندل به کندل بازپخش می‌شود. با ابزار پوزیشن، معامله ثبت می‌کنید و نتیجه را می‌بینید.',
+      'چه نمادهایی در دسترس است؟',
+      'طلا، جفت‌ارزهای اصلی و شاخص نزدک؛ همان نمادهایی که برای بک‌تست فارکس و شاخص استفاده می‌شود.',
     ],
     [
-      'ثبت‌نام چطور انجام می‌شود؟',
-      'فقط شماره موبایل خود را وارد کنید و کد تایید پیامک‌شده را بزنید. اگر حساب نداشته باشید، به‌صورت خودکار ساخته می‌شود.',
+      'مسابقه و نبرد چیست؟',
+      'یک بازه تاریخی مشترک برای همه شرکت‌کننده‌ها. همه روی همان کندل‌ها معامله می‌کنند و رتبه با امتیاز الو جابه‌جا می‌شود؛ از تازه‌کار تا استاد.',
+    ],
+    [
+      'ثبت‌نام چطور است؟',
+      'شماره موبایل را وارد می‌کنید و کد پیامکی را می‌زنید. اگر حساب نداشته باشید ساخته می‌شود.',
     ],
     [
       'هزینه اشتراک چقدر است؟',
-      `قیمت اشتراک ${faNumber(PRICE_TOMAN)} تومان است و همه بازارها و همه امکانات پلتفرم را شامل می‌شود.`,
+      `قیمت اشتراک ${faNumber(PRICE_TOMAN)} تومان است و بک‌تست، ژورنال، آمار و مسابقه و نبرد را شامل می‌شود.`,
     ],
   ];
   return (
-    <section id="faq" className="scroll-mt-20 py-24">
+    <section id="faq" className="scroll-mt-20 py-20 lg:py-24">
       <div className="mx-auto max-w-3xl px-5 lg:px-8">
-        <SectionTitle eyebrow="سوالات متداول" title="پاسخ پرسش‌های شما" />
-        <div className="mt-12 space-y-3">
+        <SectionHead eyebrow="سوالات متداول" title="پاسخ پرسش‌های رایج" />
+        <div className="mt-12 divide-y divide-white/[0.08] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#080c17]">
           {items.map(([q, a]) => (
-            <details
-              key={q}
-              className="mk-faq mk-card rounded-2xl px-6 open:border-[rgba(90,162,255,0.4)]"
-            >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-[15px] font-bold">
+            <details key={q} className="group px-6 transition-colors open:bg-white/[0.02]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-[15px] font-bold text-white [&::-webkit-details-marker]:hidden">
                 {q}
-                <span className="mk-faq-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[rgba(47,123,255,0.14)] text-[var(--mk-blue-2)] transition-transform duration-300">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-[#9cc4ff] transition-transform duration-300 group-open:rotate-45">
                   <Svg d={I.plus} className="h-4 w-4" />
                 </span>
               </summary>
-              <p className="pb-5 text-sm leading-7 text-[var(--mk-muted)]">{a}</p>
+              <p className="pb-6 pe-10 text-[14px] leading-8 text-[#8b98b8]">{a}</p>
             </details>
           ))}
         </div>
@@ -822,71 +1465,117 @@ function Faq() {
   );
 }
 
+/* ───────────────────────── final cta ───────────────────────── */
+
 function FinalCta({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="px-5 pb-24 lg:px-8">
-      <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[36px] bg-[linear-gradient(120deg,#1a4fd8,#0b2a7a_55%,#071a52)] px-6 py-16 text-center sm:px-16">
-        <div className="mk-grid-bg pointer-events-none absolute inset-0 opacity-40" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--mk-cyan)] opacity-20 blur-3xl" />
+      <div className="relative mx-auto max-w-[1100px] overflow-hidden rounded-[28px] border border-white/10 bg-[#070c1a] px-6 py-16 text-center sm:px-16 sm:py-20">
+        <div className="pointer-events-none absolute inset-0" style={GRID_BG} />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_50%_100%,rgba(47,123,255,0.40),transparent_70%)]" />
         <div className="relative">
-          <h2 className="text-3xl font-black leading-tight sm:text-5xl sm:leading-[1.3]">
-            بازار منتظر نمی‌ماند
+          <h2 className="text-[30px] font-black leading-[1.4] text-white sm:text-[44px] sm:leading-[1.3]">
+            تمرین را <span className={GRADIENT_TEXT}>از امروز</span> شروع کنید
           </h2>
-          <p className="mx-auto mt-4 max-w-xl text-base leading-8 text-[#c6d8ff]">
-            با شماره موبایل وارد شوید و همین حالا هر بازاری را با ابزارهای حرفه‌ای تحلیل کنید.
+          <p className="mx-auto mt-5 max-w-lg text-[15px] leading-8 text-[#9fb0d6]">
+            بدون سرمایه واقعی. یک جلسه بسازید، بازار را بازپخش کنید و ببینید استراتژی‌تان روی تاریخ
+            چه می‌کند.
           </p>
-          <Link
-            href={signedIn ? '/home' : '/login'}
-            className="mt-9 inline-flex h-14 items-center gap-2.5 rounded-2xl bg-white px-8 text-base font-bold text-[#0b2a7a] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] transition hover:-translate-y-0.5 hover:bg-[#eef4ff]"
-          >
-            {signedIn ? 'ورود به داشبورد' : 'شروع تحلیل'}
-            <Svg d={I.arrow} className="h-5 w-5" />
-          </Link>
+          <div className="mt-9 flex justify-center">
+            <Link
+              href={signedIn ? '/home' : '/login'}
+              className="inline-flex h-12 items-center gap-2 rounded-xl bg-white px-8 text-[15px] font-bold text-[#071330] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.6)] transition hover:bg-[#eaf1ff]"
+            >
+              {signedIn ? 'ورود به داشبورد' : 'شروع کنید'}
+              <Svg d={I.arrow} className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function Footer() {
+/* ───────────────────────── footer ───────────────────────── */
+
+function Footer({ signedIn }: { signedIn: boolean }) {
   return (
-    <footer className="border-t border-[var(--mk-line)]">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 px-5 py-10 sm:flex-row lg:px-8">
-        <Logo />
-        <nav className="flex flex-wrap items-center justify-center gap-1" aria-label="لینک‌های پایین صفحه">
-          {NAV.map((n) => (
-            <a
-              key={n.href}
-              href={n.href}
-              className="rounded-lg px-3 py-1.5 text-sm text-[var(--mk-muted)] transition hover:text-white"
-            >
-              {n.label}
-            </a>
-          ))}
+    <footer className="border-t border-white/[0.07]">
+      <div className={`${WRAP} grid gap-10 py-12 md:grid-cols-[1.4fr_1fr_1fr]`}>
+        <div>
+          <Logo />
+          <p className="mt-4 max-w-xs text-[13px] leading-7 text-[#7d8bac]">
+            محیط تمرین معامله: بازپخش بازار، حساب مجازی، ژورنال و آمار. بدون ریسک سرمایه.
+          </p>
+        </div>
+        <nav aria-label="لینک‌های پایین صفحه">
+          <div className="text-[13px] font-bold text-white">محصول</div>
+          <ul className="mt-4 space-y-2.5">
+            {NAV.map((n) => (
+              <li key={n.href}>
+                <a href={n.href} className="text-[13px] text-[#7d8bac] transition hover:text-white">
+                  {n.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </nav>
-        <p className="text-xs text-[var(--mk-muted)]">© ۱۴۰۵ {BRAND_FA}. تمامی حقوق محفوظ است.</p>
+        <div>
+          <div className="text-[13px] font-bold text-white">حساب کاربری</div>
+          <ul className="mt-4 space-y-2.5">
+            <li>
+              <Link
+                href={signedIn ? '/home' : '/login'}
+                className="text-[13px] text-[#7d8bac] transition hover:text-white"
+              >
+                {signedIn ? 'داشبورد' : 'ورود / ثبت‌نام'}
+              </Link>
+            </li>
+            <li>
+              <Link
+                href={signedIn ? '/backtest' : '/login'}
+                className="text-[13px] text-[#7d8bac] transition hover:text-white"
+              >
+                جلسه‌های بک‌تست
+              </Link>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-white/[0.06]">
+        <div
+          className={`${WRAP} flex flex-col items-center justify-between gap-2 py-6 sm:flex-row`}
+        >
+          <p className="text-xs text-[#6c7a9c]">© ۱۴۰۵ {BRAND_FA}. تمامی حقوق محفوظ است.</p>
+          <p className="text-xs text-[#6c7a9c]">
+            این پلتفرم برای آموزش و تمرین است و توصیه سرمایه‌گذاری نیست.
+          </p>
+        </div>
       </div>
     </footer>
   );
 }
 
+/* ───────────────────────── page ───────────────────────── */
+
 export function Landing({ signedIn }: { signedIn: boolean }) {
   return (
-    <>
+    <div className="relative overflow-x-clip bg-[#04070f] text-[#e8eefc] antialiased selection:bg-[#2f7bff]/40">
       <Header signedIn={signedIn} />
       <main>
         <Hero signedIn={signedIn} />
-        <Ticker />
-        <Stats />
-        <Markets />
-        <Features />
-        <Backtest />
-        <Workflow />
+        <FactsStrip />
+        <HowItWorks signedIn={signedIn} />
+        <ChartDemo />
+        <Battle signedIn={signedIn} />
+        <Bento />
+        <Dashboard signedIn={signedIn} />
+        <TradeTable />
         <Pricing signedIn={signedIn} />
         <Faq />
         <FinalCta signedIn={signedIn} />
       </main>
-      <Footer />
-    </>
+      <Footer signedIn={signedIn} />
+    </div>
   );
 }

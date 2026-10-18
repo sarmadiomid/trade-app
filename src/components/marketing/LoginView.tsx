@@ -329,41 +329,42 @@ export function LoginView({ next }: { next: string }) {
         <div className="pointer-events-none absolute -left-32 top-10 h-96 w-96 rounded-full bg-[var(--mk-blue)] opacity-30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 right-0 h-80 w-80 rounded-full bg-[var(--mk-cyan)] opacity-10 blur-3xl" />
         <div className="relative flex h-full flex-col justify-center px-14 xl:px-20">
-          <div className="mk-card mk-ring mk-float rounded-3xl p-6" dir="ltr">
+          <div className="mk-card mk-ring rounded-3xl p-6" dir="ltr">
             <div className="flex items-center justify-between text-xs text-[#7d93c9]">
-              <span className="font-bold text-white">ETHUSDT · 4H</span>
-              <span className="flex items-center gap-1.5">
-                <span className="mk-pulse-dot h-1.5 w-1.5 rounded-full bg-[var(--mk-cyan)]" />
-                LIVE
+              <span className="font-bold text-white">XAUUSD · 15m</span>
+              <span className="rounded bg-[#f5c451]/15 px-2 py-0.5 font-semibold text-[#f5c451]">
+                REPLAY
               </span>
             </div>
             <svg viewBox="0 0 400 170" className="mt-4 h-auto w-full" aria-hidden="true">
               {Array.from({ length: 28 }, (_, i) => {
+                const revealed = i < 20;
                 const base = 120 - i * 2.6 + Math.sin(i * 1.3) * 16;
                 const up = Math.sin(i * 2.1) > -0.3;
                 const h = 10 + Math.abs(Math.cos(i * 1.7)) * 18;
                 const x = 10 + i * 14;
                 return (
-                  <g key={i}>
+                  <g key={i} opacity={revealed ? 1 : 0.12}>
                     <line x1={x} x2={x} y1={base - h - 7} y2={base + 7} stroke={up ? '#4a9dff' : '#ef5b7a'} />
                     <rect x={x - 4} y={base - h} width="8" height={h} rx="1" fill={up ? '#4a9dff' : '#ef5b7a'} />
                   </g>
                 );
               })}
-              <path className="mk-draw" d="M10 150 L390 40" stroke="#38d3ff" strokeWidth="2" fill="none" />
-              <path d="M10 112 L390 2" stroke="#38d3ff" strokeOpacity=".4" strokeDasharray="5 5" fill="none" />
+              <line x1="286" x2="286" y1="8" y2="162" stroke="#38d3ff" strokeWidth="1.5" />
+              <rect x="200" y="42" width="190" height="38" fill="#4a9dff" opacity=".16" />
+              <rect x="200" y="80" width="190" height="28" fill="#ef5b7a" opacity=".16" />
             </svg>
           </div>
           <h2 className="mt-12 text-3xl font-black leading-[1.4]">
-            همه بازارهای مالی،
+            معامله با اطمینان،
             <br />
-            <span className="mk-gradient-text">روی یک نمودار حرفه‌ای</span>
+            <span className="mk-gradient-text">از بک‌تست شروع می‌شود</span>
           </h2>
           <ul className="mt-8 space-y-4 text-[15px] text-[#c6d8ff]">
             {[
-              'داده لحظه‌ای کریپتو، فارکس، سهام، بورس ایران و طلا',
-              'بیش از ۱۰۰ اندیکاتور و ۱۸ ابزار ترسیم حرفه‌ای',
-              'بک‌تست استراتژی با ری‌پلی کندل به کندل بازار',
+              'بازپخش کندل‌به‌کندل بازارهای تاریخی',
+              'معامله با حساب مجازی، حد ضرر و حد سود',
+              'ژورنال، آمار جلسه و نبرد رتبه‌ای',
             ].map((t) => (
               <li key={t} className="flex items-center gap-3">
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgba(56,211,255,0.15)] text-[var(--mk-cyan)]">

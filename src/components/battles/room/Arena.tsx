@@ -10,6 +10,7 @@ import {
   type ChartApp,
 } from '@/lib/app';
 import type { LoggedAction } from '@/lib/backtest';
+import { faNum } from '@/lib/locale/jalali';
 import { formatClock, remainingMs, type BattleView } from '@/lib/battles';
 import { setDisplayUtc } from '@/lib/core';
 import { BacktestModals } from '../../backtest/BacktestModals';
@@ -25,7 +26,7 @@ import { useUiStore } from '../../state/ui-store';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
-import { ordinal, pctClass, signedPct } from '../format';
+import { battleTitle, clockFa, faMessage, faReason, minutes, pctClass, signedPct, traders } from '../format';
 import { BattleSidebar } from './BattleSidebar';
 import { BattleSkipperBar } from './BattleSkipperBar';
 import { Results } from './Results';
@@ -34,6 +35,13 @@ import { useTicker } from './useBattle';
 
 /** How often the trader's replay position is reported to the server while it moves. */
 const CURSOR_REPORT_MS = 1000;
+
+const ORDER_FA: Readonly<Record<string, string>> = {
+  'Buy Limit': 'خرید لیمیت',
+  'Buy Stop': 'خرید استاپ',
+  'Sell Limit': 'فروش لیمیت',
+  'Sell Stop': 'فروش استاپ',
+};
 
 const ChartWorkspace = dynamic(() => import('../../chart/ChartWorkspace'), {
   ssr: false,
@@ -122,7 +130,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
           method: 'POST',
           body: { t: logged.t, action: logged.a },
         }).catch(async (e: unknown) => {
-          const msg = e instanceof Error ? e.message : 'The action was not accepted';
+          const msg = faMessage(e instanceof Error ? e.message : 'The action was not accepted');
           useUiStore.getState().pushToast(msg, 'error');
           if (e instanceof ApiError && (e.status === 409 || e.status === 422)) await resync();
         }),
@@ -238,7 +246,10 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
         await run('leave');
       } else await run('control', { op });
     } catch (e) {
-      useUiStore.getState().pushToast(e instanceof Error ? e.message : 'Failed', 'error');
+      useUiStore.getState().pushToast(
+        faMessage(e instanceof Error ? e.message : 'Failed'),
+        'error',
+      );
     }
   };
 
@@ -272,7 +283,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
     const p = c.spec.pricePrecision;
     return [
       ...c.trading.rightClickOrders(price).map<MenuEntry>((o) => ({
-        label: `${o.label} ${lots(vol)} @ ${o.price.toFixed(p)}`,
+        label: `${ORDER_FA[o.label] ?? o.label} ${lots(vol)} @ ${o.price.toFixed(p)}`,
         run: () => {
           c.trading.place({
             side: o.side,
@@ -285,7 +296,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
         },
       })),
       {
-        label: 'New order at this price…',
+        label: 'سفارش تازه روی این قیمت…',
         icon: 'plus',
         run: () => {
           const o = c.trading.rightClickOrders(price)[0];
@@ -309,19 +320,21 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
               ? 'animate-pulse bg-down/15 text-down'
               : 'bg-hover text-fg'
         }`}
-        title="Time left"
+        title="زمان باقی‌مانده"
         data-testid="battle-timer"
       >
         <Icon name={view.status === 'paused' ? 'pause' : 'clock'} size={14} />
-        {view.status === 'countdown'
-          ? formatClock(view.settings.durationMin * 60_000)
-          : formatClock(remaining)}
+        {clockFa(
+          view.status === 'countdown'
+            ? formatClock(view.settings.durationMin * 60_000)
+            : formatClock(remaining),
+        )}
       </span>
       {myStanding ? (
         <span className="hidden items-center gap-1.5 px-1.5 text-[12.5px] md:inline-flex">
           <span className="font-semibold">
-            {ordinal(myPlace)}
-            <span className="font-normal text-muted">/{view.standings.length}</span>
+            {faNum(myPlace)}
+            <span className="font-normal text-muted">/{faNum(view.standings.length)}</span>
           </span>
           <span className={`font-semibold tabular-nums ${pctClass(myStanding.returnPct)}`}>
             {signedPct(myStanding.returnPct)}
@@ -335,20 +348,20 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
         onMouseLeave={() => setShowBoard(false)}
         onClick={() => setSidebarOpen((o) => !o)}
         className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[12.5px] text-muted hover:bg-hover hover:text-fg"
-        title="Leaderboard (hold Tab)"
+        title="جدول (Tab را نگه دار)"
       >
         <Icon name="trophy" size={15} />
-        <span className="hidden xl:inline">Leaderboard</span>
+        <span className="hidden xl:inline">جدول</span>
       </button>
       {!out ? (
         <button
           type="button"
           onClick={() => setConfirm('leave')}
           className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[12.5px] text-muted hover:bg-hover hover:text-down"
-          title="Leave battle"
+          title="ترک نبرد"
         >
           <Icon name="exit" size={15} />
-          <span className="hidden xl:inline">Leave</span>
+          <span className="hidden xl:inline">خروج</span>
         </button>
       ) : null}
     </div>
@@ -368,10 +381,10 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
             <Link
               href="/battle"
               className="mr-1 inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] text-muted hover:bg-hover hover:text-fg"
-              aria-label="Back to Battles"
+              aria-label="بازگشت به نبردها"
             >
               <Icon name="chevronLeft" size={16} />
-              <span className="hidden max-w-40 truncate sm:inline">{view.settings.name}</span>
+              <span className="hidden max-w-40 truncate sm:inline">{battleTitle(view.settings.name)}</span>
             </Link>
           }
           toolbarEnd={hud}
@@ -388,20 +401,22 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
                   }`}
                 >
                   <Icon name={view.status === 'paused' ? 'pause' : 'clock'} size={13} />
-                  {view.status === 'countdown'
-                    ? formatClock(view.settings.durationMin * 60_000)
-                    : formatClock(remaining)}
+                  {clockFa(
+                    view.status === 'countdown'
+                      ? formatClock(view.settings.durationMin * 60_000)
+                      : formatClock(remaining),
+                  )}
                 </span>
                 <button
                   type="button"
                   onClick={() => setSidebarOpen(true)}
-                  aria-label="Leaderboard"
+                  aria-label="جدول"
                   className="inline-flex h-8 items-center gap-1 rounded-md border border-line bg-panel/95 px-2 text-[12px] font-semibold"
                 >
                   <Icon name="trophy" size={13} />
                   {myStanding ? (
                     <span className={pctClass(myStanding.returnPct)}>
-                      {ordinal(myPlace)} · {signedPct(myStanding.returnPct, 1)}
+                      {faNum(myPlace)} · {signedPct(myStanding.returnPct, 1)}
                     </span>
                   ) : null}
                 </button>
@@ -411,10 +426,8 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
                 <div className="absolute inset-0 z-20 flex items-center justify-center bg-chart/55 backdrop-blur-[2px]">
                   <div className="rounded-2xl border border-line bg-panel px-8 py-6 text-center shadow-xl">
                     <Icon name="pause" size={28} />
-                    <p className="mt-2 text-[16px] font-semibold">Battle paused by the host</p>
-                    <p className="mt-1 text-[13px] text-muted">
-                      The timer and the market are stopped.
-                    </p>
+                    <p className="mt-2 text-[16px] font-semibold">میزبان نبرد را متوقف کرده</p>
+                    <p className="mt-1 text-[13px] text-muted">زمان و بازار ایستاده‌اند.</p>
                   </div>
                 </div>
               ) : null}
@@ -425,8 +438,8 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
                     data-testid="out-banner"
                   >
                     {me.status === 'left'
-                      ? 'You left this battle. You can keep watching.'
-                      : `Disqualified: ${myStanding?.reason ?? 'a rule was broken'}. You can keep watching.`}
+                      ? 'از نبرد خارج شدی. می‌توانی تماشا کنی.'
+                      : `حذف شدی: ${faReason(myStanding?.reason ?? 'a rule was broken')}. می‌توانی تماشا کنی.`}
                   </div>
                 </div>
               ) : null}
@@ -434,9 +447,9 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
                 <div className="pointer-events-none absolute inset-0 z-30 flex items-start justify-center bg-chart/40 pt-16">
                   <div className="w-[420px] max-w-[92%] rounded-2xl border border-line bg-panel/95 p-3 shadow-2xl">
                     <div className="flex items-center justify-between px-1 pb-2">
-                      <span className="text-[14px] font-semibold">Leaderboard</span>
-                      <span className="font-mono text-[13px] text-muted">
-                        {formatClock(remaining)}
+                      <span className="text-[14px] font-semibold">جدول</span>
+                      <span className="font-mono text-[13px] text-muted" dir="ltr">
+                        {clockFa(formatClock(remaining))}
                       </span>
                     </div>
                     <StandingsList
@@ -491,24 +504,24 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
             onClick={() => setResultsClosed(false)}
             className="absolute bottom-20 right-4 z-40 inline-flex h-10 items-center gap-2 rounded-full bg-accent px-4 text-[13px] font-semibold text-accent-fg shadow-lg"
           >
-            <Icon name="trophy" size={15} /> Results
+            <Icon name="trophy" size={15} /> نتیجه
           </button>
         ) : null}
         {confirm ? (
           <Dialog
             title={
               confirm === 'leave'
-                ? 'Leave the battle?'
+                ? 'نبرد را ترک می‌کنی؟'
                 : confirm === 'restart'
-                  ? 'Restart the battle?'
-                  : 'End the battle now?'
+                  ? 'نبرد از نو شروع شود؟'
+                  : 'نبرد همین حالا تمام شود؟'
             }
             onClose={() => setConfirm(null)}
             width={420}
             footer={
               <>
                 <div className="flex-1" />
-                <Button onClick={() => setConfirm(null)}>Cancel</Button>
+                <Button onClick={() => setConfirm(null)}>لغو</Button>
                 <Button
                   variant="danger"
                   onClick={() => {
@@ -517,7 +530,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
                     void control(op);
                   }}
                 >
-                  {confirm === 'leave' ? 'Leave' : confirm === 'restart' ? 'Restart' : 'End battle'}
+                  {confirm === 'leave' ? 'خروج' : confirm === 'restart' ? 'شروع دوباره' : 'پایان نبرد'}
                 </Button>
               </>
             }
@@ -525,11 +538,11 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
             <p className="p-5 text-[13px] leading-6">
               {confirm === 'leave'
                 ? view.status === 'countdown' && view.mode !== 'ranked'
-                  ? 'You will leave the battle before it starts.'
-                  : 'You forfeit: your open trades are closed and you rank below every trader still in the battle.'
+                  ? 'قبل از شروع از نبرد خارج می‌شوی.'
+                  : 'انصراف می‌دهی: معاملات بازت بسته می‌شود و از همه کسانی که هنوز در نبردند پایین‌تر می‌ایستی.'
                 : confirm === 'restart'
-                  ? 'Every account is reset and the countdown starts again on the same market.'
-                  : 'Trading stops now and the current standings become the final results.'}
+                  ? 'حساب همه صفر می‌شود و شمارش، روی همین بازار، از نو شروع می‌شود.'
+                  : 'معامله همین حالا می‌ایستد و رتبه‌بندی فعلی، نتیجه نهایی می‌شود.'}
             </p>
           </Dialog>
         ) : null}
@@ -551,21 +564,21 @@ function CountdownOverlay({
       data-testid="countdown"
     >
       <div className="text-center">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.25em] text-accent">
-          Battle starts in
-        </p>
+        <p className="text-[13px] font-semibold text-accent">شروع نبرد</p>
         <p
           key={seconds}
           className="animate-pop mt-2 text-[96px] font-black leading-none tabular-nums"
         >
-          {seconds}
+          {faNum(seconds)}
         </p>
-        <p className="mt-4 text-[15px] font-semibold">{view.symbol}</p>
+        <p className="mt-4 text-[15px] font-semibold">
+          <bdi dir="ltr">{view.symbol}</bdi>
+        </p>
         <p className="mt-1 text-[13px] text-muted">
-          {view.standings.length} traders · {view.settings.durationMin} min ·{' '}
+          {traders(view.standings.length)} · {minutes(view.settings.durationMin)} ·{' '}
           {view.settings.winCondition === 'profit-target'
-            ? `first to +${view.settings.profitTargetPct}%`
-            : 'highest return wins'}
+            ? `اولین رسیدن به +${faNum(view.settings.profitTargetPct ?? 0)}٪`
+            : 'بیشترین بازده برنده است'}
         </p>
       </div>
     </div>

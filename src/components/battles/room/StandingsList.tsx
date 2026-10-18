@@ -1,5 +1,6 @@
 'use client';
 
+import { faNum } from '@/lib/locale/jalali';
 import type { Standing } from '@/lib/battles';
 import { initials } from '../../platform/AppHeader';
 import { RankEmblem } from '../RankEmblem';
@@ -7,9 +8,9 @@ import { compactMoney, pctClass, signedPct } from '../format';
 
 const STATUS_TAG: Readonly<Record<Standing['status'], string | null>> = {
   active: null,
-  target: 'Target hit',
-  disqualified: 'Disqualified',
-  left: 'Left',
+  target: 'به هدف رسید',
+  disqualified: 'حذف',
+  left: 'خارج شد',
 };
 
 /** Live leaderboard rows (sidebar, hold-Tab overlay, lobby). */
@@ -48,7 +49,7 @@ export function StandingsList({
                       : 'text-muted'
               }`}
             >
-              {i + 1}
+              {faNum(i + 1)}
             </span>
             {compact ? null : (
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-hover text-[10.5px] font-bold">
@@ -58,13 +59,13 @@ export function StandingsList({
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5">
                 <span className="truncate text-[13px] font-medium">{s.name}</span>
-                {me ? <span className="text-[10.5px] font-semibold text-accent">YOU</span> : null}
+                {me ? <span className="text-[10.5px] font-semibold text-accent">تو</span> : null}
               </span>
               <span className="flex items-center gap-1.5 text-[11px] text-muted">
                 {showElo ? (
                   <>
                     <RankEmblem elo={s.elo} size={13} />
-                    {s.elo} ·{' '}
+                    {faNum(s.elo)} ·{' '}
                   </>
                 ) : null}
                 {tag ? (
@@ -76,8 +77,8 @@ export function StandingsList({
                   </span>
                 ) : (
                   <span>
-                    {s.trades} trade{s.trades === 1 ? '' : 's'}
-                    {s.openPositions > 0 ? ` · ${s.openPositions} open` : ''}
+                    {s.trades === 1 ? 'یک معامله' : `${faNum(s.trades)} معامله`}
+                    {s.openPositions > 0 ? ` · ${faNum(s.openPositions)} باز` : ''}
                   </span>
                 )}
               </span>

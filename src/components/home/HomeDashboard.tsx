@@ -11,12 +11,17 @@ import {
   type BattleProfile,
   type BattleSummary,
 } from '@/lib/battles';
+import { faNum } from '@/lib/locale/jalali';
 import { RankEmblem } from '../battles/RankEmblem';
 import {
   ASSET_COLORS,
+  RANK_FA,
   STATUS,
+  battleTitle,
   compactMoney,
+  minutes,
   pctClass,
+  rankLabel,
   signedPct,
   winConditionName,
 } from '../battles/format';
@@ -25,6 +30,15 @@ import { AppHeader } from '../platform/AppHeader';
 import { api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
+
+/** Points forward: right in LTR, left once the page is RTL. */
+const FWD = 'rtl:-scale-x-100';
+
+const SESSION_STATUS: Readonly<Record<SessionSummary['status'], string>> = {
+  'in-progress': 'در جریان',
+  completed: 'تمام‌شده',
+  failed: 'ناموفق',
+};
 
 type Loaded<T> = T | null | 'error';
 
@@ -59,98 +73,102 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
   const inProgress = sessionList.filter((s) => s.status === 'in-progress').length;
   const lobbyList = lobbies && lobbies !== 'error' ? lobbies : [];
 
+  const level = prof ? levelFor(prof.xp) : null;
+
   return (
-    <div className="h-full overflow-y-auto bg-chart text-fg">
-      <AppHeader user={user} />
-      <div className="pointer-events-none absolute inset-x-0 top-14 h-[420px] bg-[radial-gradient(60%_80%_at_20%_0%,rgba(41,98,255,0.18),transparent_70%),radial-gradient(40%_60%_at_90%_10%,rgba(56,211,255,0.08),transparent_70%)]" />
+    <div lang="fa" dir="rtl" className="home-fa h-full overflow-y-auto bg-chart text-fg">
+      <AppHeader fa user={user} />
+      <div className="pointer-events-none absolute inset-x-0 top-14 h-[420px] bg-[radial-gradient(60%_80%_at_80%_0%,rgba(41,98,255,0.18),transparent_70%),radial-gradient(40%_60%_at_10%_10%,rgba(56,211,255,0.08),transparent_70%)]" />
       <main className="relative mx-auto max-w-[1400px] px-4 pb-16 pt-8 sm:px-6">
-        {/* Greeting */}
         <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="animate-pop">
-            <p className="text-[13px] font-medium text-muted">Welcome back,</p>
-            <h1 className="mt-1 text-[28px] font-bold leading-tight tracking-tight sm:text-[34px]">
-              {user.name}
-            </h1>
-            <p className="mt-2 max-w-xl text-[14px] leading-6 text-muted">
-              Chart the markets, test a strategy on history, or battle other traders on the same
-              candles.
+            <p className="text-[13px] font-medium text-muted">خوش آمدید</p>
+            <h1 className="mt-1 text-[28px] font-bold leading-snug sm:text-[34px]">{user.name}</h1>
+            <p className="mt-2 max-w-xl text-[14px] leading-7 text-muted">
+              بازار را روی نمودار ببینید، استراتژی را روی تاریخ بسنجید، یا در نبرد با معامله‌گران
+              دیگر روی همان کندل‌ها رقابت کنید.
             </p>
           </div>
           <dl className="grid grid-cols-3 gap-2 sm:gap-3">
-            <Stat label="Rating" value={prof ? String(prof.elo) : '—'}>
+            <Stat
+              label="الو"
+              value={prof ? faNum(prof.elo) : '—'}
+              sub={prof ? rankLabel(prof.elo) : undefined}
+            >
               {prof ? <RankEmblem elo={prof.elo} size={22} /> : null}
             </Stat>
             <Stat
-              label="Composite"
-              value={prof ? `Lv ${levelFor(prof.xp).level}` : '—'}
-              sub={prof ? `${prof.xp.toLocaleString('en-US')} XP` : undefined}
+              label="سطح"
+              value={level ? faNum(level.level) : '—'}
+              sub={prof ? `${faNum(prof.xp)} امتیاز` : undefined}
             />
             <Stat
-              label="Backtests"
-              value={sessions === null ? '—' : String(sessionList.length)}
-              sub={sessions === null ? undefined : `${inProgress} in progress`}
+              label="جلسه‌ها"
+              value={sessions === null ? '—' : faNum(sessionList.length)}
+              sub={sessions === null ? undefined : `${faNum(inProgress)} در جریان`}
             />
           </dl>
         </section>
 
         {active ? <ActiveBattleBanner battle={active} /> : null}
 
-        {/* Entry points */}
-        <section aria-label="Sections" className="mt-8 grid gap-4 md:grid-cols-3">
+        <section aria-label="بخش‌ها" className="mt-8 grid gap-4 md:grid-cols-3">
           <EntryCard
             href="/chart"
+            testId="entry-chart"
             icon="chart"
-            eyebrow="Analysis"
-            title="Chart"
-            text="A full charting workspace: 20+ chart types, drawing tools, bar replay and themes, saved to your account."
-            cta="Open chart"
+            eyebrow="تحلیل"
+            title="نمودار"
+            text="میز کار کامل تحلیل: بیش از ۲۰ نوع نمودار، ابزار ترسیم، بازپخش کندل و تم رنگی. همه‌چیز روی حساب شما ذخیره می‌شود."
+            cta="باز کردن نمودار"
             art={<ChartArt />}
             meta={[
-              ['Timeframes', '11'],
-              ['Drawing tools', '20+'],
+              ['تایم‌فریم', '۱۱'],
+              ['ابزار ترسیم', 'بیش از ۲۰'],
             ]}
           />
           <EntryCard
             href="/backtest"
+            testId="entry-backtest"
             icon="replay"
-            eyebrow="Practice"
-            title="Backtest"
-            text="Replay any date range candle by candle, trade it with a virtual account and review the analytics."
-            cta={inProgress > 0 ? 'Continue backtesting' : 'Start a session'}
+            eyebrow="تمرین"
+            title="بک‌تست"
+            text="هر بازه‌ای از بازار را کندل‌به‌کندل بازپخش کنید، با حساب مجازی معامله کنید و عملکرد را مرور کنید."
+            cta={inProgress > 0 ? 'ادامه بک‌تست' : 'شروع جلسه'}
             art={<BacktestArt />}
             meta={[
-              ['Sessions', sessions === null ? '—' : String(sessionList.length)],
-              ['In progress', sessions === null ? '—' : String(inProgress)],
+              ['جلسه‌ها', sessions === null ? '—' : faNum(sessionList.length)],
+              ['در جریان', sessions === null ? '—' : faNum(inProgress)],
             ]}
           />
           <EntryCard
             href="/battle"
+            testId="entry-battles"
             icon="swords"
-            eyebrow="Compete"
-            title="Battles"
-            badge="New"
+            eyebrow="رقابت"
+            title="نبردها"
+            badge="جدید"
             highlight
-            text="Trade the same historical market head-to-head in real time. Ranked matches move your Elo from Rookie to Master."
-            cta="Enter Battles"
+            text="یک بازار تاریخی، هم‌زمان برای همه. در نبرد رتبه‌ای امتیاز الو از تازه‌کار تا استاد جابه‌جا می‌شود."
+            cta="ورود به نبردها"
             art={<BattleArt />}
             meta={[
-              ['Rank', prof ? rankFor(prof.elo).name : '—'],
-              ['Open lobbies', lobbies === null ? '—' : String(lobbyList.length)],
+              ['رتبه', prof ? rankLabel(prof.elo) : '—'],
+              ['نبرد باز', lobbies === null ? '—' : faNum(lobbyList.length)],
             ]}
           />
         </section>
 
-        {/* Activity */}
         <section className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-w-0 flex-col gap-4">
             <Panel
-              title="Continue backtesting"
+              title="جلسه‌های اخیر"
               action={
                 <Link
                   href="/backtest"
                   className="text-[12.5px] font-medium text-accent hover:underline"
                 >
-                  All sessions
+                  همه جلسه‌ها
                 </Link>
               }
             >
@@ -159,9 +177,9 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
               ) : sessionList.length === 0 ? (
                 <Empty
                   icon="replay"
-                  text="No backtesting sessions yet. Pick an asset and a date range to replay."
+                  text="هنوز جلسه‌ای نساخته‌اید. نماد و بازه را انتخاب کنید تا بازار کندل‌به‌کندل بازپخش شود."
                   href="/backtest"
-                  cta="Create a session"
+                  cta="ساخت جلسه"
                 />
               ) : (
                 <ul className="divide-y divide-line">
@@ -172,13 +190,13 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
               )}
             </Panel>
             <Panel
-              title="Open battles"
+              title="نبردهای باز"
               action={
                 <Link
                   href="/battle?tab=browse"
                   className="text-[12.5px] font-medium text-accent hover:underline"
                 >
-                  Browse all
+                  نبردهای عمومی
                 </Link>
               }
             >
@@ -187,9 +205,9 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
               ) : lobbyList.length === 0 ? (
                 <Empty
                   icon="swords"
-                  text="No public battles are open right now. Create one and invite other traders."
+                  text="الان نبرد عمومی برای پیوستن نیست. یکی بسازید تا معامله‌گران دیگر بتوانند وارد شوند."
                   href="/battle?new=1"
-                  cta="New battle"
+                  cta="نبرد تازه"
                 />
               ) : (
                 <ul className="divide-y divide-line">
@@ -220,9 +238,7 @@ function Stat({
 }) {
   return (
     <div className="min-w-0 rounded-xl border border-line bg-panel/70 px-3 py-2.5 sm:min-w-36 sm:px-4">
-      <dt className="truncate text-[11px] font-medium uppercase tracking-wide text-muted">
-        {label}
-      </dt>
+      <dt className="truncate text-[11px] font-medium text-muted">{label}</dt>
       <dd className="mt-1 flex items-center gap-1.5">
         {children}
         <span className="text-[18px] font-bold tabular-nums leading-none">{value}</span>
@@ -245,12 +261,12 @@ function ActiveBattleBanner({ battle }: { readonly battle: BattleSummary }) {
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-up" />
       </span>
       <span className="min-w-0 flex-1 text-[13.5px]">
-        <span className="font-semibold">You are in a battle:</span>{' '}
-        <span className="truncate">{battle.name}</span>{' '}
-        <span className={`ml-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>
+        <span className="font-semibold">در یک نبرد هستید:</span>{' '}
+        <span className="truncate">{battleTitle(battle.name)}</span>{' '}
+        <span className={`ms-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>
       </span>
       <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-up">
-        Rejoin <Icon name="chevronRight" size={15} />
+        ادامه نبرد <Icon name="chevronRight" size={15} className={FWD} />
       </span>
     </Link>
   );
@@ -258,6 +274,7 @@ function ActiveBattleBanner({ battle }: { readonly battle: BattleSummary }) {
 
 function EntryCard({
   href,
+  testId,
   icon,
   eyebrow,
   title,
@@ -269,6 +286,7 @@ function EntryCard({
   highlight = false,
 }: {
   readonly href: string;
+  readonly testId: string;
   readonly icon: IconName;
   readonly eyebrow: string;
   readonly title: string;
@@ -282,7 +300,7 @@ function EntryCard({
   return (
     <Link
       href={href}
-      data-testid={`entry-${title.toLowerCase()}`}
+      data-testid={testId}
       className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-panel transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-24px_rgba(41,98,255,0.55)] ${
         highlight ? 'border-accent/50' : 'border-line hover:border-accent/40'
       }`}
@@ -290,23 +308,23 @@ function EntryCard({
       <div className="relative h-36 overflow-hidden border-b border-line bg-[linear-gradient(180deg,rgba(41,98,255,0.10),transparent)]">
         {art}
         {badge ? (
-          <span className="absolute right-3 top-3 rounded-full bg-accent px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-accent-fg">
+          <span className="absolute inset-e-3 top-3 rounded-full bg-accent px-2 py-0.5 text-[10.5px] font-bold text-accent-fg">
             {badge}
           </span>
         ) : null}
       </div>
       <div className="flex flex-1 flex-col p-5">
-        <div className="flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-wider text-accent">
+        <div className="flex items-center gap-2 text-[11.5px] font-semibold text-accent">
           <Icon name={icon} size={14} />
           {eyebrow}
         </div>
-        <h2 className="mt-1.5 text-[19px] font-bold tracking-tight">{title}</h2>
-        <p className="mt-1.5 flex-1 text-[13px] leading-6 text-muted">{text}</p>
+        <h2 className="mt-1.5 text-[19px] font-bold">{title}</h2>
+        <p className="mt-1.5 flex-1 text-[13px] leading-7 text-muted">{text}</p>
         <dl className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3">
           {meta.map(([k, v]) => (
             <div key={k}>
               <dt className="text-[11px] text-muted">{k}</dt>
-              <dd className="text-[13.5px] font-semibold tabular-nums">{v}</dd>
+              <dd className="text-[13.5px] font-semibold">{v}</dd>
             </div>
           ))}
         </dl>
@@ -318,7 +336,7 @@ function EntryCard({
           }`}
         >
           {cta}
-          <Icon name="chevronRight" size={15} />
+          <Icon name="chevronRight" size={15} className={FWD} />
         </span>
       </div>
     </Link>
@@ -411,21 +429,17 @@ function SessionRow({ s }: { readonly s: SessionSummary }) {
               <span className="block h-full bg-accent" style={{ width: `${progress * 100}%` }} />
             </span>
             <span className="text-[11.5px] text-muted">
-              {s.symbol} · {s.trades} trades
+              <span dir="ltr">{s.symbol}</span>
+              {' · '}
+              {faNum(s.trades)} معامله
             </span>
           </span>
         </span>
-        <span className="text-right">
+        <span className="text-end">
           <span className={`block text-[13px] font-semibold tabular-nums ${pctClass(ret)}`}>
             {signedPct(ret)}
           </span>
-          <span className="block text-[11.5px] text-muted">
-            {s.status === 'in-progress'
-              ? 'In progress'
-              : s.status === 'completed'
-                ? 'Completed'
-                : 'Failed'}
-          </span>
+          <span className="block text-[11.5px] text-muted">{SESSION_STATUS[s.status]}</span>
         </span>
       </Link>
     </li>
@@ -445,19 +459,21 @@ function LobbyRow({ b }: { readonly b: BattleSummary }) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className="truncate text-[13.5px] font-medium">{b.name}</span>
+            <span className="truncate text-[13.5px] font-medium">{battleTitle(b.name)}</span>
             <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-medium ${cls}`}>
               {label}
             </span>
           </span>
           <span className="mt-0.5 block truncate text-[11.5px] text-muted">
-            {winConditionName(b.winCondition)} · {compactMoney(b.startingBalance)} · {b.durationMin}{' '}
-            min · {b.assets.join(', ')}
+            {winConditionName(b.winCondition)} · {compactMoney(b.startingBalance)} ·{' '}
+            {minutes(b.durationMin)} · {b.assets.join('، ')}
           </span>
         </span>
-        <span className="flex items-center gap-1 text-[12px] tabular-nums text-muted">
+        <span className="flex items-center gap-1 text-[12px] text-muted">
           <Icon name="users" size={14} />
-          {b.participants}/{b.maxParticipants}
+          <span className="tabular-nums">
+            {faNum(b.participants)}/{faNum(b.maxParticipants)}
+          </span>
         </span>
       </Link>
     </li>
@@ -475,7 +491,7 @@ function ProfileCard({
     return (
       <aside className="rounded-2xl border border-line bg-panel p-5">
         {failed ? (
-          <p className="text-[13px] text-muted">Your battle profile could not be loaded.</p>
+          <p className="text-[13px] text-muted">پروفایل نبرد بارگذاری نشد.</p>
         ) : (
           <Skeleton rows={4} />
         )}
@@ -499,10 +515,10 @@ function ProfileCard({
       />
       <div className="relative p-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-[14px] font-semibold">Battle profile</h2>
+          <h2 className="text-[14px] font-semibold">پروفایل نبرد</h2>
           {profile.globalRank ? (
-            <span className="rounded-full bg-hover px-2 py-0.5 text-[11.5px] font-medium tabular-nums text-muted">
-              #{profile.globalRank} global
+            <span className="rounded-full bg-hover px-2 py-0.5 text-[11.5px] font-medium text-muted">
+              رتبه <span className="tabular-nums">{faNum(profile.globalRank)}</span> جهانی
             </span>
           ) : null}
         </div>
@@ -510,18 +526,22 @@ function ProfileCard({
           <RankEmblem elo={profile.elo} size={64} />
           <div className="min-w-0">
             <div className="text-[18px] font-bold" style={{ color: rank.color }}>
-              {rank.name}
+              {rankLabel(profile.elo)}
             </div>
             <div className="text-[13px] text-muted">
-              <span className="font-semibold tabular-nums text-fg">{profile.elo}</span> Elo · peak{' '}
-              {profile.peakElo}
+              <span className="font-semibold tabular-nums text-fg">{faNum(profile.elo)}</span> الو ·
+              اوج <span className="tabular-nums">{faNum(profile.peakElo)}</span>
             </div>
           </div>
         </div>
         <div className="mt-4">
-          <div className="flex justify-between text-[11.5px] text-muted">
-            <span>{rank.name}</span>
-            <span>{next ? `${next.name} at ${next.min}` : 'Top rank'}</span>
+          <div className="flex justify-between gap-3 text-[11.5px] text-muted">
+            <span>{rankLabel(profile.elo)}</span>
+            <span>
+              {next
+                ? `${faNum(next.min - profile.elo)} تا ${RANK_FA[next.id] ?? next.name}`
+                : 'بالاترین رتبه'}
+            </span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line">
             <div
@@ -532,9 +552,9 @@ function ProfileCard({
         </div>
         <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
           {[
-            ['Ranked', String(profile.rankedGames)],
-            ['Win rate', winRate === null ? '—' : `${winRate.toFixed(0)}%`],
-            ['Streak', String(profile.winStreak)],
+            ['نبرد رتبه‌ای', faNum(profile.rankedGames)],
+            ['نرخ برد', winRate === null ? '—' : `${faNum(Math.round(winRate))}٪`],
+            ['برد پیاپی', faNum(profile.winStreak)],
           ].map(([k, v]) => (
             <div key={k} className="rounded-lg bg-chart/60 py-2">
               <dt className="text-[11px] text-muted">{k}</dt>
@@ -543,10 +563,10 @@ function ProfileCard({
           ))}
         </dl>
         <div className="mt-4 rounded-lg border border-line p-3">
-          <div className="flex items-center justify-between text-[12px]">
-            <span className="font-medium">Composite Score · Level {lvl.level}</span>
-            <span className="tabular-nums text-muted">
-              {lvl.into}/{lvl.needed} XP
+          <div className="flex items-center justify-between gap-3 text-[12px]">
+            <span className="font-medium">امتیاز ترکیبی · سطح {faNum(lvl.level)}</span>
+            <span className="shrink-0 text-muted">
+              <span className="tabular-nums">{faNum(profile.xp)}</span> امتیاز
             </span>
           </div>
           <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
@@ -555,12 +575,15 @@ function ProfileCard({
               style={{ width: `${(lvl.into / lvl.needed) * 100}%` }}
             />
           </div>
+          <p className="mt-1.5 text-[11px] text-muted">
+            {faNum(lvl.needed - lvl.into)} امتیاز تا سطح {faNum(lvl.level + 1)}
+          </p>
         </div>
         <Link
           href="/battle?tab=play"
           className="mt-4 flex h-10 items-center justify-center gap-2 rounded-lg bg-accent text-[13.5px] font-semibold text-accent-fg transition hover:brightness-110"
         >
-          <Icon name="bolt" size={16} /> Find a ranked match
+          <Icon name="bolt" size={16} /> حریف‌یابی رتبه‌ای
         </Link>
       </div>
     </aside>
@@ -684,17 +707,19 @@ function BattleArt() {
         strokeLinecap="round"
       />
       <circle cx="190" cy="22" r="0" />
-      <g transform="translate(78 14)">
-        <rect width="34" height="20" rx="10" fill="var(--tc-panel)" stroke="var(--tc-border)" />
+      <g transform="translate(69 14)">
+        <rect width="52" height="20" rx="10" fill="var(--tc-panel)" stroke="var(--tc-border)" />
         <text
-          x="17"
+          x="26"
           y="14"
           textAnchor="middle"
-          fontSize="10"
-          fontWeight="800"
+          fontSize="9"
+          fontWeight="700"
           fill="var(--tc-text)"
+          fontFamily="Vazirmatn, Tahoma, sans-serif"
+          direction="rtl"
         >
-          VS
+          مقابل
         </text>
       </g>
       <g transform="translate(6 70)">
@@ -706,14 +731,25 @@ function BattleArt() {
           fontSize="9"
           fontWeight="700"
           fill="var(--tc-accent)"
+          fontFamily="Vazirmatn, Tahoma, sans-serif"
+          direction="ltr"
         >
-          +2.41%
+          +۲٫۴۱٪
         </text>
       </g>
       <g transform="translate(126 70)">
         <rect width="58" height="16" rx="8" fill="#ff5c7a" fillOpacity=".18" />
-        <text x="29" y="11.5" textAnchor="middle" fontSize="9" fontWeight="700" fill="#ff5c7a">
-          +0.87%
+        <text
+          x="29"
+          y="11.5"
+          textAnchor="middle"
+          fontSize="9"
+          fontWeight="700"
+          fill="#ff5c7a"
+          fontFamily="Vazirmatn, Tahoma, sans-serif"
+          direction="ltr"
+        >
+          +۰٫۸۷٪
         </text>
       </g>
     </svg>

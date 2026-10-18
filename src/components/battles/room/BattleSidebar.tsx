@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { faNum } from '@/lib/locale/jalali';
 import type { BattleView } from '@/lib/battles';
 import { Icon } from '../../ui/Icon';
 import type { IconName } from '../../ui/icons';
@@ -29,15 +30,15 @@ export function BattleSidebar({
 }) {
   const [tab, setTab] = useState<Tab>('leaderboard');
   const tabs: Array<{ id: Tab; label: string; icon: IconName }> = [
-    { id: 'leaderboard', label: 'Leaderboard', icon: 'trophy' },
-    { id: 'chat', label: 'Chat', icon: 'chat' },
-    { id: 'rules', label: 'Rules', icon: 'list' },
+    { id: 'leaderboard', label: 'جدول', icon: 'trophy' },
+    { id: 'chat', label: 'گفت‌وگو', icon: 'chat' },
+    { id: 'rules', label: 'قانون‌ها', icon: 'list' },
   ];
-  if (view.isHost) tabs.push({ id: 'admin', label: 'Admin', icon: 'shield' });
+  if (view.isHost) tabs.push({ id: 'admin', label: 'میزبان', icon: 'shield' });
   const unread = view.chat.length;
   return (
     <aside
-      aria-label="Battle"
+      aria-label="نبرد"
       data-testid="battle-sidebar"
       className={`w-80 shrink-0 flex-col border-l border-line bg-panel ${className}`}
     >
@@ -56,7 +57,7 @@ export function BattleSidebar({
             <Icon name={t.icon} size={14} />
             {t.label}
             {t.id === 'chat' && tab !== 'chat' && unread > 0 ? (
-              <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
+              <span className="ms-0.5 h-1.5 w-1.5 rounded-full bg-accent" />
             ) : null}
           </button>
         ))}
@@ -64,7 +65,7 @@ export function BattleSidebar({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="بستن"
             className="flex w-10 items-center justify-center text-muted hover:text-fg lg:hidden"
           >
             <Icon name="close" size={15} />
@@ -75,12 +76,12 @@ export function BattleSidebar({
         <div className="min-h-0 flex-1 overflow-y-auto p-2.5">
           <StandingsList standings={view.standings} meId={meId} showElo={view.mode === 'ranked'} />
           <p className="mt-3 px-1 text-[11px] text-muted">
-            Ranked by return (equity incl. open trades).{' '}
+            مرتب‌شده بر اساس بازده، با احتساب معاملات باز.{' '}
             {view.settings.winCondition === 'profit-target'
-              ? `First to close at +${view.settings.profitTargetPct}% wins.`
-              : 'Highest return at the end wins.'}{' '}
-            Hold <kbd className="rounded border border-line px-1">Tab</kbd> to see it over the
-            chart.
+              ? `اولین کسی که معامله را روی +${faNum(view.settings.profitTargetPct ?? 0)}٪ ببندد برنده است.`
+              : 'در پایان، بیشترین بازده برنده است.'}{' '}
+            برای دیدن روی نمودار، <kbd className="rounded border border-line px-1">Tab</kbd> را نگه
+            دار.
           </p>
         </div>
       ) : null}
@@ -100,27 +101,27 @@ export function BattleSidebar({
       ) : null}
       {tab === 'admin' ? (
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3 text-[12.5px]">
-          <p className="text-muted">Host controls apply to every trader in the battle.</p>
+          <p className="text-muted">این دکمه‌ها برای همه معامله‌گرهای نبرد است.</p>
           {view.status === 'paused' ? (
-            <AdminButton icon="play" label="Resume battle" onClick={() => onControl('resume')} />
+            <AdminButton icon="play" label="ادامه نبرد" onClick={() => onControl('resume')} />
           ) : (
             <AdminButton
               icon="pause"
-              label="Pause battle"
+              label="توقف نبرد"
               disabled={view.status !== 'live'}
               onClick={() => onControl('pause')}
             />
           )}
           <AdminButton
             icon="rotate"
-            label="Restart battle"
-            hint="Resets every account"
+            label="شروع دوباره"
+            hint="حساب همه صفر می‌شود"
             onClick={() => onControl('restart')}
           />
           <AdminButton
             icon="stop"
-            label="End battle now"
-            hint="Results are final"
+            label="پایان نبرد"
+            hint="نتیجه قطعی می‌شود"
             danger
             disabled={view.status !== 'live' && view.status !== 'paused'}
             onClick={() => onControl('end')}
@@ -151,7 +152,7 @@ function AdminButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`flex items-center gap-2.5 rounded-lg border border-line px-3 py-2.5 text-left transition hover:bg-hover disabled:opacity-40 ${
+      className={`flex items-center gap-2.5 rounded-lg border border-line px-3 py-2.5 text-start transition hover:bg-hover disabled:opacity-40 ${
         danger ? 'text-down' : ''
       }`}
     >

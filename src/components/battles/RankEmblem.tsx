@@ -1,7 +1,9 @@
 'use client';
 
 import { useId } from 'react';
+import { faNum } from '@/lib/locale/jalali';
 import { RANKS, rankFor } from '@/lib/battles';
+import { RANK_FA } from './format';
 
 /** Shield emblem of a rank tier (Rookie → Master): colour of the tier, chevrons for its level. */
 export function RankEmblem({ elo, size = 40 }: { readonly elo: number; readonly size?: number }) {
@@ -15,7 +17,7 @@ export function RankEmblem({ elo, size = 40 }: { readonly elo: number; readonly 
       height={size}
       viewBox="0 0 48 48"
       role="img"
-      aria-label={`${rank.name} rank`}
+      aria-label={`رتبه ${RANK_FA[rank.id] ?? rank.name}`}
       className="shrink-0"
     >
       <defs>
@@ -71,9 +73,9 @@ export function RankLabel({ elo, size = 22 }: { readonly elo: number; readonly s
     <span className="inline-flex items-center gap-1.5">
       <RankEmblem elo={elo} size={size} />
       <span className="text-[12px] font-semibold" style={{ color: rank.color }}>
-        {rank.name}
+        {RANK_FA[rank.id] ?? rank.name}
       </span>
-      <span className="text-[12px] tabular-nums text-muted">{elo}</span>
+      <span className="text-[12px] tabular-nums text-muted">{faNum(elo)}</span>
     </span>
   );
 }

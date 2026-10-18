@@ -77,7 +77,7 @@ export function Dialog({
         style={{ width }}
         className="flex max-h-[min(88vh,760px)] max-w-full animate-pop flex-col overflow-hidden rounded-xl border border-line bg-panel text-fg shadow-2xl"
       >
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-line pl-5 pr-2">
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-line ps-5 pe-2">
           <h2 className="truncate text-[15px] font-semibold">{title}</h2>
           <button
             type="button"

@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'چارتیکس',
-  description: 'پلتفرم نمودار و تحلیل تکنیکال حرفه‌ای',
+  description: 'بک‌تست و بازپخش بازار؛ معامله تمرینی بدون سرمایه واقعی',
 };
 
 export const viewport: Viewport = {

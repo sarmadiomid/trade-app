@@ -7,6 +7,7 @@ import { AppHeader } from '../../platform/AppHeader';
 import type { Me } from '../../platform/api';
 import { useThemeCssVars } from '../../hooks/useThemeCssVars';
 import { Icon } from '../../ui/Icon';
+import { faEndReason } from '../format';
 import { Arena } from './Arena';
 import { Lobby } from './Lobby';
 import { Results } from './Results';
@@ -33,10 +34,10 @@ export default function BattleRoom({ id, user }: { readonly id: string; readonly
         <Shell user={user}>
           <div className="flex flex-col items-center gap-3 py-24 text-center">
             <Icon name="swords" size={32} />
-            <h1 className="text-lg font-semibold">Battle not found</h1>
-            <p className="text-[13px] text-muted">It may have been closed, or the link is wrong.</p>
+            <h1 className="text-lg font-semibold">نبرد پیدا نشد</h1>
+            <p className="text-[13px] text-muted">شاید بسته شده، یا لینک اشتباه است.</p>
             <Link href="/battle" className="text-accent hover:underline">
-              Back to Battles
+              بازگشت به نبردها
             </Link>
           </div>
         </Shell>
@@ -66,10 +67,12 @@ export default function BattleRoom({ id, user }: { readonly id: string; readonly
       <Shell user={user}>
         <div className="flex flex-col items-center gap-3 py-24 text-center">
           <Icon name="close" size={30} />
-          <h1 className="text-lg font-semibold">This battle was closed</h1>
-          <p className="text-[13px] text-muted">{view.endReason ?? 'The host closed the lobby.'}</p>
+          <h1 className="text-lg font-semibold">این نبرد بسته شد</h1>
+          <p className="text-[13px] text-muted">
+            {view.endReason ? faEndReason(view.endReason) : 'میزبان لابی را بست.'}
+          </p>
           <Link href="/battle" className="text-accent hover:underline">
-            Back to Battles
+            بازگشت به نبردها
           </Link>
         </div>
       </Shell>
@@ -92,7 +95,7 @@ export default function BattleRoom({ id, user }: { readonly id: string; readonly
 function Shell({ user, children }: { readonly user: Me; readonly children: React.ReactNode }) {
   return (
     <div className="h-full overflow-y-auto bg-chart text-fg">
-      <AppHeader user={user} />
+      <AppHeader fa user={user} />
       {children}
     </div>
   );

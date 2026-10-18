@@ -2,11 +2,20 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { faNum } from '@/lib/locale/jalali';
 import { formatClock, remainingMs, type BattleView } from '@/lib/battles';
 import { initials } from '../../platform/AppHeader';
 import { Icon } from '../../ui/Icon';
 import { RankEmblem } from '../RankEmblem';
-import { STATUS, compactMoney, winConditionName } from '../format';
+import {
+  STATUS,
+  battleTitle,
+  clockFa,
+  compactMoney,
+  faMessage,
+  minutes,
+  winConditionName,
+} from '../format';
 import { BattleChat } from './BattleChat';
 import { RulesList } from './RulesList';
 import { useTicker } from './useBattle';
@@ -47,7 +56,7 @@ export function Lobby({
     try {
       await run(path, body);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong');
+      setError(e instanceof Error ? faMessage(e.message) : faMessage('Something went wrong'));
     } finally {
       setBusy(null);
     }
@@ -61,7 +70,7 @@ export function Lobby({
       setCopied(what);
       window.setTimeout(() => setCopied(null), 1500);
     } catch {
-      setError('Copy failed: select the battle ID instead');
+      setError(faMessage('Copy failed: select the battle ID instead'));
     }
   };
 
@@ -71,13 +80,13 @@ export function Lobby({
         href="/battle"
         className="inline-flex items-center gap-1 text-[13px] text-muted hover:text-fg"
       >
-        <Icon name="chevronLeft" size={15} /> Battles
+        <Icon name="chevronLeft" size={15} className="rtl:-scale-x-100" /> نبردها
       </Link>
       <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-[24px] font-bold tracking-tight" data-testid="battle-name">
-              {s.name}
+              {battleTitle(s.name)}
             </h1>
             <span
               className={`rounded px-2 py-0.5 text-[11.5px] font-semibold ${cls}`}
@@ -87,9 +96,9 @@ export function Lobby({
             </span>
           </div>
           <p className="mt-1 text-[13px] text-muted">
-            {view.mode === 'ranked' ? 'Ranked' : 'Casual'} · {winConditionName(s.winCondition)} ·{' '}
-            {compactMoney(s.startingBalance)} · {s.durationMin} min
-            {view.host ? ` · Hosted by ${view.host.name}` : ''}
+            {view.mode === 'ranked' ? 'رتبه‌ای' : 'آزاد'} · {winConditionName(s.winCondition)} ·{' '}
+            {compactMoney(s.startingBalance)} · {minutes(s.durationMin)}
+            {view.host ? ` · میزبان: ${view.host.name}` : ''}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -97,12 +106,12 @@ export function Lobby({
             type="button"
             onClick={() => void copy('id')}
             className="group inline-flex h-9 items-center gap-2 rounded-lg border border-line bg-panel px-3 text-[13px] hover:bg-hover"
-            title="Copy battle ID"
+            title="کپی شناسه نبرد"
           >
-            <span className="text-muted">Battle ID</span>
-            <span className="font-mono font-bold tracking-widest" data-testid="battle-code">
+            <span className="text-muted">شناسه</span>
+            <bdi dir="ltr" className="font-mono font-bold tracking-widest" data-testid="battle-code">
               {view.code}
-            </span>
+            </bdi>
             <Icon name={copied === 'id' ? 'check' : 'copy'} size={14} />
           </button>
           <button
@@ -111,7 +120,7 @@ export function Lobby({
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-panel px-3 text-[13px] hover:bg-hover"
           >
             <Icon name={copied === 'link' ? 'check' : 'users'} size={14} />
-            {copied === 'link' ? 'Link copied' : 'Invite'}
+            {copied === 'link' ? 'لینک کپی شد' : 'دعوت'}
           </button>
         </div>
       </div>
@@ -121,14 +130,14 @@ export function Lobby({
           <section className="rounded-2xl border border-line bg-panel p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <h2 className="text-[14px] font-semibold">
-                Traders{' '}
+                معامله‌گرها{' '}
                 <span className="font-normal text-muted">
-                  {view.standings.length}/{s.maxParticipants}
+                  {faNum(view.standings.length)}/{faNum(s.maxParticipants)}
                 </span>
               </h2>
               {live ? (
                 <span className="text-[12.5px] text-muted">
-                  In progress · {formatClock(remainingMs(view.clock, now()))} left
+                  در جریان · {clockFa(formatClock(remainingMs(view.clock, now())))} مانده
                 </span>
               ) : null}
             </div>
@@ -147,7 +156,7 @@ export function Lobby({
                     }`}
                   >
                     {host ? (
-                      <span className="absolute left-2 top-2 text-[#f2c14e]" title="Host">
+                      <span className="absolute start-2 top-2 text-[#f2c14e]" title="میزبان">
                         <Icon name="crown" size={15} />
                       </span>
                     ) : null}
@@ -158,10 +167,10 @@ export function Lobby({
                       {p.name}
                     </span>
                     <span className="mt-1 inline-flex items-center gap-1 text-[11.5px] text-muted">
-                      <RankEmblem elo={p.elo} size={14} /> {p.elo}
+                      <RankEmblem elo={p.elo} size={14} /> {faNum(p.elo)}
                     </span>
                     {me ? (
-                      <span className="mt-1 text-[10.5px] font-semibold text-accent">YOU</span>
+                      <span className="mt-1 text-[10.5px] font-semibold text-accent">تو</span>
                     ) : null}
                   </li>
                 );
@@ -172,13 +181,13 @@ export function Lobby({
                   className="flex min-h-[132px] flex-col items-center justify-center rounded-xl border border-dashed border-line text-[12px] text-muted"
                 >
                   <Icon name="plus" size={16} />
-                  <span className="mt-1">Open slot</span>
+                  <span className="mt-1">جای خالی</span>
                 </li>
               ))}
             </ul>
             {s.maxParticipants > 12 && slots === 0 && view.standings.length < s.maxParticipants ? (
               <p className="mt-2 text-[12px] text-muted">
-                {s.maxParticipants - view.standings.length} more slots open
+                {faNum(s.maxParticipants - view.standings.length)} جای خالی دیگر
               </p>
             ) : null}
           </section>
@@ -189,16 +198,17 @@ export function Lobby({
                 <div className="flex-1">
                   <h2 className="text-[15px] font-semibold">
                     {view.joinBlocked
-                      ? 'You cannot join this battle'
+                      ? 'نمی‌توانی به این نبرد بپیوندی'
                       : live
-                        ? 'Join the battle in progress'
-                        : 'Join this battle'}
+                        ? 'به نبرد در جریان بپیوند'
+                        : 'به این نبرد بپیوند'}
                   </h2>
-                  <p className="mt-0.5 text-[13px] text-muted">
-                    {view.joinBlocked ??
-                      (live
-                        ? 'Late entries start from the current candle with a fresh account.'
-                        : 'Everyone trades the same market once the host starts the battle.')}
+                  <p className="mt-0.5 text-[13px] leading-6 text-muted">
+                    {view.joinBlocked
+                      ? faMessage(view.joinBlocked)
+                      : live
+                        ? 'ورود دیرهنگام از کندل فعلی شروع می‌شود، با یک حساب تازه.'
+                        : 'وقتی میزبان نبرد را شروع کند، همه یک بازار را معامله می‌کنند.'}
                   </p>
                 </div>
                 {!view.joinBlocked ? (
@@ -207,9 +217,10 @@ export function Lobby({
                       <input
                         value={code}
                         onChange={(e) => setCode(e.target.value.toUpperCase())}
-                        placeholder="Battle ID"
-                        aria-label="Battle ID"
-                        className="h-10 w-32 rounded-lg border border-line bg-chart px-3 font-mono text-[14px] uppercase tracking-widest outline-none focus:border-accent"
+                        placeholder="شناسه"
+                        aria-label="شناسه نبرد"
+                        dir="ltr"
+                        className="h-10 w-32 rounded-lg border border-line bg-chart px-3 text-center font-mono text-[14px] tracking-widest outline-none focus:border-accent"
                       />
                     ) : null}
                     <button
@@ -220,7 +231,7 @@ export function Lobby({
                       className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-5 text-[14px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-50"
                     >
                       <Icon name="swords" size={16} />{' '}
-                      {busy === 'join' ? 'Joining…' : 'Join battle'}
+                      {busy === 'join' ? 'در حال پیوستن…' : 'پیوستن'}
                     </button>
                   </div>
                 ) : null}
@@ -228,12 +239,12 @@ export function Lobby({
             ) : view.isHost && view.status === 'standby' ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="flex-1">
-                  <h2 className="text-[15px] font-semibold">You are the host</h2>
-                  <p className="mt-0.5 text-[13px] text-muted">
-                    Start when everyone is in. A {10}-second countdown runs first; late entries{' '}
+                  <h2 className="text-[15px] font-semibold">تو میزبان هستی</h2>
+                  <p className="mt-0.5 text-[13px] leading-6 text-muted">
+                    وقتی همه آمدند شروع کن. اول یک شمارش ده‌ثانیه‌ای می‌آید؛{' '}
                     {s.allowLateJoin
-                      ? 'can still join after the start'
-                      : 'are closed once it starts'}
+                      ? 'بعد از شروع هم می‌شود پیوست'
+                      : 'با شروع، ورود بسته می‌شود'}
                     .
                   </p>
                 </div>
@@ -244,7 +255,7 @@ export function Lobby({
                     onClick={() => void act('control', { op: 'cancel' })}
                     className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-[13px] hover:bg-hover disabled:opacity-50"
                   >
-                    Close lobby
+                    بستن لابی
                   </button>
                   <button
                     type="button"
@@ -254,7 +265,7 @@ export function Lobby({
                     className="inline-flex h-10 items-center gap-2 rounded-lg bg-accent px-5 text-[14px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-50"
                   >
                     <Icon name="play" size={15} />{' '}
-                    {busy === 'control' ? 'Starting…' : 'Start battle'}
+                    {busy === 'control' ? 'در حال شروع…' : 'شروع نبرد'}
                   </button>
                 </div>
               </div>
@@ -266,9 +277,9 @@ export function Lobby({
                     <span className="relative inline-flex h-3 w-3 rounded-full bg-accent" />
                   </span>
                   <div>
-                    <h2 className="text-[15px] font-semibold">Waiting for the host to start</h2>
-                    <p className="mt-0.5 text-[13px] text-muted">
-                      The market is revealed when the countdown begins. Stay on this page.
+                    <h2 className="text-[15px] font-semibold">منتظر شروع میزبان</h2>
+                    <p className="mt-0.5 text-[13px] leading-6 text-muted">
+                      بازار با شروع شمارش معلوم می‌شود. همین صفحه را باز نگه دار.
                     </p>
                   </div>
                 </div>
@@ -278,7 +289,7 @@ export function Lobby({
                   onClick={() => void act('leave')}
                   className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-[13px] hover:bg-hover disabled:opacity-50"
                 >
-                  Leave lobby
+                  ترک لابی
                 </button>
               </div>
             )}
@@ -292,11 +303,11 @@ export function Lobby({
 
         <aside className="flex flex-col gap-4">
           <section className="rounded-2xl border border-line bg-panel px-4 py-3">
-            <h2 className="pb-1 text-[14px] font-semibold">Rules</h2>
+            <h2 className="pb-1 text-[14px] font-semibold">قانون‌ها</h2>
             <RulesList view={view} />
           </section>
           <section className="flex h-80 flex-col rounded-2xl border border-line bg-panel">
-            <h2 className="border-b border-line px-4 py-2.5 text-[14px] font-semibold">Chat</h2>
+            <h2 className="border-b border-line px-4 py-2.5 text-[14px] font-semibold">گفت‌وگو</h2>
             <BattleChat
               battleId={view.id}
               messages={view.chat}

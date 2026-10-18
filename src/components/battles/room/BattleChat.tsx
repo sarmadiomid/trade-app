@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { ChatMessage } from '@/lib/battles';
 import { api } from '../../platform/api';
 import { Icon } from '../../ui/Icon';
+import { faChat, faMessage } from '../format';
 
 /** The battle's text chat (system messages announce joins, starts, pauses and the result). */
 export function BattleChat({
@@ -41,7 +42,7 @@ export function BattleChat({
       setText('');
       onSent();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not send');
+      setError(err instanceof Error ? faMessage(err.message) : faMessage('Could not send'));
     } finally {
       setSending(false);
     }
@@ -55,12 +56,12 @@ export function BattleChat({
         data-testid="chat-list"
       >
         {messages.length === 0 ? (
-          <p className="pt-6 text-center text-[12.5px] text-muted">No messages yet.</p>
+          <p className="pt-6 text-center text-[12.5px] text-muted">هنوز پیامی نیست.</p>
         ) : null}
         {messages.map((m) =>
           m.system ? (
             <p key={m.id} className="text-center text-[11.5px] italic text-muted">
-              {m.text}
+              {faChat(m.text)}
             </p>
           ) : (
             <div key={m.id} className="text-[12.5px] leading-5">
@@ -78,8 +79,8 @@ export function BattleChat({
             value={text}
             onChange={(e) => setText(e.target.value)}
             maxLength={300}
-            placeholder="Message the battle"
-            aria-label="Chat message"
+            placeholder="پیام به نبرد"
+            aria-label="متن پیام"
             data-testid="chat-input"
             onKeyDown={(e) => e.stopPropagation()}
             className="h-8 min-w-0 flex-1 rounded-md border border-line bg-chart px-2.5 text-[12.5px] outline-none focus:border-accent"
@@ -87,7 +88,7 @@ export function BattleChat({
           <button
             type="submit"
             disabled={sending || !text.trim()}
-            aria-label="Send"
+            aria-label="ارسال"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-accent text-accent-fg disabled:opacity-40"
           >
             <Icon name="send" size={14} />

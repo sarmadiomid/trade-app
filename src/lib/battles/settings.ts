@@ -112,10 +112,10 @@ export interface RankedFormat {
 export const RANKED_FORMATS: readonly RankedFormat[] = [
   {
     id: 'duel',
-    name: 'Ranked Duel',
-    summary: '1v1 · 10 min · Time Trial',
+    name: 'دوئل رتبه‌ای',
+    summary: 'یک‌به‌یک · ۱۰ دقیقه · زمان‌دار',
     settings: {
-      name: 'Ranked Duel',
+      name: 'دوئل رتبه‌ای',
       winCondition: 'time-trial',
       startingBalance: 100_000,
       assets: [...BATTLE_ASSETS],
@@ -131,10 +131,10 @@ export const RANKED_FORMATS: readonly RankedFormat[] = [
   },
   {
     id: 'sprint',
-    name: 'Ranked Sprint',
-    summary: '1v1 · 5 min · first to +2%',
+    name: 'اسپرینت رتبه‌ای',
+    summary: 'یک‌به‌یک · ۵ دقیقه · اولین رسیدن به ۲٪+',
     settings: {
-      name: 'Ranked Sprint',
+      name: 'اسپرینت رتبه‌ای',
       winCondition: 'profit-target',
       startingBalance: 100_000,
       assets: [...BATTLE_ASSETS],

@@ -1,0 +1,11 @@
+/* Persian chrome for /home. Applied on the page root so the first paint is already RTL. */
+
+.home-fa {
+  font-family: Vazirmatn, Tahoma, sans-serif;
+  font-feature-settings: 'ss01';
+}
+
+.home-fa .tabular-nums {
+  direction: ltr;
+  unicode-bidi: isolate;
+}

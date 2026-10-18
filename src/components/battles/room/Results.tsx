@@ -3,18 +3,30 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { faNum } from '@/lib/locale/jalali';
 import { rankFor, type BattleView, type FinalResult } from '@/lib/battles';
 import { api } from '../../platform/api';
 import { initials } from '../../platform/AppHeader';
 import { Icon } from '../../ui/Icon';
 import { RankEmblem } from '../RankEmblem';
-import { compactMoney, ordinal, pctClass, signed, signedPct } from '../format';
+import {
+  battleTitle,
+  compactMoney,
+  faEndReason,
+  faMessage,
+  faReason,
+  ordinal,
+  pctClass,
+  rankLabel,
+  signed,
+  signedPct,
+} from '../format';
 
 const STATUS_LABEL: Readonly<Record<FinalResult['status'], string>> = {
-  active: 'Finished',
-  target: 'Reached target',
-  disqualified: 'Disqualified',
-  left: 'Left',
+  active: 'تمام شد',
+  target: 'به هدف رسید',
+  disqualified: 'حذف',
+  left: 'خارج شد',
 };
 
 const PODIUM = [
@@ -59,7 +71,7 @@ export function Results({
       });
       router.push(`/battle/${r.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create the battle');
+      setError(e instanceof Error ? faMessage(e.message) : faMessage('Could not create the battle'));
       setBusy(false);
     }
   };
@@ -76,18 +88,14 @@ export function Results({
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6" data-testid="battle-results">
       <div className="text-center">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-accent">
-          Battle complete
-        </p>
-        <h1 className="mt-2 text-[26px] font-bold tracking-tight sm:text-[32px]">
-          {view.settings.name}
-        </h1>
+        <p className="text-[12px] font-semibold text-accent">نبرد تمام شد</p>
+        <h1 className="mt-2 text-[26px] font-bold sm:text-[32px]">{battleTitle(view.settings.name)}</h1>
         <p className="mt-1 text-[13px] text-muted">
-          {view.endReason ?? 'Final results'} · {view.symbol}
+          {view.endReason ? faEndReason(view.endReason) : 'نتیجه نهایی'} ·{' '}
+          <bdi dir="ltr">{view.symbol}</bdi>
         </p>
       </div>
 
-      {/* Podium */}
       <div className="mx-auto mt-8 grid max-w-xl grid-cols-3 items-end gap-3">
         {PODIUM.map((p) => {
           const r = byPlace.get(p.place);
@@ -110,9 +118,7 @@ export function Results({
                   >
                     {initials(r.name)}
                   </span>
-                  <span className="mt-2 max-w-full truncate text-[13px] font-semibold">
-                    {r.name}
-                  </span>
+                  <span className="mt-2 max-w-full truncate text-[13px] font-semibold">{r.name}</span>
                   <span className={`text-[13px] font-bold tabular-nums ${pctClass(r.returnPct)}`}>
                     {signedPct(r.returnPct)}
                   </span>
@@ -125,7 +131,7 @@ export function Results({
                 style={{ background: `linear-gradient(180deg, ${p.color}40, ${p.color}10)` }}
               >
                 <span className="mt-2 text-[20px] font-black" style={{ color: p.color }}>
-                  {p.place}
+                  {faNum(p.place)}
                 </span>
               </div>
             </div>
@@ -133,42 +139,40 @@ export function Results({
         })}
       </div>
 
-      {/* My result */}
       {mine ? (
         <section
           className="mt-8 grid gap-3 rounded-2xl border border-line bg-panel p-5 sm:grid-cols-4"
           data-testid="my-result"
         >
           <div>
-            <div className="text-[11.5px] uppercase tracking-wide text-muted">Your place</div>
+            <div className="text-[11.5px] text-muted">جایگاه تو</div>
             <div className="mt-1 text-[26px] font-black">
               {ordinal(mine.place)}
-              <span className="ml-1 text-[14px] font-medium text-muted">/ {results.length}</span>
+              <span className="ms-1 text-[14px] font-medium text-muted">از {faNum(results.length)}</span>
             </div>
             <div
               className={`text-[12px] ${mine.status === 'disqualified' ? 'text-down' : 'text-muted'}`}
             >
-              {mine.reason ?? STATUS_LABEL[mine.status]}
+              {mine.reason ? faReason(mine.reason) : STATUS_LABEL[mine.status]}
             </div>
           </div>
           <div>
-            <div className="text-[11.5px] uppercase tracking-wide text-muted">Return</div>
+            <div className="text-[11.5px] text-muted">بازده</div>
             <div className={`mt-1 text-[26px] font-black tabular-nums ${pctClass(mine.returnPct)}`}>
               {signedPct(mine.returnPct)}
             </div>
             <div className="text-[12px] text-muted">
-              {compactMoney(Math.round(mine.balance))} · {mine.trades} trades · {mine.wins} wins
+              {compactMoney(Math.round(mine.balance))} · {faNum(mine.trades)} معامله · {faNum(mine.wins)}{' '}
+              برد
             </div>
           </div>
           <div>
-            <div className="text-[11.5px] uppercase tracking-wide text-muted">
-              {ranked ? 'Elo' : 'Elo (casual)'}
-            </div>
+            <div className="text-[11.5px] text-muted">{ranked ? 'الو' : 'الو (آزاد)'}</div>
             {ranked && mine.eloBefore !== null && mine.eloAfter !== null ? (
               <>
                 <div className="mt-1 flex items-center gap-2">
                   <RankEmblem elo={mine.eloAfter} size={30} />
-                  <span className="text-[26px] font-black tabular-nums">{mine.eloAfter}</span>
+                  <span className="text-[26px] font-black tabular-nums">{faNum(mine.eloAfter)}</span>
                   <span
                     className={`text-[14px] font-bold tabular-nums ${mine.eloAfter >= mine.eloBefore ? 'text-up' : 'text-down'}`}
                     data-testid="elo-change"
@@ -178,51 +182,48 @@ export function Results({
                 </div>
                 <div className="text-[12px] text-muted">
                   {promoted === 'up'
-                    ? `Promoted to ${rankFor(mine.eloAfter).name}!`
+                    ? `ارتقا به ${rankLabel(mine.eloAfter)}`
                     : promoted === 'down'
-                      ? `Dropped to ${rankFor(mine.eloAfter).name}`
-                      : `${rankFor(mine.eloAfter).name} · was ${mine.eloBefore}`}
+                      ? `سقوط به ${rankLabel(mine.eloAfter)}`
+                      : `${rankLabel(mine.eloAfter)} · قبلاً ${faNum(mine.eloBefore)}`}
                 </div>
               </>
             ) : (
               <>
                 <div className="mt-1 text-[26px] font-black text-muted">—</div>
                 <div className="text-[12px] text-muted">
-                  {ranked ? 'Recording…' : 'Custom battles do not change Elo'}
+                  {ranked ? 'در حال ثبت…' : 'نبرد سفارشی الو را عوض نمی‌کند'}
                 </div>
               </>
             )}
           </div>
           <div>
-            <div className="text-[11.5px] uppercase tracking-wide text-muted">Composite Score</div>
+            <div className="text-[11.5px] text-muted">امتیاز ترکیبی</div>
             <div className="mt-1 text-[26px] font-black tabular-nums text-accent">
-              {recorded ? `+${mine.xp}` : '…'}
-              <span className="ml-1 text-[14px] font-medium text-muted">XP</span>
+              {recorded ? `+${faNum(mine.xp)}` : '…'}
+              <span className="ms-1 text-[14px] font-medium text-muted">امتیاز</span>
             </div>
-            <div className="text-[12px] text-muted">
-              For taking part, placing and winning trades
-            </div>
+            <div className="text-[12px] text-muted">برای حضور، رتبه و معاملات سودده</div>
           </div>
         </section>
       ) : null}
 
-      {/* Standings */}
       <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel">
         <h2 className="border-b border-line px-5 py-3 text-[14px] font-semibold">
-          Final standings{winner ? ` · ${winner.name} wins` : ''}
+          رتبه‌بندی نهایی{winner ? ` · ${winner.name} برنده شد` : ''}
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-left text-[11.5px] text-muted">
-                <th className="px-5 py-2 font-medium">Place</th>
-                <th className="px-3 py-2 font-medium">Trader</th>
-                <th className="px-3 py-2 font-medium">Result</th>
-                <th className="px-3 py-2 text-right font-medium">Return</th>
-                <th className="px-3 py-2 text-right font-medium">Balance</th>
-                <th className="px-3 py-2 text-right font-medium">Trades</th>
-                {ranked ? <th className="px-3 py-2 text-right font-medium">Elo</th> : null}
-                <th className="px-5 py-2 text-right font-medium">XP</th>
+              <tr className="text-start text-[11.5px] text-muted">
+                <th className="px-5 py-2 font-medium">رتبه</th>
+                <th className="px-3 py-2 font-medium">معامله‌گر</th>
+                <th className="px-3 py-2 font-medium">نتیجه</th>
+                <th className="px-3 py-2 text-end font-medium">بازده</th>
+                <th className="px-3 py-2 text-end font-medium">موجودی</th>
+                <th className="px-3 py-2 text-end font-medium">معاملات</th>
+                {ranked ? <th className="px-3 py-2 text-end font-medium">الو</th> : null}
+                <th className="px-5 py-2 text-end font-medium">امتیاز</th>
               </tr>
             </thead>
             <tbody>
@@ -231,13 +232,13 @@ export function Results({
                   key={r.userId}
                   className={`border-t border-line ${r.userId === meId ? 'bg-accent/10' : ''}`}
                 >
-                  <td className="px-5 py-2.5 font-bold tabular-nums">{ordinal(r.place)}</td>
+                  <td className="px-5 py-2.5 font-bold tabular-nums">{faNum(r.place)}</td>
                   <td className="px-3 py-2.5">
                     <span className="flex items-center gap-2">
                       <RankEmblem elo={r.eloAfter ?? r.elo} size={18} />
                       <span className="font-medium">{r.name}</span>
                       {r.userId === meId ? (
-                        <span className="text-[10.5px] font-semibold text-accent">YOU</span>
+                        <span className="text-[10.5px] font-semibold text-accent">تو</span>
                       ) : null}
                     </span>
                   </td>
@@ -245,24 +246,26 @@ export function Results({
                     className={`px-3 py-2.5 ${r.status === 'disqualified' ? 'text-down' : r.status === 'target' ? 'text-up' : 'text-muted'}`}
                   >
                     {r.status === 'disqualified'
-                      ? (r.reason ?? 'Disqualified')
+                      ? r.reason
+                        ? faReason(r.reason)
+                        : 'حذف'
                       : STATUS_LABEL[r.status]}
                   </td>
                   <td
-                    className={`px-3 py-2.5 text-right font-semibold tabular-nums ${pctClass(r.returnPct)}`}
+                    className={`px-3 py-2.5 text-end font-semibold tabular-nums ${pctClass(r.returnPct)}`}
                   >
                     {signedPct(r.returnPct)}
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">
+                  <td className="px-3 py-2.5 text-end tabular-nums">
                     {compactMoney(Math.round(r.balance))}
                   </td>
-                  <td className="px-3 py-2.5 text-right tabular-nums">
-                    {r.trades}
-                    <span className="text-muted"> ({r.wins}W)</span>
+                  <td className="px-3 py-2.5 text-end tabular-nums">
+                    {faNum(r.trades)}
+                    <span className="text-muted"> ({faNum(r.wins)} برد)</span>
                   </td>
                   {ranked ? (
                     <td
-                      className={`px-3 py-2.5 text-right tabular-nums ${
+                      className={`px-3 py-2.5 text-end tabular-nums ${
                         r.eloAfter !== null && r.eloBefore !== null && r.eloAfter >= r.eloBefore
                           ? 'text-up'
                           : 'text-down'
@@ -273,8 +276,8 @@ export function Results({
                         : '—'}
                     </td>
                   ) : null}
-                  <td className="px-5 py-2.5 text-right tabular-nums text-accent">
-                    {recorded ? `+${r.xp}` : '…'}
+                  <td className="px-5 py-2.5 text-end tabular-nums text-accent">
+                    {recorded ? `+${faNum(r.xp)}` : '…'}
                   </td>
                 </tr>
               ))}
@@ -290,14 +293,14 @@ export function Results({
             onClick={onClose}
             className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line px-4 text-[13px] hover:bg-hover"
           >
-            <Icon name="chart" size={15} /> View chart
+            <Icon name="chart" size={15} /> دیدن نمودار
           </button>
         ) : null}
         <Link
           href="/battle"
           className="inline-flex h-10 items-center gap-1.5 rounded-lg border border-line px-4 text-[13px] hover:bg-hover"
         >
-          <Icon name="chevronLeft" size={15} /> Back to Battles
+          <Icon name="chevronLeft" size={15} className="rtl:-scale-x-100" /> بازگشت به نبردها
         </Link>
         {ranked && view.format ? (
           <Link
@@ -305,7 +308,7 @@ export function Results({
             className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-accent px-5 text-[13.5px] font-semibold text-accent-fg hover:brightness-110"
             data-testid="play-again"
           >
-            <Icon name="bolt" size={15} /> Play again
+            <Icon name="bolt" size={15} /> بازی دوباره
           </Link>
         ) : view.isHost ? (
           <button
@@ -314,14 +317,14 @@ export function Results({
             onClick={() => void rematch()}
             className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-accent px-5 text-[13.5px] font-semibold text-accent-fg hover:brightness-110 disabled:opacity-50"
           >
-            <Icon name="rotate" size={15} /> {busy ? 'Creating…' : 'Rematch'}
+            <Icon name="rotate" size={15} /> {busy ? 'در حال ساخت…' : 'نبرد دوباره'}
           </button>
         ) : (
           <Link
             href="/battle?new=1"
             className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-accent px-5 text-[13.5px] font-semibold text-accent-fg hover:brightness-110"
           >
-            <Icon name="plus" size={15} /> New battle
+            <Icon name="plus" size={15} /> نبرد تازه
           </Link>
         )}
       </div>
