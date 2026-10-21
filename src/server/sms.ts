@@ -11,6 +11,7 @@ export interface SmsResult {
  * verify/lookup API; without them (development only) the code is logged and returned.
  */
 export async function sendOtpSms(phone: string, code: string): Promise<SmsResult> {
+  if (process.env.NODE_ENV !== 'production') console.log(`[otp] ${phone}: ${code}`);
   const apiKey = process.env.KAVENEGAR_API_KEY;
   const template = process.env.KAVENEGAR_TEMPLATE;
   if (apiKey && template) {
@@ -33,6 +34,5 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
     console.error('[sms] No SMS provider configured (KAVENEGAR_API_KEY / KAVENEGAR_TEMPLATE)');
     return { ok: false };
   }
-  console.warn(`[sms] OTP for ${phone}: ${code}`);
   return { ok: true, devCode: code };
 }

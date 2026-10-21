@@ -150,7 +150,7 @@ export function LoginView({ next }: { next: string }) {
     e.preventDefault();
     const normalized = normalizeIranianMobile(phoneInput);
     if (!normalized) {
-      setError('شماره موبایل معتبر نیست. نمونه: ۰۹۱۲۱۲۳۴۵۶۷');
+      setError('شماره موبایل معتبر نیست. نمونه: ۹۱۲۱۲۳۴۵۶۷');
       return;
     }
     if (await requestCode(normalized)) {
@@ -220,12 +220,12 @@ export function LoginView({ next }: { next: string }) {
                   autoFocus
                   value={phoneInput}
                   onChange={(e) => {
-                    setPhoneInput(e.target.value);
+                    setPhoneInput(e.target.value.replace(/^[0۰٠]+/, ''));
                     setError(null);
                   }}
                   inputMode="tel"
                   autoComplete="tel"
-                  placeholder="0912 123 4567"
+                  placeholder="912 123 4567"
                   maxLength={16}
                   className="h-full min-w-0 flex-1 bg-transparent px-4 font-mono text-lg tracking-wider text-white outline-none placeholder:text-[#4a5a85]"
                 />
