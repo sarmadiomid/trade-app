@@ -73,6 +73,24 @@ input[type='range'] {
   accent-color: var(--tc-accent);
 }
 
+/*
+ * Phone / tablet chart chrome. `data-layout="desktop"` (the More → Desktop mode
+ * switch) keeps the full toolbar even on a narrow screen.
+ */
+.chart-mob {
+  display: none !important;
+}
+
+@media (max-width: 1023px) {
+  [data-layout='auto'] .chart-desk {
+    display: none !important;
+  }
+
+  [data-layout='auto'] .chart-mob {
+    display: flex !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

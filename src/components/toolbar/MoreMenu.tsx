@@ -8,6 +8,7 @@ import { IconButton } from '../ui/IconButton';
 import type { IconName } from '../ui/icons';
 import { Popover } from '../ui/Popover';
 import { downloadText, readJsonFile } from '../ui/files';
+import { useToolbarText } from './toolbar-locale';
 
 /** Overflow menu: drawings import/export and secondary dialogs. */
 export function MoreMenu() {
@@ -15,6 +16,7 @@ export function MoreMenu() {
   const symbol = useUiStore((s) => s.symbol?.symbol ?? 'chart');
   const openDialog = useUiStore((s) => s.openDialog);
   const pushToast = useUiStore((s) => s.pushToast);
+  const { fa, t } = useToolbarText();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
 
@@ -26,22 +28,28 @@ export function MoreMenu() {
     else pushToast(`Import failed: ${res.error}`, 'error');
   };
 
-  const items: Array<{ label: string; icon: IconName; run: () => void }> = [
+  const items: Array<{ label: string; icon: IconName; shortcut?: string; run: () => void }> = [
     {
-      label: 'Export drawings (JSON)',
+      label: t('Export drawings (JSON)'),
       icon: 'download',
       run: () => downloadText(`${symbol}.drawings.json`, app.drawingStore.exportJson()),
     },
-    { label: 'Import drawings…', icon: 'upload', run: () => fileInput?.click() },
-    { label: 'Themes…', icon: 'palette', run: () => openDialog({ type: 'theme-editor' }) },
-    { label: 'Keyboard shortcuts', icon: 'keyboard', run: () => openDialog({ type: 'shortcuts' }) },
+    { label: t('Import drawings…'), icon: 'upload', run: () => fileInput?.click() },
+    { label: t('Themes…'), icon: 'palette', run: () => openDialog({ type: 'theme-editor' }) },
+    {
+      label: t('Keyboard shortcuts'),
+      icon: 'keyboard',
+      shortcut: '?',
+      run: () => openDialog({ type: 'shortcuts' }),
+    },
   ];
 
   return (
     <>
       <IconButton
         icon="more"
-        label="More"
+        label={t('More')}
+        active={anchor !== null}
         onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}
       />
       <input
@@ -56,21 +64,28 @@ export function MoreMenu() {
       />
       {anchor ? (
         <Popover anchor={anchor} onClose={() => setAnchor(null)}>
-          <div className="-m-2 flex min-w-56 flex-col" role="menu">
-            {items.map((it) => (
-              <button
-                key={it.label}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setAnchor(null);
-                  it.run();
-                }}
-                className="flex h-9 items-center gap-2 rounded-md px-2 text-left text-[13px] hover:bg-hover"
-              >
-                <Icon name={it.icon} size={16} />
-                {it.label}
-              </button>
+          <div dir={fa ? 'rtl' : 'ltr'} className="-m-1.5 flex min-w-56 flex-col gap-0.5 p-1" role="menu">
+            {items.map((it, idx) => (
+              <div key={it.label}>
+                {idx === 2 ? <div role="separator" className="my-1 h-px bg-line/70" /> : null}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setAnchor(null);
+                    it.run();
+                  }}
+                  className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-start text-[12.5px] text-fg transition-colors hover:bg-hover"
+                >
+                  <Icon name={it.icon} size={15} className="text-muted" />
+                  <span className="flex-1">{it.label}</span>
+                  {it.shortcut ? (
+                    <kbd className="rounded bg-chart/80 px-1.5 py-0.5 font-mono text-[10.5px] text-muted ring-1 ring-inset ring-line">
+                      {it.shortcut}
+                    </kbd>
+                  ) : null}
+                </button>
+              </div>
             ))}
           </div>
         </Popover>

@@ -67,7 +67,9 @@ export default function JournalView({ id }: { readonly id: string }) {
 
   if (state.status === 'loading')
     return (
-      <div className="flex h-full items-center justify-center bg-chart text-muted">در حال بارگذاری…</div>
+      <div className="flex h-full items-center justify-center bg-chart text-muted">
+        در حال بارگذاری…
+      </div>
     );
   if (!ready)
     return (
@@ -222,9 +224,7 @@ export default function JournalView({ id }: { readonly id: string }) {
                       {duration(t.closeTime - t.entryTime)}
                     </td>
                     <td className="px-2">{EXIT_REASON_LABEL[t.closeReason]}</td>
-                    <td className="px-2">
-                      {SESSION_FA[tradingSessionOf(t.entryTime)] ?? ''}
-                    </td>
+                    <td className="px-2">{SESSION_FA[tradingSessionOf(t.entryTime)] ?? ''}</td>
                     <td className="px-2">
                       {j.tags.map((x) => (
                         <span
@@ -351,14 +351,23 @@ function TradeDetail({
         {row('ناخالص / کارمزد', `${signedMoney(t.grossPnl)} / ${signedMoney(-t.commission)}`)}
         {row('ضریب R', r === null ? '—' : `${faNum(r, 2)}R`)}
         {row('ریسک به ریوارد برنامه', rr === null ? '—' : `۱ : ${faNum(rr, 2)}`)}
-        {row('ورود', `${num(t.entryPrice, precision)} · ${ORDER_KIND_FA[t.entryKind] ?? t.entryKind}`)}
+        {row(
+          'ورود',
+          `${num(t.entryPrice, precision)} · ${ORDER_KIND_FA[t.entryKind] ?? t.entryKind}`,
+        )}
         {row('زمان ورود', utcDateTime(t.entryTime))}
         {row('خروج (میانگین)', num(t.closePrice, precision))}
         {row('زمان خروج', utcDateTime(t.closeTime))}
         {row('مدت', duration(t.closeTime - t.entryTime))}
         {row('حجم', `${lots(t.initialVolume)} لات`)}
-        {row('حد ضرر / حد سود اولیه', `${num(t.initialSl, precision)} / ${num(t.initialTp, precision)}`)}
-        {row('بیشترین ضرر / بیشترین سود مسیر', exc ? `${faNum(exc.mae, 2)}R / ${faNum(exc.mfe, 2)}R` : '—')}
+        {row(
+          'حد ضرر / حد سود اولیه',
+          `${num(t.initialSl, precision)} / ${num(t.initialTp, precision)}`,
+        )}
+        {row(
+          'بیشترین ضرر / بیشترین سود مسیر',
+          exc ? `${faNum(exc.mae, 2)}R / ${faNum(exc.mfe, 2)}R` : '—',
+        )}
       </dl>
       <h3 className="mb-1 mt-3 font-semibold">خروج‌ها</h3>
       {t.exits.map((x, i) => (
@@ -429,11 +438,7 @@ function TradeDetail({
           <a key={s.id} href={s.url} target="_blank" rel="noreferrer">
             {/* Data-URL screenshots from storage: next/image cannot optimise them. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={s.url}
-              alt={`تصویر معامله ${t.id}`}
-              className="rounded border border-line"
-            />
+            <img src={s.url} alt={`تصویر معامله ${t.id}`} className="rounded border border-line" />
           </a>
         ))}
       </div>

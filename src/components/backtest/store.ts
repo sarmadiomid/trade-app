@@ -28,6 +28,9 @@ interface BacktestUiState {
   readonly propOpen: boolean;
   readonly panelHidden: boolean;
   readonly modal: Modal | null;
+  /** Phone replay deck is open in place of the session bar. */
+  readonly replayDeck: boolean;
+  setReplayDeck(open: boolean): void;
   setSnap(snap: BacktestSnapshot | null): void;
   openTicket(t: TicketState | null): void;
   setTab(tab: BacktestUiState['tab']): void;
@@ -44,6 +47,8 @@ export const useBacktestStore = create<BacktestUiState>((set) => ({
   propOpen: false,
   panelHidden: false,
   modal: null,
+  replayDeck: false,
+  setReplayDeck: (replayDeck) => set({ replayDeck }),
   setSnap: (snap) => set({ snap }),
   openTicket: (ticket) => set({ ticket }),
   setTab: (tab) => set({ tab }),

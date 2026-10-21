@@ -172,7 +172,9 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
 
   if (state.status === 'loading')
     return (
-      <div className="flex h-full items-center justify-center bg-chart text-muted">در حال بارگذاری…</div>
+      <div className="flex h-full items-center justify-center bg-chart text-muted">
+        در حال بارگذاری…
+      </div>
     );
   if (state.status === 'missing' || !a || !ready)
     return (
@@ -188,8 +190,7 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
   const s = a.stats;
   const start = session.settings.startingBalance;
   const status = session.account.status;
-  const pf =
-    s.profitFactor === null ? (s.grossProfit > 0 ? '∞' : '—') : faNum(s.profitFactor, 2);
+  const pf = s.profitFactor === null ? (s.grossProfit > 0 ? '∞' : '—') : faNum(s.profitFactor, 2);
   const statusLine =
     status === 'active'
       ? `در جریان (بازپخش تا ${utcDateTime(session.cursor)}، ساعت جهانی)`
@@ -209,9 +210,7 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
           <Icon name="chevronLeft" size={16} className="rtl:-scale-x-100" /> جلسه‌ها
         </Link>
         <div className="min-w-0">
-          <h1 className="truncate text-[15px] font-semibold">
-            {session.settings.name} · عملکرد
-          </h1>
+          <h1 className="truncate text-[15px] font-semibold">{session.settings.name} · عملکرد</h1>
           <p className="text-[11.5px] text-muted">
             <bdi>{session.settings.symbol}</bdi> · {utcDate(session.settings.startDate)} تا{' '}
             {utcDate(session.settings.endDate)} · {statusLine}
@@ -298,9 +297,7 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
           <Kpi
             label="امید ریاضی"
             value={signedMoney(s.expectancy)}
-            sub={
-              s.expectancyR === null ? 'هر معامله' : `${faNum(s.expectancyR, 2)}R هر معامله`
-            }
+            sub={s.expectancyR === null ? 'هر معامله' : `${faNum(s.expectancyR, 2)}R هر معامله`}
             hint="نرخ برد ضربدر میانگین سود، منهای نرخ باخت ضربدر میانگین ضرر"
           />
           <Kpi

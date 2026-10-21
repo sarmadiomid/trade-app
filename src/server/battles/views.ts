@@ -66,6 +66,8 @@ export function battleSummary(b: BattleDoc, viewerId: ObjectId): BattleSummary {
     assets: s.assets,
     durationMin: s.durationMin,
     profitTargetPct: s.profitTargetPct,
+    maxDrawdownPct: s.maxDrawdownPct,
+    maxDailyDrawdownPct: s.maxDailyDrawdownPct,
     visibility: s.visibility,
     allowLateJoin: s.allowLateJoin,
     hostName: host?.name ?? null,

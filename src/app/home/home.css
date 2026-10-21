@@ -1,11 +1,56 @@
-/* Persian chrome for /home. Applied on the page root so the first paint is already RTL. */
+/* Shared shell for /home and the battles hub. Colours live here so those pages
+   match even when the chart theme is different. --tc-* feeds the same utilities. */
 
-.home-fa {
+.home-shell {
+  --h-bg: #07090f;
+  --h-side: #0b0e16;
+  --h-card: #10141e;
+  --h-line: rgba(255, 255, 255, 0.08);
+  --h-text: #f4f7fb;
+  --h-muted: #8e98ab;
+  --h-soft: #232a3b;
+  --h-chip: rgba(255, 255, 255, 0.045);
+  --h-accent: #3b78ff;
+  --h-field: #0c1018;
+  --tc-bg: var(--h-bg);
+  --tc-panel: var(--h-card);
+  --tc-border: var(--h-line);
+  --tc-text: var(--h-text);
+  --tc-muted: var(--h-muted);
+  --tc-hover: var(--h-soft);
+  --tc-accent: var(--h-accent);
+  --tc-accent-text: #ffffff;
+  --tc-up: #3dcea0;
+  --tc-down: #ff6b81;
+  color-scheme: dark;
   font-family: Vazirmatn, Tahoma, sans-serif;
   font-feature-settings: 'ss01';
+  background:
+    radial-gradient(70% 42% at 50% -8%, rgba(47, 92, 196, 0.28), transparent 62%),
+    var(--h-bg);
+  color: var(--h-text);
 }
 
-.home-fa .tabular-nums {
-  direction: ltr;
-  unicode-bidi: isolate;
+.home-shell[data-scheme='light'] {
+  --h-bg: #eef2f7;
+  --h-side: #f7f9fc;
+  --h-card: #ffffff;
+  --h-line: rgba(16, 24, 40, 0.1);
+  --h-text: #141924;
+  --h-muted: #5c6b82;
+  --h-soft: #e6ebf3;
+  --h-chip: rgba(16, 24, 40, 0.04);
+  --h-accent: #2563eb;
+  --h-field: #f4f7fb;
+  --tc-up: #0f9f6e;
+  --tc-down: #e11d48;
+  color-scheme: light;
+  background:
+    radial-gradient(70% 42% at 50% -8%, rgba(37, 99, 235, 0.14), transparent 62%),
+    var(--h-bg);
+}
+
+.home-preview {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 96%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 96%);
 }

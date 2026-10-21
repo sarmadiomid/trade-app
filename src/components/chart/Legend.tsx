@@ -78,7 +78,7 @@ export function Legend() {
   return (
     <div
       ref={rowRef}
-      className="pointer-events-none absolute left-2 top-1.5 z-10 flex max-w-[calc(100%-90px)] flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] leading-5 text-fg"
+      className="chart-desk pointer-events-none absolute left-2 top-1.5 z-10 flex max-w-[calc(100%-90px)] flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] leading-5 text-fg"
     >
       {opts.showStatusSymbol ? (
         <span className="font-semibold">

@@ -1,64 +1,66 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { browserBacktestServices } from '@/lib/app';
-import type { SessionSummary } from '@/lib/backtest';
-import {
-  levelFor,
-  rankFor,
-  rankProgress,
-  type BattleProfile,
-  type BattleSummary,
-} from '@/lib/battles';
+import type { SessionSummary, SessionType } from '@/lib/backtest';
+import type { BattleSummary } from '@/lib/battles';
 import { faNum } from '@/lib/locale/jalali';
-import { RankEmblem } from '../battles/RankEmblem';
-import {
-  ASSET_COLORS,
-  RANK_FA,
-  STATUS,
-  battleTitle,
-  compactMoney,
-  minutes,
-  pctClass,
-  rankLabel,
-  signedPct,
-  winConditionName,
-} from '../battles/format';
-import { useThemeCssVars } from '../hooks/useThemeCssVars';
-import { AppHeader } from '../platform/AppHeader';
+import { STATUS, battleTitle } from '../battles/format';
+import { CreateSessionDialog } from '../backtest/CreateSessionDialog';
+import { PracticeOverview, PracticeSkeleton } from './PracticeOverview';
+import { signedMoney } from '../backtest/format';
+import { HOME_ICONS, HomeShell, ShellMenuButton, ShellTools } from './HomeShell';
+import { SessionsBoard } from './SessionsBoard';
 import { api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
 
-/** Points forward: right in LTR, left once the page is RTL. */
-const FWD = 'rtl:-scale-x-100';
+const DAY = 86_400_000;
+const TEHRAN_MS = 3.5 * 60 * 60 * 1000;
 
-const SESSION_STATUS: Readonly<Record<SessionSummary['status'], string>> = {
-  'in-progress': 'در جریان',
-  completed: 'تمام‌شده',
-  failed: 'ناموفق',
-};
+type Tab = 'dashboard' | 'sessions' | 'trades' | 'stats';
 
-type Loaded<T> = T | null | 'error';
+const TABS: ReadonlyArray<{ id: Tab; label: string; icon: IconName | null; path?: string }> = [
+  { id: 'dashboard', label: 'داشبورد', icon: null, path: HOME_ICONS.grid },
+  { id: 'sessions', label: 'جلسه‌ها', icon: 'list' },
+  { id: 'trades', label: 'معاملات', icon: 'journal' },
+  { id: 'stats', label: 'آمار', icon: 'chart' },
+];
 
-/** `/home`: the signed-in dashboard and the entry point to Chart, Backtest and Battles. */
+function tehranDay(ts: number): number {
+  return Math.floor((ts + TEHRAN_MS) / DAY);
+}
+
+/** Consecutive Tehran days with a session update, still alive through yesterday. */
+function practiceStreak(sessions: readonly SessionSummary[], now = Date.now()): number {
+  const days = new Set(sessions.map((s) => tehranDay(s.updatedAt)));
+  let cursor = tehranDay(now);
+  if (!days.has(cursor)) cursor -= 1;
+  let n = 0;
+  while (days.has(cursor)) {
+    n += 1;
+    cursor -= 1;
+  }
+  return n;
+}
+
+function pnlTone(v: number): string {
+  if (v > 0.004) return 'text-[#3dcea0]';
+  if (v < -0.004) return 'text-[#ff6b81]';
+  return 'text-[var(--h-muted)]';
+}
+
+/** `/home`: practice hub. Sidebar, tabs and the two session starters follow the reference layout, in RTL. */
 export function HomeDashboard({ user }: { readonly user: Me }) {
-  useThemeCssVars();
-  const [profile, setProfile] =
-    useState<Loaded<{ profile: BattleProfile; active: BattleSummary | null }>>(null);
-  const [lobbies, setLobbies] = useState<Loaded<BattleSummary[]>>(null);
-  const [sessions, setSessions] = useState<Loaded<SessionSummary[]>>(null);
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>('dashboard');
+  const [creating, setCreating] = useState<SessionType | null>(null);
+  const [active, setActive] = useState<BattleSummary | null | 'error'>(null);
+  const [sessions, setSessions] = useState<SessionSummary[] | null | 'error'>(null);
 
-  useEffect(() => {
-    void api<{ profile: BattleProfile; active: BattleSummary | null }>('/api/battles/profile').then(
-      setProfile,
-      () => setProfile('error'),
-    );
-    void api<{ battles: BattleSummary[] }>('/api/battles?tab=browse').then(
-      (r) => setLobbies(r.battles),
-      () => setLobbies('error'),
-    );
+  const reloadSessions = useCallback(() => {
     void browserBacktestServices()
       .repo.list()
       .then(
@@ -67,691 +69,470 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
       );
   }, []);
 
-  const prof = profile && profile !== 'error' ? profile.profile : null;
-  const active = profile && profile !== 'error' ? profile.active : null;
-  const sessionList = sessions && sessions !== 'error' ? sessions : [];
-  const inProgress = sessionList.filter((s) => s.status === 'in-progress').length;
-  const lobbyList = lobbies && lobbies !== 'error' ? lobbies : [];
+  useEffect(() => {
+    void api<{ active: BattleSummary | null }>('/api/battles/profile').then(
+      (r) => setActive(r.active),
+      () => setActive('error'),
+    );
+    reloadSessions();
+  }, [reloadSessions]);
 
-  const level = prof ? levelFor(prof.xp) : null;
+  const list = sessions && sessions !== 'error' ? sessions : [];
+  const streak = sessions && sessions !== 'error' ? practiceStreak(list) : 0;
+  const battle = active && active !== 'error' ? active : null;
+  const notices = (battle ? 1 : 0) + list.filter((s) => s.status === 'in-progress').length;
 
   return (
-    <div lang="fa" dir="rtl" className="home-fa h-full overflow-y-auto bg-chart text-fg">
-      <AppHeader fa user={user} />
-      <div className="pointer-events-none absolute inset-x-0 top-14 h-[420px] bg-[radial-gradient(60%_80%_at_80%_0%,rgba(41,98,255,0.18),transparent_70%),radial-gradient(40%_60%_at_10%_10%,rgba(56,211,255,0.08),transparent_70%)]" />
-      <main className="relative mx-auto max-w-[1400px] px-4 pb-16 pt-8 sm:px-6">
-        <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="animate-pop">
-            <p className="text-[13px] font-medium text-muted">خوش آمدید</p>
-            <h1 className="mt-1 text-[28px] font-bold leading-snug sm:text-[34px]">{user.name}</h1>
-            <p className="mt-2 max-w-xl text-[14px] leading-7 text-muted">
-              بازار را روی نمودار ببینید، استراتژی را روی تاریخ بسنجید، یا در نبرد با معامله‌گران
-              دیگر روی همان کندل‌ها رقابت کنید.
-            </p>
-          </div>
-          <dl className="grid grid-cols-3 gap-2 sm:gap-3">
-            <Stat
-              label="الو"
-              value={prof ? faNum(prof.elo) : '—'}
-              sub={prof ? rankLabel(prof.elo) : undefined}
+    <HomeShell
+      user={user}
+      notices={notices}
+      noticeMenu={
+        <>
+          {battle ? (
+            <Link
+              href={`/battle/${battle.id}`}
+              className="rounded-lg px-2 py-2 text-[13px] hover:bg-[var(--h-chip)]"
             >
-              {prof ? <RankEmblem elo={prof.elo} size={22} /> : null}
-            </Stat>
-            <Stat
-              label="سطح"
-              value={level ? faNum(level.level) : '—'}
-              sub={prof ? `${faNum(prof.xp)} امتیاز` : undefined}
-            />
-            <Stat
-              label="جلسه‌ها"
-              value={sessions === null ? '—' : faNum(sessionList.length)}
-              sub={sessions === null ? undefined : `${faNum(inProgress)} در جریان`}
-            />
-          </dl>
-        </section>
-
-        {active ? <ActiveBattleBanner battle={active} /> : null}
-
-        <section aria-label="بخش‌ها" className="mt-8 grid gap-4 md:grid-cols-3">
-          <EntryCard
-            href="/chart"
-            testId="entry-chart"
-            icon="chart"
-            eyebrow="تحلیل"
-            title="نمودار"
-            text="میز کار کامل تحلیل: بیش از ۲۰ نوع نمودار، ابزار ترسیم، بازپخش کندل و تم رنگی. همه‌چیز روی حساب شما ذخیره می‌شود."
-            cta="باز کردن نمودار"
-            art={<ChartArt />}
-            meta={[
-              ['تایم‌فریم', '۱۱'],
-              ['ابزار ترسیم', 'بیش از ۲۰'],
-            ]}
-          />
-          <EntryCard
-            href="/backtest"
-            testId="entry-backtest"
-            icon="replay"
-            eyebrow="تمرین"
-            title="بک‌تست"
-            text="هر بازه‌ای از بازار را کندل‌به‌کندل بازپخش کنید، با حساب مجازی معامله کنید و عملکرد را مرور کنید."
-            cta={inProgress > 0 ? 'ادامه بک‌تست' : 'شروع جلسه'}
-            art={<BacktestArt />}
-            meta={[
-              ['جلسه‌ها', sessions === null ? '—' : faNum(sessionList.length)],
-              ['در جریان', sessions === null ? '—' : faNum(inProgress)],
-            ]}
-          />
-          <EntryCard
-            href="/battle"
-            testId="entry-battles"
-            icon="swords"
-            eyebrow="رقابت"
-            title="نبردها"
-            badge="جدید"
-            highlight
-            text="یک بازار تاریخی، هم‌زمان برای همه. در نبرد رتبه‌ای امتیاز الو از تازه‌کار تا استاد جابه‌جا می‌شود."
-            cta="ورود به نبردها"
-            art={<BattleArt />}
-            meta={[
-              ['رتبه', prof ? rankLabel(prof.elo) : '—'],
-              ['نبرد باز', lobbies === null ? '—' : faNum(lobbyList.length)],
-            ]}
-          />
-        </section>
-
-        <section className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="flex min-w-0 flex-col gap-4">
-            <Panel
-              title="جلسه‌های اخیر"
-              action={
-                <Link
-                  href="/backtest"
-                  className="text-[12.5px] font-medium text-accent hover:underline"
-                >
-                  همه جلسه‌ها
-                </Link>
-              }
-            >
-              {sessions === null ? (
-                <Skeleton rows={3} />
-              ) : sessionList.length === 0 ? (
-                <Empty
-                  icon="replay"
-                  text="هنوز جلسه‌ای نساخته‌اید. نماد و بازه را انتخاب کنید تا بازار کندل‌به‌کندل بازپخش شود."
-                  href="/backtest"
-                  cta="ساخت جلسه"
-                />
-              ) : (
-                <ul className="divide-y divide-line">
-                  {sessionList.slice(0, 4).map((s) => (
-                    <SessionRow key={s.id} s={s} />
-                  ))}
-                </ul>
-              )}
-            </Panel>
-            <Panel
-              title="نبردهای باز"
-              action={
-                <Link
-                  href="/battle?tab=browse"
-                  className="text-[12.5px] font-medium text-accent hover:underline"
-                >
-                  نبردهای عمومی
-                </Link>
-              }
-            >
-              {lobbies === null ? (
-                <Skeleton rows={3} />
-              ) : lobbyList.length === 0 ? (
-                <Empty
-                  icon="swords"
-                  text="الان نبرد عمومی برای پیوستن نیست. یکی بسازید تا معامله‌گران دیگر بتوانند وارد شوند."
-                  href="/battle?new=1"
-                  cta="نبرد تازه"
-                />
-              ) : (
-                <ul className="divide-y divide-line">
-                  {lobbyList.slice(0, 5).map((b) => (
-                    <LobbyRow key={b.id} b={b} />
-                  ))}
-                </ul>
-              )}
-            </Panel>
-          </div>
-          <ProfileCard profile={prof} failed={profile === 'error'} />
-        </section>
-      </main>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  children,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly sub?: string | undefined;
-  readonly children?: ReactNode;
-}) {
-  return (
-    <div className="min-w-0 rounded-xl border border-line bg-panel/70 px-3 py-2.5 sm:min-w-36 sm:px-4">
-      <dt className="truncate text-[11px] font-medium text-muted">{label}</dt>
-      <dd className="mt-1 flex items-center gap-1.5">
-        {children}
-        <span className="text-[18px] font-bold tabular-nums leading-none">{value}</span>
-      </dd>
-      {sub ? <dd className="mt-1 truncate text-[11.5px] text-muted">{sub}</dd> : null}
-    </div>
-  );
-}
-
-function ActiveBattleBanner({ battle }: { readonly battle: BattleSummary }) {
-  const [label, cls] = STATUS[battle.status];
-  return (
-    <Link
-      href={`/battle/${battle.id}`}
-      className="group mt-6 flex items-center gap-3 rounded-xl border border-up/40 bg-up/10 px-4 py-3 transition hover:bg-up/15"
-      data-testid="active-battle"
+              در نبرد هستید: {battleTitle(battle.name)}
+            </Link>
+          ) : null}
+          {list
+            .filter((s) => s.status === 'in-progress')
+            .slice(0, 4)
+            .map((s) => (
+              <Link
+                key={s.id}
+                href={`/backtest/${s.id}`}
+                className="rounded-lg px-2 py-2 text-[13px] hover:bg-[var(--h-chip)]"
+              >
+                جلسهٔ «{s.name}» هنوز باز است
+              </Link>
+            ))}
+        </>
+      }
     >
-      <span className="relative flex h-2.5 w-2.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-up opacity-60" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-up" />
-      </span>
-      <span className="min-w-0 flex-1 text-[13.5px]">
-        <span className="font-semibold">در یک نبرد هستید:</span>{' '}
-        <span className="truncate">{battleTitle(battle.name)}</span>{' '}
-        <span className={`ms-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>
-      </span>
-      <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-up">
-        ادامه نبرد <Icon name="chevronRight" size={15} className={FWD} />
-      </span>
-    </Link>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex flex-wrap items-start justify-between gap-4 px-4 pb-2 pt-5 sm:px-8">
+          <div className="flex items-center gap-2">
+            <ShellMenuButton />
+            <h1 className="text-[26px] font-bold sm:text-[30px]">تمرین</h1>
+          </div>
+
+          <div className="flex flex-col items-end gap-3">
+            <ShellTools />
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-2.5 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.8)]">
+              <span className="text-[14px] font-semibold">
+                {sessions === null ? '…' : faNum(streak)} روز پیاپی
+              </span>
+              <Icon path={HOME_ICONS.flame} size={18} className="text-[#ff8a3d]" />
+            </div>
+          </div>
+        </header>
+
+        <div
+          role="tablist"
+          aria-label="بخش تمرین"
+          className="flex gap-1 overflow-x-auto px-4 sm:px-8"
+        >
+          {TABS.map((t) => {
+            const on = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setTab(t.id)}
+                className={`inline-flex h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-[14px] font-medium transition ${
+                  on
+                    ? 'border-[var(--h-text)] text-[var(--h-text)]'
+                    : 'border-transparent text-[var(--h-muted)] hover:text-[var(--h-text)]'
+                }`}
+              >
+                {t.path ? (
+                  <Icon path={t.path} size={15} />
+                ) : (
+                  <Icon name={t.icon ?? 'list'} size={15} />
+                )}
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {battle ? (
+          <Link
+            href={`/battle/${battle.id}`}
+            data-testid="active-battle"
+            className="mx-4 mt-4 flex items-center gap-3 rounded-xl border border-[#3dcea0]/30 bg-[#3dcea0]/10 px-4 py-2.5 text-[13.5px] sm:mx-8"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3dcea0] opacity-60" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#3dcea0]" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">
+              در یک نبرد هستید: {battleTitle(battle.name)}
+              <span className="ms-2 text-[12px] text-[var(--h-muted)]">
+                {STATUS[battle.status][0]}
+              </span>
+            </span>
+            <span className="font-semibold text-[#3dcea0]">ادامه</span>
+          </Link>
+        ) : null}
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {tab === 'dashboard' ? (
+            sessions === null ? (
+              <PracticeSkeleton />
+            ) : sessions === 'error' ? (
+              <Note text="خلاصهٔ تمرین بارگذاری نشد." />
+            ) : sessions.length === 0 ? (
+              <Dashboard onCreate={setCreating} />
+            ) : (
+              <PracticeOverview
+                sessions={sessions}
+                onCreate={setCreating}
+                onChanged={reloadSessions}
+              />
+            )
+          ) : tab === 'sessions' ? (
+            <SessionsBoard
+              sessions={sessions}
+              onCreate={() => setCreating('backtesting')}
+              onChanged={reloadSessions}
+            />
+          ) : tab === 'trades' ? (
+            <TradeList sessions={sessions} />
+          ) : (
+            <Stats sessions={sessions} />
+          )}
+        </div>
+      </div>
+
+      {creating ? (
+        <CreateSessionDialog
+          key={creating}
+          services={browserBacktestServices()}
+          defaultType={creating}
+          onClose={() => setCreating(null)}
+          onCreated={(id) => router.push(`/backtest/${id}`)}
+        />
+      ) : null}
+    </HomeShell>
   );
 }
 
-function EntryCard({
-  href,
+function Dashboard({ onCreate }: { readonly onCreate: (type: SessionType) => void }) {
+  return (
+    <div className="flex min-h-full flex-col">
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 text-center sm:px-8">
+        <h2 className="text-[32px] font-extrabold leading-tight sm:text-[40px]">
+          به تمرین خوش آمدید
+        </h2>
+        <p className="mt-3 max-w-md text-[15px] leading-8 text-[var(--h-muted)]">
+          روش سنجش استراتژی را انتخاب کنید؛ با ساخت داده روی گذشتهٔ بازار، یا با قوانین شرکت‌های
+          پراپ.
+        </p>
+        <div className="mt-8 grid w-full max-w-[560px] gap-3 sm:grid-cols-2">
+          <StartCard
+            testId="start-backtest"
+            primary
+            icon="plus"
+            title="جلسه بک‌تست"
+            text="داده بسازید و استراتژی را دقیق‌تر کنید"
+            hint="بازپخش کندل‌به‌کندل روی گذشتهٔ بازار، با حساب مجازی."
+            onClick={() => onCreate('backtesting')}
+          />
+          <StartCard
+            testId="start-prop"
+            icon="shield"
+            title="جلسه پراپ"
+            text="استراتژی را با قوانین پراپ بسنجید"
+            hint="هدف سود، سقف ضرر روزانه و سقف ضرر کلی؛ مثل چالش شرکت‌های پراپ."
+            onClick={() => onCreate('prop')}
+          />
+        </div>
+      </div>
+
+      <div className="px-4 pb-2 sm:px-8">
+        <p className="mb-3 text-center text-[15px] text-[var(--h-muted)]">از اینجا شروع کنید</p>
+        <div
+          className="home-preview mx-auto h-[240px] max-w-5xl overflow-hidden"
+          aria-hidden="true"
+        >
+          <StartPreview />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StartCard({
   testId,
+  primary = false,
   icon,
-  eyebrow,
   title,
   text,
-  cta,
-  art,
-  meta,
-  badge,
-  highlight = false,
+  hint,
+  onClick,
 }: {
-  readonly href: string;
   readonly testId: string;
+  readonly primary?: boolean;
   readonly icon: IconName;
-  readonly eyebrow: string;
   readonly title: string;
   readonly text: string;
-  readonly cta: string;
-  readonly art: ReactNode;
-  readonly meta: ReadonlyArray<readonly [string, string]>;
-  readonly badge?: string;
-  readonly highlight?: boolean;
+  readonly hint: string;
+  readonly onClick: () => void;
 }) {
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
       data-testid={testId}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border bg-panel transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-24px_rgba(41,98,255,0.55)] ${
-        highlight ? 'border-accent/50' : 'border-line hover:border-accent/40'
+      onClick={onClick}
+      className={`rounded-xl border bg-[var(--h-card)] p-4 text-start transition hover:-translate-y-0.5 ${
+        primary
+          ? 'border-[#3d6dff] shadow-[0_0_0_1px_rgba(61,109,255,0.35),0_12px_40px_-18px_rgba(61,109,255,0.85)]'
+          : 'border-[var(--h-line)] hover:border-[var(--h-accent)]/50'
       }`}
     >
-      <div className="relative h-36 overflow-hidden border-b border-line bg-[linear-gradient(180deg,rgba(41,98,255,0.10),transparent)]">
-        {art}
-        {badge ? (
-          <span className="absolute inset-e-3 top-3 rounded-full bg-accent px-2 py-0.5 text-[10.5px] font-bold text-accent-fg">
-            {badge}
-          </span>
-        ) : null}
-      </div>
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex items-center gap-2 text-[11.5px] font-semibold text-accent">
-          <Icon name={icon} size={14} />
-          {eyebrow}
-        </div>
-        <h2 className="mt-1.5 text-[19px] font-bold">{title}</h2>
-        <p className="mt-1.5 flex-1 text-[13px] leading-7 text-muted">{text}</p>
-        <dl className="mt-4 grid grid-cols-2 gap-2 border-t border-line pt-3">
-          {meta.map(([k, v]) => (
-            <div key={k}>
-              <dt className="text-[11px] text-muted">{k}</dt>
-              <dd className="text-[13.5px] font-semibold">{v}</dd>
-            </div>
-          ))}
-        </dl>
+      <span className="flex items-start gap-3">
         <span
-          className={`mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold transition ${
-            highlight
-              ? 'bg-accent text-accent-fg group-hover:brightness-110'
-              : 'border border-line group-hover:bg-hover'
+          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
+            primary
+              ? 'border-[#3d6dff]/70 text-[#8eb6ff]'
+              : 'border-[var(--h-line)] text-[var(--h-muted)]'
           }`}
         >
-          {cta}
-          <Icon name="chevronRight" size={15} className={FWD} />
+          <Icon name={icon} size={16} />
         </span>
-      </div>
-    </Link>
-  );
-}
-
-function Panel({
-  title,
-  action,
-  children,
-}: {
-  readonly title: string;
-  readonly action?: ReactNode;
-  readonly children: ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl border border-line bg-panel">
-      <header className="flex h-12 items-center justify-between border-b border-line px-4">
-        <h2 className="text-[14px] font-semibold">{title}</h2>
-        {action}
-      </header>
-      <div className="px-2 py-1">{children}</div>
-    </section>
-  );
-}
-
-function Skeleton({ rows }: { readonly rows: number }) {
-  return (
-    <div className="flex flex-col gap-2 p-2">
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="h-11 animate-pulse rounded-lg bg-hover/60" />
-      ))}
-    </div>
-  );
-}
-
-function Empty({
-  icon,
-  text,
-  href,
-  cta,
-}: {
-  readonly icon: IconName;
-  readonly text: string;
-  readonly href: string;
-  readonly cta: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
-        <Icon name={icon} size={18} />
+        <span className="min-w-0">
+          <span className="flex items-center gap-1.5 text-[14.5px] font-bold">
+            {title}
+            <span title={hint} className="text-[var(--h-muted)]">
+              <Icon name="info" size={14} />
+            </span>
+          </span>
+          <span className="mt-1 block text-[12.5px] leading-6 text-[var(--h-muted)]">{text}</span>
+        </span>
       </span>
-      <p className="max-w-sm text-[13px] text-muted">{text}</p>
-      <Link
-        href={href}
-        className="inline-flex h-8 items-center gap-1 rounded-md bg-accent px-3 text-[13px] font-medium text-accent-fg hover:brightness-110"
-      >
-        <Icon name="plus" size={15} /> {cta}
-      </Link>
+    </button>
+  );
+}
+
+function Field({
+  label,
+  value,
+  required = false,
+}: {
+  label: string;
+  value: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block text-start">
+      <span className="text-[12px] text-[var(--h-muted)]">
+        {label}
+        {required ? <span className="text-[#ff6b81]"> *</span> : null}
+      </span>
+      <span className="mt-1 flex h-10 items-center justify-between rounded-lg border border-[var(--h-line)] bg-[var(--h-field)] px-3 text-[13px]">
+        <span>{value}</span>
+        <Icon name="chevronDown" size={14} className="text-[var(--h-muted)]" />
+      </span>
+    </label>
+  );
+}
+
+/** Faded picture of the session form, the way the next step looks. Not interactive. */
+function StartPreview() {
+  return (
+    <div className="grid items-start gap-3 md:grid-cols-[190px_minmax(0,1fr)_210px]">
+      <section className="hidden rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-4 md:block">
+        <h3 className="text-[13px] font-semibold">عملکرد</h3>
+        <p className="mt-3 text-[11px] text-[var(--h-muted)]">زمان صرف‌شده</p>
+        <p className="mt-1 text-[18px] font-bold">—</p>
+        <p className="mt-4 text-[11px] text-[var(--h-muted)]">معاملات</p>
+        <p className="mt-1 text-[18px] font-bold">—</p>
+      </section>
+
+      <section className="rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-[14px] font-bold">جلسه بک‌تست</h3>
+            <p className="text-[12px] text-[var(--h-muted)]">شروع جلسه</p>
+          </div>
+          <span className="rounded-md bg-[var(--h-accent)]/15 px-2 py-1 text-[11px] font-semibold text-[#9cc0ff]">
+            طلا / دلار
+          </span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Field label="نماد" value="XAUUSD" required />
+          <Field label="موجودی شروع" value="۱۰۰٬۰۰۰ $" />
+          <Field label="تاریخ شروع" value="۱ فروردین ۱۴۰۳" />
+          <Field label="تاریخ پایان" value="۳۱ فروردین ۱۴۰۳" />
+        </div>
+      </section>
+
+      <div className="hidden flex-col gap-3 md:flex">
+        <section className="rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-3">
+          <div className="mb-2 flex items-center justify-between text-[12px]">
+            <span>بازپخش</span>
+            <span className="h-5 w-9 rounded-full bg-[var(--h-accent)] p-0.5">
+              <span className="block h-4 w-4 rounded-full bg-white" />
+            </span>
+          </div>
+          <svg viewBox="0 0 180 64" className="h-16 w-full" aria-hidden="true">
+            <path
+              d="M0 48 L18 44 L32 50 L48 36 L64 40 L80 28 L96 32 L112 18 L128 24 L146 12 L164 16 L180 8"
+              fill="none"
+              stroke="#5b8cff"
+              strokeWidth="2"
+            />
+            <path
+              d="M0 52 L22 50 L40 46 L60 48 L80 40 L100 42 L120 34 L140 36 L160 28 L180 30"
+              fill="none"
+              stroke="#ff6b81"
+              strokeWidth="1.6"
+              opacity="0.8"
+            />
+          </svg>
+        </section>
+        <section className="rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-3 text-[12px]">
+          <Row k="اسپرد" v="خاموش" />
+          <Row k="کارمزد" v="خاموش" />
+          <Row k="هدف سود پراپ" v="۱۰٪" />
+        </section>
+      </div>
     </div>
   );
 }
 
-function SessionRow({ s }: { readonly s: SessionSummary }) {
-  const pnl = s.balance - s.startingBalance;
-  const ret = (pnl / s.startingBalance) * 100;
-  const progress = Math.max(
-    0,
-    Math.min(1, (s.cursor - s.startDate) / (s.endDate + 86_400_000 - s.startDate)),
-  );
+function Row({ k, v }: { k: string; v: string }) {
   return (
-    <li>
-      <Link
-        href={`/backtest/${s.id}`}
-        className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition hover:bg-hover"
-      >
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold"
-          style={{
-            background: `${ASSET_COLORS[s.symbol] ?? '#5b8cff'}22`,
-            color: ASSET_COLORS[s.symbol] ?? '#5b8cff',
-          }}
-        >
-          {s.symbol.slice(0, 3)}
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13.5px] font-medium">{s.name}</span>
-          <span className="mt-1 flex items-center gap-2">
-            <span className="h-1 w-24 overflow-hidden rounded-full bg-line">
-              <span className="block h-full bg-accent" style={{ width: `${progress * 100}%` }} />
-            </span>
-            <span className="text-[11.5px] text-muted">
-              <span dir="ltr">{s.symbol}</span>
-              {' · '}
-              {faNum(s.trades)} معامله
-            </span>
-          </span>
-        </span>
-        <span className="text-end">
-          <span className={`block text-[13px] font-semibold tabular-nums ${pctClass(ret)}`}>
-            {signedPct(ret)}
-          </span>
-          <span className="block text-[11.5px] text-muted">{SESSION_STATUS[s.status]}</span>
-        </span>
-      </Link>
-    </li>
+    <div className="flex items-center justify-between py-1 text-[var(--h-muted)]">
+      <span>{k}</span>
+      <span className="text-[var(--h-text)]">{v}</span>
+    </div>
   );
 }
 
-function LobbyRow({ b }: { readonly b: BattleSummary }) {
-  const [label, cls] = STATUS[b.status];
-  return (
-    <li>
-      <Link
-        href={`/battle/${b.id}`}
-        className="flex items-center gap-3 rounded-lg px-2 py-2.5 transition hover:bg-hover"
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-          <Icon name="swords" size={17} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span className="truncate text-[13.5px] font-medium">{battleTitle(b.name)}</span>
-            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-medium ${cls}`}>
-              {label}
-            </span>
-          </span>
-          <span className="mt-0.5 block truncate text-[11.5px] text-muted">
-            {winConditionName(b.winCondition)} · {compactMoney(b.startingBalance)} ·{' '}
-            {minutes(b.durationMin)} · {b.assets.join('، ')}
-          </span>
-        </span>
-        <span className="flex items-center gap-1 text-[12px] text-muted">
-          <Icon name="users" size={14} />
-          <span className="tabular-nums">
-            {faNum(b.participants)}/{faNum(b.maxParticipants)}
-          </span>
-        </span>
-      </Link>
-    </li>
-  );
+function Panel({ children }: { readonly children: ReactNode }) {
+  return <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-8">{children}</div>;
 }
 
-function ProfileCard({
-  profile,
-  failed,
-}: {
-  readonly profile: BattleProfile | null;
-  readonly failed: boolean;
-}) {
-  if (!profile) {
-    return (
-      <aside className="rounded-2xl border border-line bg-panel p-5">
-        {failed ? (
-          <p className="text-[13px] text-muted">پروفایل نبرد بارگذاری نشد.</p>
-        ) : (
-          <Skeleton rows={4} />
-        )}
-      </aside>
-    );
+function TradeList({ sessions }: { readonly sessions: SessionSummary[] | null | 'error' }) {
+  if (sessions === null) return <Skeleton />;
+  if (sessions === 'error') return <Note text="معاملات بارگذاری نشد." />;
+  const withTrades = sessions.filter((s) => s.trades > 0);
+  if (withTrades.length === 0) {
+    return <Note text="هنوز معامله‌ای ثبت نشده. یک جلسه بسازید و روی نمودار وارد بازار شوید." />;
   }
-  const rank = rankFor(profile.elo);
-  const { next, progress } = rankProgress(profile.elo);
-  const lvl = levelFor(profile.xp);
-  const winRate = profile.rankedGames > 0 ? (profile.rankedWins / profile.rankedGames) * 100 : null;
+  const total = withTrades.reduce((n, s) => n + s.trades, 0);
   return (
-    <aside
-      className="relative overflow-hidden rounded-2xl border border-line bg-panel"
-      data-testid="home-profile"
-    >
-      <div
-        className="absolute inset-x-0 top-0 h-28 opacity-40"
-        style={{
-          background: `radial-gradient(80% 100% at 50% 0%, ${rank.color}55, transparent 70%)`,
-        }}
-      />
-      <div className="relative p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[14px] font-semibold">پروفایل نبرد</h2>
-          {profile.globalRank ? (
-            <span className="rounded-full bg-hover px-2 py-0.5 text-[11.5px] font-medium text-muted">
-              رتبه <span className="tabular-nums">{faNum(profile.globalRank)}</span> جهانی
-            </span>
-          ) : null}
-        </div>
-        <div className="mt-4 flex items-center gap-4">
-          <RankEmblem elo={profile.elo} size={64} />
-          <div className="min-w-0">
-            <div className="text-[18px] font-bold" style={{ color: rank.color }}>
-              {rankLabel(profile.elo)}
-            </div>
-            <div className="text-[13px] text-muted">
-              <span className="font-semibold tabular-nums text-fg">{faNum(profile.elo)}</span> الو ·
-              اوج <span className="tabular-nums">{faNum(profile.peakElo)}</span>
-            </div>
+    <Panel>
+      <h2 className="mb-3 text-[15px] font-semibold">
+        معاملات <span className="text-[var(--h-muted)]">· {faNum(total)}</span>
+      </h2>
+      <ul className="flex flex-col gap-2">
+        {withTrades.map((s) => {
+          const pnl = s.balance - s.startingBalance;
+          return (
+            <li key={s.id}>
+              <Link
+                href={`/backtest/${s.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-3 transition hover:border-[var(--h-accent)]/40"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px] font-semibold">{s.name}</span>
+                  <span className="text-[12px] text-[var(--h-muted)]">
+                    <bdi dir="ltr">{s.symbol}</bdi>
+                    {' · '}
+                    {faNum(s.trades)} معامله
+                  </span>
+                </span>
+                <span className={`shrink-0 text-[13px] font-semibold tabular-nums ${pnlTone(pnl)}`}>
+                  {signedMoney(pnl)}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
+  );
+}
+
+function Stats({ sessions }: { readonly sessions: SessionSummary[] | null | 'error' }) {
+  if (sessions === null) return <Skeleton />;
+  if (sessions === 'error') return <Note text="آمار بارگذاری نشد." />;
+  const pnl = sessions.reduce((n, s) => n + (s.balance - s.startingBalance), 0);
+  const trades = sessions.reduce((n, s) => n + s.trades, 0);
+  const tiles = [
+    ['جلسه‌ها', faNum(sessions.length)],
+    ['در جریان', faNum(sessions.filter((s) => s.status === 'in-progress').length)],
+    ['تمام‌شده', faNum(sessions.filter((s) => s.status === 'completed').length)],
+    ['معاملات', faNum(trades)],
+  ] as const;
+  return (
+    <Panel>
+      <h2 className="mb-3 text-[15px] font-semibold">آمار تمرین</h2>
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {tiles.map(([k, v]) => (
+          <div
+            key={k}
+            className="rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-3 py-3"
+          >
+            <dt className="text-[12px] text-[var(--h-muted)]">{k}</dt>
+            <dd className="mt-1 text-[20px] font-bold tabular-nums">{v}</dd>
           </div>
-        </div>
-        <div className="mt-4">
-          <div className="flex justify-between gap-3 text-[11.5px] text-muted">
-            <span>{rankLabel(profile.elo)}</span>
-            <span>
-              {next
-                ? `${faNum(next.min - profile.elo)} تا ${RANK_FA[next.id] ?? next.name}`
-                : 'بالاترین رتبه'}
-            </span>
-          </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line">
-            <div
-              className="h-full rounded-full"
-              style={{ width: `${progress * 100}%`, background: rank.color }}
-            />
-          </div>
-        </div>
-        <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
-          {[
-            ['نبرد رتبه‌ای', faNum(profile.rankedGames)],
-            ['نرخ برد', winRate === null ? '—' : `${faNum(Math.round(winRate))}٪`],
-            ['برد پیاپی', faNum(profile.winStreak)],
-          ].map(([k, v]) => (
-            <div key={k} className="rounded-lg bg-chart/60 py-2">
-              <dt className="text-[11px] text-muted">{k}</dt>
-              <dd className="text-[15px] font-bold tabular-nums">{v}</dd>
-            </div>
-          ))}
-        </dl>
-        <div className="mt-4 rounded-lg border border-line p-3">
-          <div className="flex items-center justify-between gap-3 text-[12px]">
-            <span className="font-medium">امتیاز ترکیبی · سطح {faNum(lvl.level)}</span>
-            <span className="shrink-0 text-muted">
-              <span className="tabular-nums">{faNum(profile.xp)}</span> امتیاز
-            </span>
-          </div>
-          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
-            <div
-              className="h-full rounded-full bg-accent"
-              style={{ width: `${(lvl.into / lvl.needed) * 100}%` }}
-            />
-          </div>
-          <p className="mt-1.5 text-[11px] text-muted">
-            {faNum(lvl.needed - lvl.into)} امتیاز تا سطح {faNum(lvl.level + 1)}
-          </p>
-        </div>
-        <Link
-          href="/battle?tab=play"
-          className="mt-4 flex h-10 items-center justify-center gap-2 rounded-lg bg-accent text-[13.5px] font-semibold text-accent-fg transition hover:brightness-110"
-        >
-          <Icon name="bolt" size={16} /> حریف‌یابی رتبه‌ای
-        </Link>
+        ))}
+      </dl>
+      <div className="mt-3 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-3">
+        <p className="text-[12px] text-[var(--h-muted)]">برآیند حساب‌ها</p>
+        <p className={`mt-1 text-[22px] font-bold tabular-nums ${pnlTone(pnl)}`}>
+          {signedMoney(pnl)}
+        </p>
+        <p className="mt-1 text-[12px] leading-6 text-[var(--h-muted)]">
+          جمع سود و زیان بسته‌شدهٔ جلسه‌ها نسبت به موجودی شروع. ارقام به دلار حساب مجازی است.
+        </p>
       </div>
-    </aside>
+    </Panel>
   );
 }
 
-/* ---- card illustrations (decorative) ---- */
-
-function ChartArt() {
-  const candles = [
-    [10, 62, 48, 70, 40],
-    [26, 50, 58, 64, 44],
-    [42, 56, 38, 60, 30],
-    [58, 40, 46, 52, 34],
-    [74, 46, 30, 50, 24],
-    [90, 32, 40, 46, 26],
-    [106, 40, 26, 44, 20],
-    [122, 28, 34, 40, 22],
-    [138, 34, 20, 38, 14],
-    [154, 22, 28, 32, 16],
-    [170, 28, 14, 30, 10],
-  ];
+function Skeleton() {
   return (
-    <svg
-      viewBox="0 0 190 90"
-      preserveAspectRatio="xMidYMid meet"
-      className="absolute inset-x-6 bottom-3 top-5 h-[calc(100%-2rem)] w-[calc(100%-3rem)]"
-      aria-hidden="true"
-    >
-      <path d="M0 70 L190 10" stroke="var(--tc-accent)" strokeOpacity=".35" strokeDasharray="3 4" />
-      {candles.map(([x, o, c, h, l]) => {
-        const up = c! < o!;
-        const color = up ? 'var(--tc-up)' : 'var(--tc-down)';
-        return (
-          <g key={x}>
-            <line x1={x} x2={x} y1={l} y2={h} stroke={color} />
-            <rect
-              x={x! - 4}
-              y={Math.min(o!, c!)}
-              width="8"
-              height={Math.max(2, Math.abs(o! - c!))}
-              rx="1"
-              fill={color}
-            />
-          </g>
-        );
-      })}
-    </svg>
+    <Panel>
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="h-14 animate-pulse rounded-xl bg-[var(--h-chip)]" />
+        ))}
+      </div>
+    </Panel>
   );
 }
 
-function BacktestArt() {
+function Note({
+  text,
+  action,
+  onAction,
+}: {
+  readonly text: string;
+  readonly action?: string;
+  readonly onAction?: () => void;
+}) {
   return (
-    <svg
-      viewBox="0 0 190 90"
-      className="absolute inset-x-6 bottom-3 top-5 h-[calc(100%-2rem)] w-[calc(100%-3rem)]"
-      aria-hidden="true"
-    >
-      <rect x="96" y="12" width="94" height="22" fill="var(--tc-up)" opacity=".14" />
-      <rect x="96" y="34" width="94" height="12" fill="var(--tc-down)" opacity=".14" />
-      <line
-        x1="96"
-        x2="190"
-        y1="34"
-        y2="34"
-        stroke="var(--tc-text)"
-        strokeOpacity=".5"
-        strokeDasharray="3 3"
-      />
-      <path
-        d="M0 64 L16 58 L30 66 L46 52 L60 56 L76 44 L96 40"
-        stroke="var(--tc-accent)"
-        strokeWidth="2.2"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M96 40 L112 46 L128 36 L146 40 L164 26 L190 22"
-        stroke="var(--tc-muted)"
-        strokeOpacity=".35"
-        strokeWidth="2.2"
-        fill="none"
-        strokeDasharray="2 4"
-      />
-      <line x1="96" x2="96" y1="0" y2="90" stroke="#38d3ff" strokeWidth="1.5" />
-      <g transform="translate(64 70)">
-        <rect width="64" height="16" rx="8" fill="var(--tc-panel)" stroke="var(--tc-border)" />
-        <path d="M14 4l6 4-6 4z" fill="var(--tc-text)" />
-        <path d="M28 4v8M32 4v8" stroke="var(--tc-text)" strokeWidth="1.6" />
-        <path
-          d="M42 4l5 4-5 4zM48 4v8"
-          fill="var(--tc-text)"
-          stroke="var(--tc-text)"
-          strokeWidth="1"
-        />
-      </g>
-    </svg>
-  );
-}
-
-function BattleArt() {
-  return (
-    <svg
-      viewBox="0 0 190 90"
-      className="absolute inset-x-6 bottom-3 top-5 h-[calc(100%-2rem)] w-[calc(100%-3rem)]"
-      aria-hidden="true"
-    >
-      <path
-        d="M0 60 C 30 52, 50 66, 80 48 S 130 30, 190 22"
-        stroke="var(--tc-accent)"
-        strokeWidth="2.4"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <path
-        d="M0 62 C 30 64, 60 50, 90 58 S 140 50, 190 44"
-        stroke="#ff5c7a"
-        strokeWidth="2.4"
-        fill="none"
-        strokeLinecap="round"
-      />
-      <circle cx="190" cy="22" r="0" />
-      <g transform="translate(69 14)">
-        <rect width="52" height="20" rx="10" fill="var(--tc-panel)" stroke="var(--tc-border)" />
-        <text
-          x="26"
-          y="14"
-          textAnchor="middle"
-          fontSize="9"
-          fontWeight="700"
-          fill="var(--tc-text)"
-          fontFamily="Vazirmatn, Tahoma, sans-serif"
-          direction="rtl"
+    <div className="flex flex-col items-center gap-3 px-6 py-20 text-center">
+      <p className="max-w-sm text-[14px] leading-7 text-[var(--h-muted)]">{text}</p>
+      {action && onAction ? (
+        <button
+          type="button"
+          onClick={onAction}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--h-accent)] px-3 text-[13px] font-semibold text-white"
         >
-          مقابل
-        </text>
-      </g>
-      <g transform="translate(6 70)">
-        <rect width="58" height="16" rx="8" fill="var(--tc-accent)" fillOpacity=".18" />
-        <text
-          x="29"
-          y="11.5"
-          textAnchor="middle"
-          fontSize="9"
-          fontWeight="700"
-          fill="var(--tc-accent)"
-          fontFamily="Vazirmatn, Tahoma, sans-serif"
-          direction="ltr"
-        >
-          +۲٫۴۱٪
-        </text>
-      </g>
-      <g transform="translate(126 70)">
-        <rect width="58" height="16" rx="8" fill="#ff5c7a" fillOpacity=".18" />
-        <text
-          x="29"
-          y="11.5"
-          textAnchor="middle"
-          fontSize="9"
-          fontWeight="700"
-          fill="#ff5c7a"
-          fontFamily="Vazirmatn, Tahoma, sans-serif"
-          direction="ltr"
-        >
-          +۰٫۸۷٪
-        </text>
-      </g>
-    </svg>
+          <Icon name="plus" size={15} />
+          {action}
+        </button>
+      ) : null}
+    </div>
   );
 }

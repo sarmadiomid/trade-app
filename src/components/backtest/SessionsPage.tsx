@@ -62,8 +62,8 @@ export default function SessionsPage() {
             <Icon name="replay" size={36} />
             <h1 className="text-lg font-semibold">هنوز جلسه‌ای نساخته‌اید</h1>
             <p className="max-w-md text-[13px] leading-6 text-muted">
-              هر جلسه یک بازه از بازار را با حساب مجازی بازپخش می‌کند. نماد، موجودی شروع و تاریخ
-              را انتخاب کنید.
+              هر جلسه یک بازه از بازار را با حساب مجازی بازپخش می‌کند. نماد، موجودی شروع و تاریخ را
+              انتخاب کنید.
             </p>
             <Button variant="primary" onClick={() => setCreating({})}>
               <Icon name="plus" size={16} /> ساخت اولین جلسه

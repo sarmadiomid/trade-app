@@ -16,15 +16,15 @@ import {
   type RankedFormat,
 } from '@/lib/battles';
 import { faNum } from '@/lib/locale/jalali';
-import { useThemeCssVars } from '../hooks/useThemeCssVars';
-import { AppHeader, initials } from '../platform/AppHeader';
+import { HomeShell, ShellMenuButton, ShellTools } from '../home/HomeShell';
+import { initials } from '../platform/AppHeader';
 import { api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
+import { BattleLobby } from './BattleLobby';
 import { NewBattleDialog } from './NewBattleDialog';
 import { RankEmblem } from './RankEmblem';
 import {
-  ASSET_COLORS,
   RANK_FA,
   STATUS,
   WIN_FA,
@@ -43,26 +43,29 @@ import {
   winConditionName,
 } from './format';
 
-type Tab = 'play' | 'browse' | 'mine' | 'leaderboard';
+type Tab = 'battles' | 'profile' | 'history' | 'ranked' | 'tournaments';
 
-const TABS: ReadonlyArray<{ id: Tab; label: string; icon: IconName }> = [
-  { id: 'play', label: 'بازی', icon: 'bolt' },
-  { id: 'browse', label: 'عمومی', icon: 'globe' },
-  { id: 'mine', label: 'نبردهای من', icon: 'list' },
-  { id: 'leaderboard', label: 'برترین‌ها', icon: 'trophy' },
+const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
+  { id: 'battles', label: 'نبردها' },
+  { id: 'profile', label: 'پروفایل' },
+  { id: 'history', label: 'تاریخچه' },
+  { id: 'ranked', label: 'رتبه‌ای' },
+  { id: 'tournaments', label: 'تورنمنت' },
 ];
+
+function readTab(raw: string | null): Tab {
+  if (raw === 'profile' || raw === 'leaderboard') return 'profile';
+  if (raw === 'history' || raw === 'mine') return 'history';
+  if (raw === 'ranked' || raw === 'play') return 'ranked';
+  if (raw === 'tournaments') return 'tournaments';
+  return 'battles';
+}
 
 /** `/battle`: the Battles home: play (ranked matchmaking, custom battles), browse, history, leaderboard. */
 export default function BattlesHub({ user }: { readonly user: Me }) {
-  useThemeCssVars();
   const router = useRouter();
   const params = useSearchParams();
-  const initialTab = params.get('tab');
-  const [tab, setTab] = useState<Tab>(
-    initialTab === 'browse' || initialTab === 'mine' || initialTab === 'leaderboard'
-      ? initialTab
-      : 'play',
-  );
+  const [tab, setTab] = useState<Tab>(readTab(params.get('tab')));
   const [creating, setCreating] = useState(params.get('new') === '1');
   const [profile, setProfile] = useState<BattleProfile | null>(null);
   const [active, setActive] = useState<BattleSummary | null>(null);
@@ -91,38 +94,52 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-chart text-fg">
-      <AppHeader fa user={{ ...user, name }} />
-      <div className="pointer-events-none absolute inset-x-0 top-14 h-80 bg-[radial-gradient(50%_90%_at_15%_0%,rgba(41,98,255,0.20),transparent_70%),radial-gradient(30%_70%_at_85%_0%,rgba(255,92,122,0.10),transparent_70%)]" />
-      <main className="relative mx-auto max-w-[1400px] px-4 pb-16 pt-7 sm:px-6">
-        <section className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <p className="text-[12px] font-semibold text-accent">نبرد</p>
-            <h1 className="mt-1 text-[28px] font-bold leading-tight sm:text-[34px]">
-              معامله، رو در رو
-            </h1>
-            <p className="mt-2 max-w-2xl text-[14px] leading-7 text-muted">
-              همه یک بازار تاریخی را می‌بینند؛ کندل به کندل و زنده. بازده‌ات را از بقیه جلو
-              بینداز، نبرد رتبه‌ای را ببر و از تازه‌کار تا استاد بالا برو.
-            </p>
+    <HomeShell
+      user={{ ...user, name }}
+      notices={active ? 1 : 0}
+      noticeMenu={
+        active ? (
+          <Link
+            href={`/battle/${active.id}`}
+            className="rounded-lg px-2 py-2 text-[13px] hover:bg-[var(--h-chip)]"
+          >
+            در نبرد هستید: {battleTitle(active.name)}
+          </Link>
+        ) : null
+      }
+    >
+      <div className="flex items-center gap-2 px-4 pt-4 sm:px-6">
+        <ShellMenuButton />
+        <div className="ms-auto">
+          <ShellTools />
+        </div>
+      </div>
+      <main className="relative mx-auto min-h-0 w-full max-w-[1400px] flex-1 overflow-y-auto px-4 pb-16 pt-3 sm:px-6">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div role="tablist" aria-label="نبردها" className="flex gap-1 overflow-x-auto">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === t.id}
+                onClick={() => select(t.id)}
+                data-testid={`tab-${t.id}`}
+                className={`h-10 shrink-0 rounded-full px-4 text-[13.5px] font-medium transition ${
+                  tab === t.id ? 'bg-panel text-fg' : 'text-muted hover:text-fg'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <JoinById />
-            <button
-              type="button"
-              onClick={() => setCreating(true)}
-              data-testid="new-battle"
-              className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-accent px-4 text-[13.5px] font-semibold text-accent-fg shadow-[0_10px_30px_-12px_rgba(41,98,255,0.9)] transition hover:brightness-110"
-            >
-              <Icon name="plus" size={16} /> نبرد تازه
-            </button>
-          </div>
-        </section>
+          <JoinById />
+        </div>
 
         {active ? (
           <Link
             href={`/battle/${active.id}`}
-            className="mt-6 flex items-center gap-3 rounded-xl border border-up/40 bg-up/10 px-4 py-3 text-[13.5px] transition hover:bg-up/15"
+            className="mb-4 flex items-center gap-3 rounded-xl border border-up/40 bg-up/10 px-4 py-3 text-[13.5px] transition hover:bg-up/15"
           >
             <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-up" />
             <span className="flex-1">
@@ -132,48 +149,38 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
           </Link>
         ) : null}
 
-        <div
-          role="tablist"
-          aria-label="نبردها"
-          className="mt-7 flex gap-1 overflow-x-auto border-b border-line"
-        >
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => select(t.id)}
-              data-testid={`tab-${t.id}`}
-              className={`-mb-px inline-flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3.5 text-[13.5px] font-medium transition ${
-                tab === t.id
-                  ? 'border-accent text-fg'
-                  : 'border-transparent text-muted hover:text-fg'
-              }`}
-            >
-              <Icon name={t.icon} size={15} />
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="min-w-0">
-            {tab === 'play' ? (
-              <PlayTab
-                profile={profile}
-                autoQueue={autoQueue}
-                onCustom={() => setCreating(true)}
-                onBrowse={() => select('browse')}
-                onMatched={(id) => router.push(`/battle/${id}`)}
-              />
-            ) : null}
-            {tab === 'browse' ? <BrowseTab onCreate={() => setCreating(true)} /> : null}
-            {tab === 'mine' ? <MineTab /> : null}
-            {tab === 'leaderboard' ? <LeaderboardTab /> : null}
+        {tab === 'battles' ? (
+          <BattleLobby
+            profile={profile}
+            onCreate={() => setCreating(true)}
+            onRanked={() => select('ranked')}
+          />
+        ) : null}
+        {tab === 'profile' ? (
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <LeaderboardTab />
+            <ProfilePanel profile={profile} onRenamed={loadProfile} />
           </div>
-          <ProfilePanel profile={profile} onRenamed={loadProfile} />
-        </div>
+        ) : null}
+        {tab === 'history' ? <MineTab /> : null}
+        {tab === 'ranked' ? (
+          <PlayTab
+            profile={profile}
+            autoQueue={autoQueue}
+            onCustom={() => setCreating(true)}
+            onBrowse={() => select('battles')}
+            onMatched={(id) => router.push(`/battle/${id}`)}
+          />
+        ) : null}
+        {tab === 'tournaments' ? (
+          <EmptyState
+            icon="trophy"
+            title="تورنمنت باز نیست"
+            text="مسابقه‌های فصلی هنوز شروع نشده‌اند. تا آن زمان در نبردهای آزاد و رتبه‌ای شرکت کن."
+            cta="نبردهای آزاد"
+            onClick={() => select('battles')}
+          />
+        ) : null}
       </main>
       {creating ? (
         <NewBattleDialog
@@ -182,7 +189,7 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
           onCreated={(id) => router.push(`/battle/${id}`)}
         />
       ) : null}
-    </div>
+    </HomeShell>
   );
 }
 
@@ -264,7 +271,9 @@ function PlayTab({
     try {
       setQueue(await api<QueueStatus>('/api/battles/queue', { method: 'POST', body: { format } }));
     } catch (e) {
-      setError(e instanceof Error ? faMessage(e.message) : faMessage('Could not start matchmaking'));
+      setError(
+        e instanceof Error ? faMessage(e.message) : faMessage('Could not start matchmaking'),
+      );
     }
   }, []);
 
@@ -552,9 +561,7 @@ function MatchmakingOverlay({
               {format?.name ?? 'رتبه‌ای'} · {format?.summary}
             </p>
             <p className="mt-4 font-mono text-[28px] font-bold tabular-nums" dir="ltr">
-              {clockFa(
-                `${Math.floor(waited / 60)}:${String(waited % 60).padStart(2, '0')}`,
-              )}
+              {clockFa(`${Math.floor(waited / 60)}:${String(waited % 60).padStart(2, '0')}`)}
             </p>
             <p className="mt-1 text-[12px] text-muted">
               بازه الو ±{faNum(queue.range)} · {traders(queue.searching)} در جست‌وجو
@@ -585,7 +592,8 @@ function useList(tab: 'browse' | 'mine') {
         setList(r.battles);
         setError(null);
       },
-      (e: unknown) => setError(e instanceof Error ? faMessage(e.message) : faMessage('Could not load battles')),
+      (e: unknown) =>
+        setError(e instanceof Error ? faMessage(e.message) : faMessage('Could not load battles')),
     );
   }, [tab]);
   useEffect(() => {
@@ -594,129 +602,6 @@ function useList(tab: 'browse' | 'mine') {
     return () => window.clearInterval(t);
   }, [load]);
   return { list, error, reload: load };
-}
-
-function BrowseTab({ onCreate }: { readonly onCreate: () => void }) {
-  const { list, error, reload } = useList('browse');
-  const [filter, setFilter] = useState<'all' | 'standby' | 'live'>('all');
-  const shown = (list ?? []).filter(
-    (b) =>
-      filter === 'all' ||
-      (filter === 'standby'
-        ? b.status === 'standby' || b.status === 'countdown'
-        : b.status === 'live' || b.status === 'paused'),
-  );
-  return (
-    <section>
-      <div className="flex flex-wrap items-center gap-2">
-        {(
-          [
-            ['all', 'همه'],
-            ['standby', 'در انتظار'],
-            ['live', 'در جریان'],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            aria-pressed={filter === id}
-            onClick={() => setFilter(id)}
-            className={`h-8 rounded-full px-3 text-[12.5px] font-medium transition ${
-              filter === id ? 'bg-accent/15 text-accent' : 'bg-panel text-muted hover:text-fg'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-        <div className="flex-1" />
-        <button
-          type="button"
-          onClick={reload}
-          className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[12.5px] text-muted hover:bg-hover hover:text-fg"
-        >
-          <Icon name="rotate" size={14} /> تازه‌سازی
-        </button>
-      </div>
-      {error ? <p className="mt-3 text-[13px] text-down">{error}</p> : null}
-      {list === null ? (
-        <ListSkeleton />
-      ) : shown.length === 0 ? (
-        <EmptyState
-          icon="swords"
-          title="الان نبرد عمومی باز نیست"
-          text="یکی بساز و شناسه‌اش را بفرست، یا برای نبرد رتبه‌ای صف بکش."
-          cta="نبرد تازه"
-          onClick={onCreate}
-        />
-      ) : (
-        <ul className="mt-3 flex flex-col gap-2" data-testid="browse-list">
-          {shown.map((b) => (
-            <BattleRow key={b.id} b={b} />
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function BattleRow({ b }: { readonly b: BattleSummary }) {
-  const [label, cls] = STATUS[b.status];
-  const full = b.participants >= b.maxParticipants;
-  const canJoin = !b.joined && !full && (b.status === 'standby' || b.allowLateJoin);
-  return (
-    <li>
-      <Link
-        href={`/battle/${b.id}`}
-        className="flex flex-col gap-3 rounded-xl border border-line bg-panel p-4 transition hover:border-accent/40 sm:flex-row sm:items-center"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-[14.5px] font-semibold">{battleTitle(b.name)}</span>
-            <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${cls}`}>
-              {label}
-            </span>
-            <span className="rounded bg-hover px-1.5 py-0.5 text-[11px] font-medium text-muted">
-              {winConditionName(b.winCondition)}
-            </span>
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
-            <span>میزبان {b.hostName ?? '—'}</span>
-            <span className="tabular-nums">{compactMoney(b.startingBalance)}</span>
-            <span>{minutes(b.durationMin)}</span>
-            {b.profitTargetPct ? <span>هدف +{faNum(b.profitTargetPct)}٪</span> : null}
-            <span className="flex items-center gap-1">
-              {b.assets.map((a) => (
-                <span
-                  key={a}
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: ASSET_COLORS[a] ?? '#5b8cff' }}
-                  title={a}
-                />
-              ))}
-              <bdi dir="ltr" className="ms-0.5">
-                {b.assets.join(' · ')}
-              </bdi>
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <span
-            className="flex items-center gap-1.5 text-[12.5px] tabular-nums text-muted"
-            title="معامله‌گرها"
-          >
-            <Icon name="users" size={15} /> {faNum(b.participants)}/{faNum(b.maxParticipants)}
-          </span>
-          <span
-            className={`inline-flex h-9 min-w-24 items-center justify-center rounded-lg px-4 text-[13px] font-semibold ${
-              canJoin ? 'bg-accent text-accent-fg' : 'border border-line'
-            }`}
-          >
-            {b.joined ? 'ورود' : canJoin ? 'بپیوند' : full ? 'تکمیل' : 'مشاهده'}
-          </span>
-        </div>
-      </Link>
-    </li>
-  );
 }
 
 // ---- My battles ----------------------------------------------------------------------------
@@ -912,7 +797,9 @@ function LeaderboardTab() {
                         </span>
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-end font-semibold tabular-nums">{faNum(e.elo)}</td>
+                    <td className="px-3 py-2.5 text-end font-semibold tabular-nums">
+                      {faNum(e.elo)}
+                    </td>
                     <td className="px-3 py-2.5 text-end tabular-nums text-muted">
                       {faNum(e.rankedWins)}/{faNum(e.rankedGames - e.rankedWins)}
                     </td>

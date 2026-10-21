@@ -9,10 +9,11 @@ import { setDisplayUtc } from '@/lib/core';
 import type { MenuEntry } from '../drawing/ContextMenu';
 import { useUiStore } from '../state/ui-store';
 import { Icon } from '../ui/Icon';
-import { IconButton } from '../ui/IconButton';
+import { BacktestTopBar } from './BacktestTopBar';
 import { BacktestModals } from './BacktestModals';
 import { BacktestContext } from './context';
 import { lots } from './format';
+import { usePracticeClock } from './practice-time';
 
 const ORDER_FA: Readonly<Record<string, string>> = {
   'Buy Limit': 'خرید لیمیت',
@@ -23,9 +24,9 @@ const ORDER_FA: Readonly<Record<string, string>> = {
 import { OrderTicket } from './OrderTicket';
 import { PriceSkipperBar } from './PriceSkipperBar';
 import { PropRulesPanel } from './PropRulesPanel';
-import { QuickTradePanel } from './QuickTradePanel';
 import { useBacktestStore } from './store';
 import { TradingPanel } from './TradingPanel';
+import { MobileBacktestBar, MobileReplayTop } from './mobile/MobileBacktestBar';
 
 const ChartWorkspace = dynamic(() => import('../chart/ChartWorkspace'), {
   ssr: false,
@@ -109,6 +110,7 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
   }, [id]);
 
   useBridge(controller);
+  usePracticeClock(load.status === 'ready' ? id : null);
 
   const runtime = load.status === 'ready' ? load.runtime : null;
   const callbacks = useMemo(
@@ -117,8 +119,10 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
         ? {
             wrapDeps: runtime.wrapDeps.bind(runtime),
             onApp: (app: Parameters<BacktestRuntime['attach']>[0] | null) => {
-              if (app) setController(runtime.attach(app));
-              else {
+              if (app) {
+                useBacktestStore.getState().setPanelHidden(true);
+                setController(runtime.attach(app));
+              } else {
                 runtime.detach();
                 setController(null);
               }
@@ -201,22 +205,26 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
         onApp={callbacks.onApp}
         appOptions={callbacks.appOptions}
         hideReplay
-        toolbarStart={
+        locale="fa"
+        toolbar={<BacktestTopBar />}
+        mobileChrome="replace"
+        mobileStart={
           <Link
             href="/backtest"
-            className="mr-1 inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] text-muted hover:bg-hover hover:text-fg"
             aria-label="بازگشت به جلسه‌ها"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-fg hover:bg-hover"
           >
-            <Icon name="chevronLeft" size={16} />
-            <span className="hidden sm:inline">جلسه‌ها</span>
+            <Icon name="chevronLeft" size={20} />
           </Link>
         }
-        toolbarEnd={controller ? <SessionMenu /> : null}
+        mobileTop={controller ? <MobileReplayTop /> : null}
+        mobileFooter={controller ? <MobileBacktestBar /> : null}
+        onSidePanelClose={() => useBacktestStore.getState().openTicket(null)}
         overlay={
           controller ? (
             <>
-              <QuickTradePanel />
               <PropRulesPanel />
+              <BacktestModals />
             </>
           ) : null
         }
@@ -224,9 +232,8 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
         footer={
           controller ? (
             <div dir="rtl" className="flex shrink-0 flex-col">
-              <PriceSkipperBar />
               <TradingPanel />
-              <BacktestModals />
+              <PriceSkipperBar />
             </div>
           ) : null
         }
@@ -238,52 +245,3 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
 
 const ticketKey = (t: { side: string; type: string; price?: number }) =>
   `${t.side}:${t.type}:${t.price ?? ''}`;
-
-function SessionMenu() {
-  const snap = useBacktestStore((s) => s.snap);
-  const openModal = useBacktestStore((s) => s.openModal);
-  if (!snap) return null;
-  return (
-    <div className="ml-1 flex items-center gap-0.5 border-l border-line pl-1.5">
-      <span
-        className="hidden max-w-40 truncate px-1 text-[13px] font-semibold lg:inline"
-        title={snap.settings.name}
-      >
-        {snap.settings.name}
-      </span>
-      {snap.settings.type === 'prop' ? (
-        <span className="hidden rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-medium text-accent md:inline">
-          پراپ
-        </span>
-      ) : null}
-      <Link
-        href={`/backtest/${snap.id}/journal`}
-        className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] hover:bg-hover"
-        title="دفتر معاملات"
-      >
-        <Icon name="journal" size={16} />
-        <span className="hidden xl:inline">دفتر</span>
-      </Link>
-      <Link
-        href={`/backtest/${snap.id}/analytics`}
-        className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] hover:bg-hover"
-        title="عملکرد"
-        data-testid="open-analytics"
-      >
-        <Icon name="chart" size={16} />
-        <span className="hidden xl:inline">عملکرد</span>
-      </Link>
-      <IconButton
-        icon="info"
-        label="تنظیمات جلسه"
-        onClick={() => openModal({ type: 'settings' })}
-      />
-      <IconButton
-        icon="keyboard"
-        label="میانبرهای بک‌تست"
-        shortcut="Ctrl + Alt + H"
-        onClick={() => openModal({ type: 'shortcuts' })}
-      />
-    </div>
-  );
-}

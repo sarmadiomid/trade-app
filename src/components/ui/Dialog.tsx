@@ -8,6 +8,8 @@ interface DialogProps {
   readonly onClose: () => void;
   readonly children: ReactNode;
   readonly footer?: ReactNode;
+  /** Replaces the default title bar (include your own close control). */
+  readonly header?: ReactNode;
   readonly width?: number;
   readonly initialFocus?: string;
 }
@@ -20,6 +22,7 @@ export function Dialog({
   onClose,
   children,
   footer,
+  header,
   width = 560,
   initialFocus,
 }: DialogProps) {
@@ -57,9 +60,11 @@ export function Dialog({
         a.focus();
       }
     };
-    window.addEventListener('keydown', onKey, true);
+    // Bubble, not capture: a nested popover (the Jalali calendar) listens on capture
+    // and stops Escape so it closes itself without dismissing the dialog.
+    window.addEventListener('keydown', onKey);
     return () => {
-      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('keydown', onKey);
       prev?.focus?.();
     };
   }, [initialFocus]);
@@ -77,17 +82,19 @@ export function Dialog({
         style={{ width }}
         className="flex max-h-[min(88vh,760px)] max-w-full animate-pop flex-col overflow-hidden rounded-xl border border-line bg-panel text-fg shadow-2xl"
       >
-        <div className="flex h-12 shrink-0 items-center justify-between border-b border-line ps-5 pe-2">
-          <h2 className="truncate text-[15px] font-semibold">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-fg"
-          >
-            <Icon name="close" size={18} />
-          </button>
-        </div>
+        {header ?? (
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-line ps-5 pe-2">
+            <h2 className="truncate text-[15px] font-semibold">{title}</h2>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-fg"
+            >
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>
         {footer ? (
           <div className="flex shrink-0 items-center gap-2 border-t border-line px-5 py-3">

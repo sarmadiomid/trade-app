@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { BattleLocale } from './locale';
 import '../backtest/backtest.css';
+import '../home/home.css';
 
 const VAZIRMATN = 'https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css';
 

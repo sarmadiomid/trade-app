@@ -66,6 +66,8 @@ export interface BattleSummary {
   readonly assets: readonly string[];
   readonly durationMin: number;
   readonly profitTargetPct: number | null;
+  readonly maxDrawdownPct: number | null;
+  readonly maxDailyDrawdownPct: number | null;
   readonly visibility: BattleSettings['visibility'];
   readonly allowLateJoin: boolean;
   readonly hostName: string | null;

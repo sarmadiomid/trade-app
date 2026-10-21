@@ -27,6 +27,32 @@ export const lots = (v: number): string => faFixed(v, 2);
 export const num = (v: number | null | undefined, decimals = 2): string =>
   v === null || v === undefined || !Number.isFinite(v) ? '—' : faFixed(v, decimals);
 
+/*
+ * Trading figures (prices, lots, account money) stay in Latin digits on the trading screen:
+ * they sit next to the chart's Latin price axis and are compared at a glance.
+ */
+const enFixed = (v: number, decimals: number) =>
+  Math.abs(v).toLocaleString('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+
+/** «$12,345.00» */
+export const usd = (v: number, decimals = 2): string =>
+  `${v < 0 ? '−' : ''}$${enFixed(v, decimals)}`;
+
+/** «+$120.50» / «−$40.00» / «$0.00» */
+export const signedUsd = (v: number): string => {
+  const n = Math.abs(v) < 0.004 ? 0 : v;
+  return `${n > 0 ? '+' : n < 0 ? '−' : ''}$${enFixed(n, 2)}`;
+};
+
+/** Price or lot in Latin digits, «—» when missing. */
+export const enNum = (v: number | null | undefined, decimals = 2): string =>
+  v === null || v === undefined || !Number.isFinite(v)
+    ? '—'
+    : `${v < 0 ? '−' : ''}${enFixed(v, decimals)}`;
+
 export const pnlClass = (v: number): string =>
   v > 0.004 ? 'text-up' : v < -0.004 ? 'text-down' : 'text-muted';
 

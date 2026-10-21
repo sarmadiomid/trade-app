@@ -407,8 +407,8 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
         </label>
         <p className="rounded-md bg-chart p-2 text-[12px] leading-6 text-muted">
           موجودی شروع {money(s.startingBalance)} · {utcDateTime(s.startDate, false)} تا{' '}
-          {utcDateTime(s.endDate, false)} · اسپرد{' '}
-          {s.spreadEnabled ? faNum(s.spread) : 'خاموش'} · کارمزد{' '}
+          {utcDateTime(s.endDate, false)} · اسپرد {s.spreadEnabled ? faNum(s.spread) : 'خاموش'} ·
+          کارمزد{' '}
           {s.commissionEnabled ? `${faNum(s.commissionPerLot)} دلار برای هر لات، هر طرف` : 'خاموش'}.
           بعد از ثبت معامله این‌ها ثابت می‌مانند. برای آزمون مقدار دیگر، جلسه را از فهرست کپی کنید.
         </p>

@@ -17,7 +17,7 @@ export function ChartControls() {
     `h-6 rounded px-1.5 text-[11px] font-semibold transition-colors hover:bg-hover ${on ? 'text-accent' : 'text-muted'}`;
   return (
     <>
-      <div className="group/nav absolute bottom-10 left-1/2 z-10 flex h-14 w-72 -translate-x-1/2 items-end justify-center">
+      <div className="chart-desk group/nav absolute bottom-10 left-1/2 z-10 flex h-14 w-72 -translate-x-1/2 items-end justify-center">
         <div className="flex gap-1 rounded-lg border border-line bg-panel/90 p-0.5 opacity-0 shadow-lg backdrop-blur transition-opacity duration-200 group-hover/nav:opacity-100 focus-within:opacity-100">
           <IconButton
             icon="minus"
@@ -57,7 +57,7 @@ export function ChartControls() {
         </div>
       </div>
       {!atLatest ? (
-        <div className="absolute bottom-9 right-[76px] z-10 animate-pop">
+        <div className="chart-desk absolute bottom-9 right-[76px] z-10 animate-pop">
           <IconButton
             icon="toLatest"
             label="Scroll to the most recent bar"
@@ -68,7 +68,7 @@ export function ChartControls() {
           />
         </div>
       ) : null}
-      <div className="absolute bottom-0.5 right-1 z-10 flex gap-0.5 rounded bg-chart">
+      <div className="chart-desk absolute bottom-0.5 right-1 z-10 flex gap-0.5 rounded bg-chart">
         <button
           type="button"
           className={toggleCls(opts.scaleMode === 'percent')}

@@ -26,6 +26,7 @@ import { useUiStore } from '../../state/ui-store';
 import { Button } from '../../ui/Button';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
+import { Tooltip } from '../../ui/Tooltip';
 import { battleTitle, clockFa, faMessage, faReason, minutes, pctClass, signedPct, traders } from '../format';
 import { BattleSidebar } from './BattleSidebar';
 import { BattleSkipperBar } from './BattleSkipperBar';
@@ -309,16 +310,16 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
 
   const hud = (
     <div
-      className="ml-1 flex items-center gap-1 border-l border-line pl-1.5"
+      className="ms-1 flex shrink-0 items-center gap-1.5 border-l border-line pl-2"
       data-testid="battle-hud"
     >
       <span
-        className={`inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 font-mono text-[14px] font-bold tabular-nums ${
+        className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 font-mono text-[13.5px] font-bold tabular-nums ring-1 ring-inset transition-colors ${
           view.status === 'paused'
-            ? 'bg-[#f5c451]/15 text-[#f5c451]'
+            ? 'bg-[#f5c451]/15 text-[#f5c451] ring-[#f5c451]/35'
             : lowTime
-              ? 'animate-pulse bg-down/15 text-down'
-              : 'bg-hover text-fg'
+              ? 'animate-pulse bg-down/15 text-down ring-down/40'
+              : 'bg-chart/75 text-fg ring-line/80'
         }`}
         title="زمان باقی‌مانده"
         data-testid="battle-timer"
@@ -330,39 +331,52 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
             : formatClock(remaining),
         )}
       </span>
+
       {myStanding ? (
-        <span className="hidden items-center gap-1.5 px-1.5 text-[12.5px] md:inline-flex">
-          <span className="font-semibold">
-            {faNum(myPlace)}
-            <span className="font-normal text-muted">/{faNum(view.standings.length)}</span>
+        <div className="hidden h-8 items-center gap-2 rounded-lg bg-chart/65 px-2.5 text-[12.5px] ring-1 ring-inset ring-line/80 md:inline-flex">
+          <span className="flex items-center gap-1 font-bold text-fg">
+            {myPlace === 1 ? <Icon name="crown" size={13} className="text-amber-400" /> : null}
+            <span>
+              {faNum(myPlace)}
+              <span className="font-normal text-muted">/{faNum(view.standings.length)}</span>
+            </span>
           </span>
-          <span className={`font-semibold tabular-nums ${pctClass(myStanding.returnPct)}`}>
+          <span className="h-3.5 w-px bg-line/80" />
+          <span className={`font-mono font-bold tabular-nums ${pctClass(myStanding.returnPct)}`}>
             {signedPct(myStanding.returnPct)}
           </span>
-        </span>
+        </div>
       ) : null}
-      <button
-        type="button"
-        onMouseDown={() => setShowBoard(true)}
-        onMouseUp={() => setShowBoard(false)}
-        onMouseLeave={() => setShowBoard(false)}
-        onClick={() => setSidebarOpen((o) => !o)}
-        className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[12.5px] text-muted hover:bg-hover hover:text-fg"
-        title="جدول (Tab را نگه دار)"
-      >
-        <Icon name="trophy" size={15} />
-        <span className="hidden xl:inline">جدول</span>
-      </button>
-      {!out ? (
+
+      <Tooltip label="جدول رده‌بندی" shortcut="Tab">
         <button
           type="button"
-          onClick={() => setConfirm('leave')}
-          className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[12.5px] text-muted hover:bg-hover hover:text-down"
-          title="ترک نبرد"
+          onMouseDown={() => setShowBoard(true)}
+          onMouseUp={() => setShowBoard(false)}
+          onMouseLeave={() => setShowBoard(false)}
+          onClick={() => setSidebarOpen((o) => !o)}
+          className={`inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition-colors ${
+            sidebarOpen || showBoard
+              ? 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/30'
+              : 'text-muted hover:bg-hover hover:text-fg'
+          }`}
         >
-          <Icon name="exit" size={15} />
-          <span className="hidden xl:inline">خروج</span>
+          <Icon name="trophy" size={15} />
+          <span className="hidden xl:inline">جدول</span>
         </button>
+      </Tooltip>
+
+      {!out ? (
+        <Tooltip label="ترک نبرد">
+          <button
+            type="button"
+            onClick={() => setConfirm('leave')}
+            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[12.5px] font-medium text-muted transition-colors hover:bg-down/15 hover:text-down"
+          >
+            <Icon name="exit" size={15} />
+            <span className="hidden 2xl:inline">خروج</span>
+          </button>
+        </Tooltip>
       ) : null}
     </div>
   );
@@ -377,15 +391,34 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
           onApp={callbacks.onApp}
           appOptions={callbacks.appOptions}
           hideReplay
+          locale="fa"
           toolbarStart={
-            <Link
-              href="/battle"
-              className="mr-1 inline-flex h-8 items-center gap-1 rounded-md px-2 text-[13px] text-muted hover:bg-hover hover:text-fg"
-              aria-label="بازگشت به نبردها"
-            >
-              <Icon name="chevronLeft" size={16} />
-              <span className="hidden max-w-40 truncate sm:inline">{battleTitle(view.settings.name)}</span>
-            </Link>
+            <div className="flex shrink-0 items-center gap-1">
+              <Tooltip label="بازگشت به نبردها">
+                <Link
+                  href="/battle"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-fg"
+                  aria-label="بازگشت به نبردها"
+                >
+                  <Icon name="chevronLeft" size={17} />
+                </Link>
+              </Tooltip>
+              <div className="hidden h-8 items-center gap-1.5 rounded-lg bg-chart/60 px-2.5 text-[12.5px] ring-1 ring-inset ring-line/75 sm:inline-flex">
+                <Icon name="swords" size={14} className="shrink-0 text-accent" />
+                <span className="max-w-36 truncate font-semibold text-fg">
+                  {battleTitle(view.settings.name)}
+                </span>
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    view.mode === 'ranked'
+                      ? 'bg-amber-400/15 text-amber-400'
+                      : 'bg-accent/15 text-accent'
+                  }`}
+                >
+                  {view.mode === 'ranked' ? 'رتبه‌ای' : 'آزاد'}
+                </span>
+              </div>
+            </div>
           }
           toolbarEnd={hud}
           overlay={

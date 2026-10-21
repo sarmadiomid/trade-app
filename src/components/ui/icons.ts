@@ -42,6 +42,7 @@ export const ICONS = {
   bolt: 'M13 2L4 14h7l-1 8 9-12h-7z',
   camera: 'M4 8h4l2-3h4l2 3h4v11H4zM12 11a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
   flag: 'M5 21V4M5 4h12l-2 4 2 4H5',
+  fastForward: 'M3 5l9 7-9 7zM12 5l9 7-9 7z',
   jumpEnd: 'M4 4l8 8-8 8M12 4l8 8-8 8M21 4v16',
   exit: 'M9 21H5V3h4M16 17l5-5-5-5M21 12H9',
   scissors:
@@ -83,6 +84,16 @@ export const ICONS = {
   shield: 'M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6zM9 12l2 2 4-4',
   chat: 'M4 5h16v11H9l-5 4z',
   list: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
+  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
+  share:
+    'M16 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM16 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8.6 13.5l6.8 3.9M15.4 6.6l-6.8 3.9',
+  expand: 'M15 4h5v5M9 4H4v5M15 20h5v-5M9 20H4v-5',
+  eraser: 'M3 15l8-8 6 6-6 6H7zM14 7l3 3M9 21h12',
+  grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  save: 'M5 3h11l4 4v14H5zM8 3v6h8V3M8 21v-7h8v7',
+  activity: 'M3 12h4l2.2-6 3.6 12L15 12h6',
+  moon: 'M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z',
+  code: 'M16 18l6-6-6-6M8 6l-6 6 6 6',
 } as const;
 
 export type IconName = keyof typeof ICONS;

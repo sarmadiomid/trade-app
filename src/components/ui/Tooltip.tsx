@@ -23,7 +23,11 @@ export function Tooltip({ label, shortcut, side = 'bottom', children }: TooltipP
         className={`pointer-events-none absolute z-[70] whitespace-nowrap rounded-md bg-[#0b0e14f2] px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity delay-0 duration-150 group-hover/tt:opacity-100 group-hover/tt:delay-300 group-focus-within/tt:opacity-100 ${SIDE[side]}`}
       >
         {label}
-        {shortcut ? <span className="ml-2 text-[#9aa0ab]">{shortcut}</span> : null}
+        {shortcut ? (
+          <span dir="ltr" className="ms-2 text-[#9aa0ab]">
+            {shortcut}
+          </span>
+        ) : null}
       </span>
     </span>
   );

@@ -84,7 +84,7 @@ export function FavoritesToolbar() {
       aria-label="Favorite drawing tools"
       aria-orientation={vertical ? 'vertical' : 'horizontal'}
       style={pos ? { left: pos.x, top: pos.y } : undefined}
-      className={`absolute z-20 flex items-center gap-0.5 rounded-lg border border-line bg-panel p-1 shadow-xl ${
+      className={`chart-desk absolute z-20 flex items-center gap-0.5 rounded-lg border border-line bg-panel p-1 shadow-xl ${
         vertical ? 'flex-col' : 'flex-row'
       } ${pos ? '' : 'left-1/2 top-2 -translate-x-1/2'}`}
       onPointerDown={(e) => e.stopPropagation()}
