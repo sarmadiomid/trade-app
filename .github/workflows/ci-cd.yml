@@ -72,8 +72,8 @@ jobs:
           script: |
             set -euo pipefail
             cd "${{ secrets.VPS_DEPLOY_PATH }}"
-            git fetch origin main
-            git checkout main
-            git pull --ff-only origin main
+            git fetch origin development
+            git checkout development
+            git pull --ff-only origin development
             docker compose up -d --build --remove-orphans
             docker compose ps
