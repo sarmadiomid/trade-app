@@ -100,7 +100,7 @@ export function TopToolbar({
   return (
     <header
       dir="ltr"
-      className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-panel/95 px-2 backdrop-blur-md [scrollbar-width:none]"
+      className="@container/bar flex h-11 shrink-0 items-center gap-1 overflow-clip border-b border-line bg-panel/95 px-2 backdrop-blur-md"
     >
       {start}
 
@@ -114,7 +114,7 @@ export function TopToolbar({
             className="h-1.5 w-1.5 shrink-0 rounded-full bg-up shadow-[0_0_6px_var(--tc-up)]"
             aria-hidden="true"
           />
-          <span>{symbol?.symbol ?? '…'}</span>
+          <span className="max-w-30 truncate">{symbol?.symbol ?? '…'}</span>
         </span>
       ) : (
         <Tooltip label={t('Symbol search')} shortcut="Ctrl + K">
@@ -124,8 +124,10 @@ export function TopToolbar({
             className="group flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-chart/65 px-2.5 text-[13px] font-bold tracking-wide text-fg ring-1 ring-inset ring-line/80 transition-colors hover:bg-hover hover:ring-accent/40"
           >
             <Icon name="search" size={15} className="text-muted transition-colors group-hover:text-accent" />
-            <span dir="ltr">{symbol?.symbol ?? '…'}</span>
-            <kbd className="hidden rounded bg-panel/90 px-1 py-0.5 font-mono text-[10px] font-medium text-muted ring-1 ring-inset ring-line xl:inline">
+            <span dir="ltr" className="max-w-30 truncate">
+              {symbol?.symbol ?? '…'}
+            </span>
+            <kbd className="hidden rounded bg-panel/90 px-1 py-0.5 font-mono text-[10px] font-medium text-muted ring-1 ring-inset ring-line @min-[1360px]/bar:inline">
               ⌘K
             </kbd>
           </button>
@@ -152,7 +154,7 @@ export function TopToolbar({
           }`}
         >
           <Icon name="activity" size={15} />
-          <span className="hidden xl:inline">{t('Indicators')}</span>
+          <span className="hidden @min-[1320px]/bar:inline">{t('Indicators')}</span>
         </button>
       </Tooltip>
       {indAnchor ? (
@@ -190,14 +192,14 @@ export function TopToolbar({
           aria-haspopup="menu"
           aria-expanded={flowAnchor !== null}
           onClick={(e) => setFlowAnchor(flowAnchor ? null : e.currentTarget)}
-          className={`hidden h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-colors md:inline-flex ${
+          className={`hidden h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-colors @min-[1100px]/bar:inline-flex ${
             flowOn || flowAnchor !== null
               ? 'bg-accent/15 text-accent ring-1 ring-inset ring-accent/30'
               : 'text-muted hover:bg-hover hover:text-fg'
           }`}
         >
           {flowIcon ? <Icon path={flowIcon} size={15} /> : <Icon name="activity" size={15} />}
-          <span className="hidden 2xl:inline">{t('Order Flow')}</span>
+          <span className="hidden @min-[1440px]/bar:inline">{t('Order Flow')}</span>
           <span className="rounded bg-accent/15 px-1 py-0.5 text-[9.5px] font-bold leading-none text-accent">
             PRO
           </span>
@@ -267,12 +269,12 @@ export function TopToolbar({
         />
       </div>
 
-      <div className="min-w-2 flex-1" />
+      <div className="min-w-0 flex-1" />
 
       {/* Data Source Pill */}
       {source ? (
         <span
-          className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset sm:inline-flex ${
+          className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset @min-[1240px]/bar:inline-flex ${
             source === 'binance'
               ? 'bg-[#0899811a] text-up ring-up/30'
               : 'bg-[#f7a6001a] text-[#f7a600] ring-[#f7a600]/30'
@@ -298,7 +300,7 @@ export function TopToolbar({
 
       {/* Utility Actions */}
       <div className="flex items-center gap-0.5">
-        <span className="hidden sm:contents">
+        <span className="hidden @min-[1080px]/bar:contents">
           <IconButton icon="camera" label={t('Save chart image')} onClick={shoot} size={16} />
           <IconButton
             icon="palette"
@@ -323,7 +325,7 @@ export function TopToolbar({
           onClick={() => openDialog({ type: 'settings' })}
           size={16}
         />
-        <span className="hidden sm:contents">
+        <span className="hidden @min-[1080px]/bar:contents">
           <IconButton
             icon="expand"
             label={full ? t('Exit full screen') : t('Full screen')}

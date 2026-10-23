@@ -2,7 +2,7 @@
 
 /* Design tokens. Values are overwritten at runtime from the active theme (see useThemeCssVars). */
 :root {
-  --tc-bg: #131722;
+  --tc-bg: #0a0c13;
   --tc-panel: #1e222d;
   --tc-border: #2a2e39;
   --tc-text: #d1d4dc;

@@ -26,8 +26,7 @@
   font-family: Vazirmatn, Tahoma, sans-serif;
   font-feature-settings: 'ss01';
   background:
-    radial-gradient(70% 42% at 50% -8%, rgba(47, 92, 196, 0.28), transparent 62%),
-    var(--h-bg);
+    radial-gradient(70% 42% at 50% -8%, rgba(47, 92, 196, 0.28), transparent 62%), var(--h-bg);
   color: var(--h-text);
 }
 
@@ -46,8 +45,7 @@
   --tc-down: #e11d48;
   color-scheme: light;
   background:
-    radial-gradient(70% 42% at 50% -8%, rgba(37, 99, 235, 0.14), transparent 62%),
-    var(--h-bg);
+    radial-gradient(70% 42% at 50% -8%, rgba(37, 99, 235, 0.14), transparent 62%), var(--h-bg);
 }
 
 .home-preview {

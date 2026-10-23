@@ -49,6 +49,17 @@ const GROUPS: ReadonlyArray<{
   { label: 'Days & Weeks', items: ['1D', '1W', '1M'] },
 ];
 
+/** Pinned intervals kept on the bar. The rest stay in the menu so the bar never scrolls. */
+const MAX_INLINE = 6;
+
+function inlineIds(favorites: readonly TimeframeId[], current: TimeframeId): TimeframeId[] {
+  const base = favorites.includes(current) ? [...favorites] : [...favorites, current];
+  if (base.length <= MAX_INLINE) return base;
+  const trimmed = base.slice(0, MAX_INLINE);
+  if (!trimmed.includes(current)) trimmed[trimmed.length - 1] = current;
+  return trimmed;
+}
+
 function readFavorites(): TimeframeId[] {
   if (typeof window === 'undefined') return [...DEFAULT_FAVORITES];
   try {
@@ -91,55 +102,60 @@ export function TimeframeBar() {
     });
   };
 
-  const visibleIds = favorites.includes(current) ? favorites : [...favorites, current];
+  const shown = inlineIds(favorites, current);
 
   return (
     <>
-      {/* Narrow screens: a compact dropdown. */}
-      <select
-        aria-label={t('Interval')}
+      {/* Narrow bar: the active interval opens the full menu. */}
+      <button
+        type="button"
         dir="ltr"
-        value={current}
-        onChange={(e) => void app.setTimeframe(e.target.value as TimeframeId)}
-        className="h-8 shrink-0 rounded-lg bg-chart/60 px-2 text-[13px] font-semibold text-accent ring-1 ring-inset ring-line/80 hover:bg-hover lg:hidden"
+        aria-label={t('Interval')}
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}
+        className="hidden h-8 shrink-0 items-center gap-1 rounded-lg bg-chart/65 px-2 text-[13px] font-semibold text-accent ring-1 ring-inset ring-line/80 transition-colors hover:bg-hover @max-[919px]/bar:inline-flex"
       >
-        {TIMEFRAME_IDS.map((id) => (
-          <option key={id} value={id}>
-            {TIMEFRAMES[id].label}
-          </option>
-        ))}
-      </select>
+        <span>{TIMEFRAMES[current].label}</span>
+        <Icon
+          name="chevronDown"
+          size={13}
+          className={`text-muted transition-transform duration-150 ${anchor ? 'rotate-180 text-accent' : ''}`}
+        />
+      </button>
 
       <div
         dir="ltr"
-        className="hidden min-w-0 items-center gap-0.5 rounded-lg bg-chart/65 p-0.5 ring-1 ring-inset ring-line/80 lg:flex"
+        className="hidden w-max min-w-0 shrink items-center rounded-lg bg-chart/65 p-0.5 ring-1 ring-inset ring-line/80 @min-[920px]/bar:flex"
         role="radiogroup"
         aria-label={t('Interval')}
       >
-        {visibleIds.map((id) => {
-          const active = id === current;
-          return (
-            <Tooltip
-              key={id}
-              label={`${t('Interval')} ${fa ? TF_DESC_FA[id] : TF_DESC_EN[id]}`}
-              shortcut={t('type e.g. 4h ↵')}
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={active}
-                onClick={() => void app.setTimeframe(id)}
-                className={`h-7 shrink-0 rounded-md px-2 text-[12.5px] font-semibold tracking-tight transition-all ${
-                  active
-                    ? 'bg-accent text-accent-fg shadow-xs'
-                    : 'text-muted hover:bg-hover/80 hover:text-fg'
-                }`}
+        <div className="flex min-w-0 items-center gap-0.5 overflow-hidden">
+          {shown.map((id) => {
+            const active = id === current;
+            return (
+              <Tooltip
+                key={id}
+                label={`${t('Interval')} ${fa ? TF_DESC_FA[id] : TF_DESC_EN[id]}`}
+                shortcut={t('type e.g. 4h ↵')}
               >
-                {TIMEFRAMES[id].label}
-              </button>
-            </Tooltip>
-          );
-        })}
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => void app.setTimeframe(id)}
+                  className={`h-7 shrink-0 rounded-md px-2 text-[12.5px] font-semibold tracking-tight transition-all ${
+                    active
+                      ? 'bg-accent text-accent-fg shadow-xs'
+                      : 'text-muted hover:bg-hover/80 hover:text-fg'
+                  }`}
+                >
+                  {TIMEFRAMES[id].label}
+                </button>
+              </Tooltip>
+            );
+          })}
+        </div>
 
         <Tooltip label={t('All intervals')} shortcut={t('type e.g. 4h ↵')}>
           <button

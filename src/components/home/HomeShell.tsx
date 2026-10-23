@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import {
   createContext,
   useContext,
@@ -33,7 +33,7 @@ export const HOME_ICONS = {
 } as const;
 
 type Scheme = 'dark' | 'light';
-type Menu = 'lang' | 'bell' | 'account';
+type Menu = 'lang' | 'bell';
 
 const NAV: ReadonlyArray<{
   href: string;
@@ -41,12 +41,19 @@ const NAV: ReadonlyArray<{
   icon: IconName | null;
   path?: string;
   badge?: string;
-  badgeTone?: 'new' | 'beta';
+  badgeTone?: 'new' | 'beta' | 'soon';
 }> = [
   { href: '/home', label: 'تمرین', icon: null, path: HOME_ICONS.bars },
   { href: '/chart', label: 'نمودار', icon: 'chart' },
-  { href: '/backtest', label: 'استراتژی‌ها', icon: 'target', badge: 'جدید', badgeTone: 'new' },
   { href: '/battle', label: 'نبردها', icon: 'swords', badge: 'بتا', badgeTone: 'beta' },
+  {
+    href: '/home/learn',
+    label: 'آموزش',
+    icon: null,
+    path: HOME_ICONS.book,
+    badge: 'به زودی',
+    badgeTone: 'soon',
+  },
 ];
 
 const schemeListeners = new Set<() => void>();
@@ -112,12 +119,11 @@ export function HomeShell({
 }) {
   useThemeCssVars();
   const pathname = usePathname();
-  const router = useRouter();
   const scheme = useSyncExternalStore(subscribeScheme, readScheme, () => 'dark' as const);
   const collapsed = useSyncExternalStore(subscribeNav, readCollapsed, () => false);
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState<Menu | null>(null);
-  const [leaving, setLeaving] = useState(false);
+  const onSettings = pathname === '/home/settings' || pathname.startsWith('/home/settings/');
 
   useEffect(() => {
     if (!menu && !drawer) return;
@@ -147,12 +153,6 @@ export function HomeShell({
     setDrawer((d) => !d);
   };
   const openMenu = (id: Menu) => setMenu((cur) => (cur === id ? null : id));
-  const logout = async () => {
-    setLeaving(true);
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
-    router.replace('/');
-    router.refresh();
-  };
 
   return (
     <ShellContext.Provider
@@ -212,7 +212,7 @@ export function HomeShell({
           <div className={`flex flex-col items-center px-4 pb-4 ${collapsed ? 'lg:px-2' : ''}`}>
             <span className="relative">
               <span
-                className={`flex items-center justify-center rounded-full bg-[radial-gradient(circle_at_32%_28%,#4a5672,#171c28)] font-bold text-white ${
+                className={`flex items-center justify-center rounded-full border border-[var(--h-line)] bg-[radial-gradient(circle_at_32%_28%,#252832,#121419)] font-bold text-white ${
                   collapsed
                     ? 'h-11 w-11 text-[14px] lg:h-11 lg:w-11'
                     : 'h-[72px] w-[72px] text-[22px]'
@@ -240,14 +240,21 @@ export function HomeShell({
           <nav aria-label="بخش‌ها" className="mt-3 flex flex-col gap-1 px-3">
             {NAV.map((item) => {
               const activeNav =
-                pathname === item.href ||
-                (item.href !== '/home' && pathname.startsWith(`${item.href}/`));
+                item.href === '/home'
+                  ? pathname === '/home' || pathname.startsWith('/home/stats')
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={activeNav ? 'page' : undefined}
-                  title={collapsed ? item.label : undefined}
+                  title={
+                    collapsed
+                      ? item.badge
+                        ? `${item.label}، ${item.badge}`
+                        : item.label
+                      : undefined
+                  }
                   onClick={() => setDrawer(false)}
                   className={`flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition ${
                     activeNav
@@ -277,71 +284,31 @@ export function HomeShell({
           <div className="mt-auto px-3 pb-3">
             <div className="mx-1 mb-2 h-px bg-[var(--h-line)]" />
             <Link
-              href="/lessons"
-              title={collapsed ? 'آموزش' : undefined}
+              href="/home/settings"
+              aria-current={onSettings ? 'page' : undefined}
+              title={collapsed ? 'تنظیمات حساب' : undefined}
               onClick={() => setDrawer(false)}
-              className={`flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] font-medium text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)] ${
-                collapsed ? 'lg:justify-center lg:px-0' : ''
-              }`}
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-[14px] font-medium transition ${
+                onSettings
+                  ? 'bg-[var(--h-soft)] text-[var(--h-text)]'
+                  : 'text-[var(--h-muted)] hover:bg-[var(--h-chip)] hover:text-[var(--h-text)]'
+              } ${collapsed ? 'lg:h-11 lg:justify-center lg:px-0' : ''}`}
             >
-              <Icon path={HOME_ICONS.book} size={18} className="shrink-0" />
-              <span className={collapsed ? 'lg:hidden' : ''}>آموزش</span>
-              <NavBadge tone="new" className={collapsed ? 'lg:hidden' : ''}>
-                جدید
-              </NavBadge>
+              <Icon name="settings" size={18} className="shrink-0" />
+              <span className={`min-w-0 ${collapsed ? 'lg:hidden' : ''}`}>
+                <span className="block truncate">تنظیمات حساب</span>
+                <span
+                  dir="ltr"
+                  className="block truncate text-start text-[11px] font-normal text-[var(--h-muted)]"
+                >
+                  {formatIranianMobile(user.phone)}
+                </span>
+              </span>
             </Link>
-
-            <div className="relative" data-home-menu="">
-              {menu === 'account' ? (
-                <div className="absolute start-0 bottom-full z-10 mb-2 w-56 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-3 shadow-2xl">
-                  <p className="truncate text-[13px] font-semibold">{user.name}</p>
-                  <p className="mt-0.5 font-mono text-[12px] text-[var(--h-muted)]" dir="ltr">
-                    {formatIranianMobile(user.phone)}
-                  </p>
-                  <div className="mt-2 flex flex-col gap-0.5 border-t border-[var(--h-line)] pt-2">
-                    <Link
-                      href="/battle?tab=profile"
-                      className="rounded-lg px-2 py-1.5 text-[13px] hover:bg-[var(--h-chip)]"
-                      onClick={() => setMenu(null)}
-                    >
-                      پروفایل نبرد
-                    </Link>
-                    <Link
-                      href="/"
-                      className="rounded-lg px-2 py-1.5 text-[13px] hover:bg-[var(--h-chip)]"
-                      onClick={() => setMenu(null)}
-                    >
-                      وب‌سایت چارتیکس
-                    </Link>
-                    <button
-                      type="button"
-                      disabled={leaving}
-                      onClick={() => void logout()}
-                      className="rounded-lg px-2 py-1.5 text-start text-[13px] text-[#ff8b9a] hover:bg-[var(--h-chip)] disabled:opacity-50"
-                    >
-                      {leaving ? 'در حال خروج…' : 'خروج'}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-              <button
-                type="button"
-                aria-expanded={menu === 'account'}
-                aria-haspopup="menu"
-                title={collapsed ? 'تنظیمات حساب' : undefined}
-                onClick={() => openMenu('account')}
-                className={`flex h-11 w-full items-center gap-3 rounded-xl px-3 text-[14px] font-medium text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)] ${
-                  collapsed ? 'lg:justify-center lg:px-0' : ''
-                }`}
-              >
-                <Icon name="settings" size={18} className="shrink-0" />
-                <span className={collapsed ? 'lg:hidden' : ''}>تنظیمات حساب</span>
-              </button>
-            </div>
             <p
               className={`px-3 pt-2 text-[11px] text-[var(--h-muted)] ${collapsed ? 'lg:hidden' : ''}`}
             >
-              نسخه {VERSION}
+              {`نسخه ${VERSION}`}
             </p>
           </div>
         </aside>
@@ -472,7 +439,7 @@ function NavBadge({
   className = '',
 }: {
   readonly children: string;
-  readonly tone: 'new' | 'beta';
+  readonly tone: 'new' | 'beta' | 'soon';
   readonly className?: string;
 }) {
   return (
@@ -480,7 +447,9 @@ function NavBadge({
       className={`ms-auto rounded-md px-1.5 py-0.5 text-[10px] font-bold leading-none ${className} ${
         tone === 'new'
           ? 'bg-[var(--h-accent)] text-white'
-          : 'border border-[var(--h-accent)]/50 text-[var(--h-accent)]'
+          : tone === 'soon'
+            ? 'border border-[var(--h-line)] bg-[var(--h-chip)] text-[var(--h-muted)]'
+            : 'border border-[var(--h-accent)]/50 text-[var(--h-accent)]'
       }`}
     >
       {children}

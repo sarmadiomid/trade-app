@@ -22,10 +22,12 @@ import {
   type Excursion,
   type Trade,
 } from '@/lib/backtest';
+import { JALALI_MONTHS, utcToJalali } from '@/lib/locale/jalali';
 import { useThemeCssVars } from '../../hooks/useThemeCssVars';
 import { Icon } from '../../ui/Icon';
 import {
   duration,
+  faDigits,
   faNum,
   failReasonFa,
   money,
@@ -39,51 +41,60 @@ import {
   WEEKDAY_NAMES,
 } from '../format';
 import { useStoredSession } from '../useStoredSession';
-import { BarChart, LineChart, type BarDatum } from './charts';
+import { BarChart, DonutChart, HBars, LineChart, RadarChart, type BarDatum } from './charts';
 import { PnlCalendar } from './PnlCalendar';
 
 type SideFilter = 'all' | 'buy' | 'sell';
 
+const BLUE = '#4c8dff';
+const GREEN = '#2fce9a';
+const RED = '#ff5d73';
+const SESSION_SHORT = ['آسیا', 'لندن', 'نیویورک', 'آف'] as const;
+const PERIOD_FA = { day: 'روز', week: 'هفته', month: 'ماه' } as const;
+
 const r2 = (v: number | null | undefined, suffix = '') =>
   v === null || v === undefined ? '—' : `${faNum(v, 2)}${suffix}`;
 
-function Card({
-  title,
-  children,
-  className = '',
-}: {
-  title: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <section className={`rounded-xl border border-line bg-panel p-4 ${className}`}>
-      <h2 className="mb-3 text-[13px] font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
+interface MonthRow {
+  readonly key: string;
+  readonly y: number;
+  readonly m: number;
+  readonly label: string;
+  readonly pnl: number;
+  readonly trades: number;
+  readonly wins: number;
+  readonly r: number;
 }
 
-function Kpi({
-  label,
-  value,
-  sub,
-  cls = 'text-fg',
-  hint,
-}: {
-  label: string;
-  value: string;
-  sub?: string | undefined;
-  cls?: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-line bg-panel p-3" title={hint}>
-      <div className="text-[11.5px] text-muted">{label}</div>
-      <div className={`mt-0.5 text-[17px] font-semibold tabular-nums ${cls}`}>{value}</div>
-      {sub ? <div className="text-[11px] text-muted">{sub}</div> : null}
-    </div>
-  );
+function monthsOf(days: ReadonlyMap<number, Bucket>): MonthRow[] {
+  const acc = new Map<string, MonthRow>();
+  for (const [time, bucket] of days) {
+    const j = utcToJalali(time);
+    const key = `${j.jy}-${j.jm}`;
+    const row = acc.get(key) ?? {
+      key,
+      y: j.jy,
+      m: j.jm,
+      label: `${JALALI_MONTHS[j.jm - 1] ?? ''} ${faDigits(j.jy)}`,
+      pnl: 0,
+      trades: 0,
+      wins: 0,
+      r: 0,
+    };
+    acc.set(key, {
+      ...row,
+      pnl: row.pnl + bucket.pnl,
+      trades: row.trades + bucket.trades,
+      wins: row.wins + bucket.wins,
+      r: row.r + bucket.r,
+    });
+  }
+  return [...acc.values()].sort((a, b) => a.y - b.y || a.m - b.m);
+}
+
+function shortDate(time: number): string {
+  const j = utcToJalali(time);
+  return `${faNum(j.jd)} ${JALALI_MONTHS[j.jm - 1] ?? ''}`;
 }
 
 const bucketTip = (title: string, b: Bucket) => (
@@ -93,8 +104,163 @@ const bucketTip = (title: string, b: Bucket) => (
   </span>
 );
 
-/** `/backtest/[id]/analytics`: FX Replay-style statistics of a session. */
-export default function AnalyticsDashboard({ id }: { readonly id: string }) {
+function Heading({
+  title,
+  hint,
+  swatch,
+}: {
+  readonly title: string;
+  readonly hint?: string;
+  readonly swatch?: string;
+}) {
+  return (
+    <h2 className="an-heading">
+      {swatch ? <span className="an-swatch" style={{ background: swatch }} /> : null}
+      {title}
+      {hint ? (
+        <span className="an-hint" title={hint}>
+          <Icon name="info" size={14} />
+        </span>
+      ) : null}
+    </h2>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  sub,
+  cls = '',
+  lead = false,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly sub?: string;
+  readonly cls?: string;
+  readonly lead?: boolean;
+}) {
+  return (
+    <div>
+      <div className="an-label">{label}</div>
+      <div className={`${lead ? 'an-lead' : 'an-value'} tabular-nums ${cls}`}>{value}</div>
+      {sub ? <div className="an-metric-sub">{sub}</div> : null}
+    </div>
+  );
+}
+
+function Tile({
+  label,
+  value,
+  sub,
+  cls = '',
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly sub?: string | undefined;
+  readonly cls?: string;
+}) {
+  return (
+    <div className="an-tile">
+      <div className="an-tile-label">{label}</div>
+      <div className={`an-tile-value tabular-nums ${cls}`}>{value}</div>
+      {sub ? <div className="an-tile-sub">{sub}</div> : null}
+    </div>
+  );
+}
+
+function StatRows({
+  rows,
+}: {
+  readonly rows: readonly { label: string; value: string; cls?: string }[];
+}) {
+  return (
+    <dl className="an-stats">
+      {rows.map((row) => (
+        <div key={row.label} className="an-stat">
+          <dt>{row.label}</dt>
+          <dd className={`tabular-nums ${row.cls ?? ''}`}>{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function EmptyState({
+  title,
+  body,
+  href,
+  ghost = 'bars',
+  action = true,
+}: {
+  readonly title: string;
+  readonly body: string;
+  readonly href: string;
+  readonly ghost?: 'bars' | 'calendar';
+  readonly action?: boolean;
+}) {
+  return (
+    <div className="an-empty">
+      {ghost === 'bars' ? (
+        <div className="an-ghost-bars" aria-hidden>
+          {[42, 68, 54, 86, 48, 74, 60, 36].map((height) => (
+            <span key={height} style={{ height: `${height}%` }} />
+          ))}
+        </div>
+      ) : (
+        <div className="an-ghost-cal" aria-hidden>
+          {Array.from({ length: 35 }, (_, i) => (
+            <span key={i} />
+          ))}
+        </div>
+      )}
+      <div className="an-empty-copy">
+        <p className="an-empty-title">{title}</p>
+        <p className="an-empty-body">{body}</p>
+        {action ? (
+          <Link href={href} className="an-empty-btn">
+            باز کردن نمودار
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function FilteredEmpty({
+  blank,
+  href,
+  title,
+  body,
+  ghost = 'bars',
+}: {
+  readonly blank: boolean;
+  readonly href: string;
+  readonly title: string;
+  readonly body: string;
+  readonly ghost?: 'bars' | 'calendar';
+}) {
+  return (
+    <EmptyState
+      href={href}
+      ghost={ghost}
+      action={blank}
+      title={blank ? title : 'با این فیلتر معامله‌ای نیست'}
+      body={blank ? body : 'فیلتر جهت، برچسب یا سشن را بردارید تا آمار جلسه برگردد.'}
+    />
+  );
+}
+
+/**
+ * Session statistics. `embedded` renders inside the home shell (sidebar and top bar
+ * stay put). The standalone page redirects there.
+ */
+export default function AnalyticsDashboard({
+  id,
+  embedded = false,
+}: {
+  readonly id: string;
+  readonly embedded?: boolean;
+}) {
   useThemeCssVars();
   const { state } = useStoredSession(id);
   const [side, setSide] = useState<SideFilter>('all');
@@ -172,15 +338,27 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
 
   if (state.status === 'loading')
     return (
-      <div className="flex h-full items-center justify-center bg-chart text-muted">
+      <div
+        className={
+          embedded
+            ? 'px-4 py-10 text-center text-[13px] text-[var(--h-muted)] sm:px-8'
+            : 'an-page flex h-full items-center justify-center text-muted'
+        }
+      >
         در حال بارگذاری…
       </div>
     );
   if (state.status === 'missing' || !a || !ready)
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 bg-chart text-fg">
+      <div
+        className={
+          embedded
+            ? 'flex flex-col items-center gap-3 px-4 py-10 text-center sm:px-8'
+            : 'an-page flex h-full flex-col items-center justify-center gap-3'
+        }
+      >
         <p className="text-muted">این جلسه وجود ندارد.</p>
-        <Link href="/backtest" className="text-accent">
+        <Link href={embedded ? '/home?tab=sessions' : '/backtest'} className="text-accent">
           بازگشت به جلسه‌ها
         </Link>
       </div>
@@ -188,305 +366,577 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
 
   const { session } = ready;
   const s = a.stats;
-  const start = session.settings.startingBalance;
-  const status = session.account.status;
+  const chartHref = `/backtest/${id}`;
+  const empty = trades.length === 0;
+  const blank = session.account.trades.length === 0;
+  const months = monthsOf(a.days);
+  const curve =
+    a.curve.length >= 2
+      ? a.curve
+      : [
+          { ...a.curve[0]!, time: session.settings.startDate },
+          { ...a.curve[0]!, time: session.settings.endDate },
+        ];
   const pf = s.profitFactor === null ? (s.grossProfit > 0 ? '∞' : '—') : faNum(s.profitFactor, 2);
+  const expPos =
+    s.expectancyR === null ? 50 : ((Math.max(-2, Math.min(2, s.expectancyR)) + 2) / 4) * 100;
+  const lossRate = s.totalTrades ? s.losers / s.totalTrades : 0;
+  const activeDays = a.days.size;
+  const perDay = activeDays ? trades.length / activeDays : 0;
+  const status = session.account.status;
+  const chip =
+    status === 'active' ? 'an-chip-live' : status === 'ended' ? 'an-chip' : 'an-chip-bad';
   const statusLine =
     status === 'active'
-      ? `در جریان (بازپخش تا ${utcDateTime(session.cursor)}، ساعت جهانی)`
+      ? 'در جریان'
       : status === 'ended'
         ? 'تمام‌شده'
-        : `متوقف شد: ${failReasonFa(session.account.failReason ?? '')}`;
-  const PERIOD_FA = { day: 'روز', week: 'هفته', month: 'ماه' } as const;
-  const sel = 'h-8 rounded-md border border-line bg-panel px-2 text-[13px]';
+        : failReasonFa(session.account.failReason ?? '');
+  const sessionAxes = (pick: (b: Bucket) => number) =>
+    a.sessions.map((b, i) => ({ label: SESSION_SHORT[i] ?? '', value: pick(b) }));
+
+  const filters = (
+    <>
+      <select
+        aria-label="جهت"
+        className="an-select"
+        value={side}
+        onChange={(e) => setSide(e.target.value as SideFilter)}
+      >
+        <option value="all">همه جهت‌ها</option>
+        <option value="buy">خرید</option>
+        <option value="sell">فروش</option>
+      </select>
+      <select
+        aria-label="برچسب"
+        className="an-select"
+        value={tag}
+        onChange={(e) => setTag(e.target.value)}
+      >
+        <option value="">همه برچسب‌ها</option>
+        {tags.map((t) => (
+          <option key={t}>{t}</option>
+        ))}
+      </select>
+      <select
+        aria-label="سشن معاملاتی"
+        className="an-select"
+        value={tsession}
+        onChange={(e) => setTsession(e.target.value)}
+      >
+        <option value="">همه سشن‌ها</option>
+        {TRADING_SESSIONS.map((x) => (
+          <option key={x.id} value={x.id}>
+            {SESSION_FA[x.id] ?? x.label} ({faNum(x.from)}–{faNum(x.to)})
+          </option>
+        ))}
+      </select>
+      <span className="text-[12.5px] text-muted">{faNum(trades.length)} معامله</span>
+      <Link href={chartHref} className="an-go">
+        {status === 'active' ? 'ادامه جلسه' : 'باز کردن نمودار'}
+      </Link>
+    </>
+  );
 
   return (
-    <div className="h-full overflow-y-auto bg-chart text-fg">
-      <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-line bg-panel px-5">
-        <Link
-          href="/backtest"
-          className="inline-flex items-center gap-1 text-[13px] text-muted hover:text-fg"
-        >
-          <Icon name="chevronLeft" size={16} className="rtl:-scale-x-100" /> جلسه‌ها
-        </Link>
-        <div className="min-w-0">
-          <h1 className="truncate text-[15px] font-semibold">{session.settings.name} · عملکرد</h1>
-          <p className="text-[11.5px] text-muted">
-            <bdi>{session.settings.symbol}</bdi> · {utcDate(session.settings.startDate)} تا{' '}
-            {utcDate(session.settings.endDate)} · {statusLine}
-          </p>
-        </div>
-        <div className="flex-1" />
-        <Link
-          href={`/backtest/${id}/journal`}
-          className="inline-flex h-8 items-center rounded-md border border-line px-3 text-[13px] hover:bg-hover"
-        >
-          دفتر معاملات
-        </Link>
-        <Link
-          href={`/backtest/${id}`}
-          className="inline-flex h-8 items-center rounded-md bg-accent px-3 text-[13px] font-medium text-accent-fg"
-        >
-          {status === 'active' ? 'ادامه جلسه' : 'باز کردن نمودار'}
-        </Link>
-      </header>
+    <div className={embedded ? 'an-embed flex flex-col gap-4' : 'an-page h-full overflow-y-auto'}>
+      {embedded ? null : (
+        <header className="an-head">
+          <div className="an-wrap flex flex-wrap items-center gap-2 py-3">
+            <Link href="/backtest" className="an-back">
+              <Icon name="chevronLeft" size={16} className="rtl:-scale-x-100" /> جلسه‌ها
+            </Link>
+            <nav className="an-tabs" aria-label="بخش‌های جلسه">
+              <span className="an-tab-on">عملکرد</span>
+              <Link href={`/backtest/${id}/journal`} className="an-tab">
+                دفتر معاملات
+              </Link>
+            </nav>
+            <div className="ms-auto flex flex-wrap items-center gap-2">{filters}</div>
+          </div>
+        </header>
+      )}
 
-      <main className="mx-auto max-w-7xl space-y-4 p-5" data-testid="analytics">
-        <div className="flex flex-wrap items-center gap-2 text-[13px]">
-          <span className="text-muted">فیلتر</span>
-          <select
-            aria-label="جهت"
-            className={sel}
-            value={side}
-            onChange={(e) => setSide(e.target.value as SideFilter)}
-          >
-            <option value="all">همه جهت‌ها</option>
-            <option value="buy">خرید</option>
-            <option value="sell">فروش</option>
-          </select>
-          <select
-            aria-label="برچسب"
-            className={sel}
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-          >
-            <option value="">همه برچسب‌ها</option>
-            {tags.map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </select>
-          <select
-            aria-label="سشن معاملاتی"
-            className={sel}
-            value={tsession}
-            onChange={(e) => setTsession(e.target.value)}
-          >
-            <option value="">همه سشن‌ها</option>
-            {TRADING_SESSIONS.map((x) => (
-              <option key={x.id} value={x.id}>
-                {SESSION_FA[x.id] ?? x.label} ({faNum(x.from)}:۰۰ تا {faNum(x.to)}:۰۰ جهانی)
-              </option>
-            ))}
-          </select>
-          <span className="text-muted">{faNum(trades.length)} معامله</span>
+      <main
+        className={
+          embedded
+            ? 'flex flex-col gap-4 px-4 pb-10 pt-4 sm:px-8'
+            : 'an-wrap flex flex-col gap-4 py-5'
+        }
+        data-testid="analytics"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            {embedded ? (
+              <h2 className="an-title">{session.settings.name}</h2>
+            ) : (
+              <h1 className="an-title">{session.settings.name}</h1>
+            )}
+            <p className="an-sub">
+              <bdi>{session.settings.symbol}</bdi>
+              <span className={chip}>{statusLine}</span>
+            </p>
+          </div>
+          <div className="an-range">
+            <Icon name="calendar" size={15} />
+            <span>
+              {utcDate(session.settings.startDate)} – {utcDate(session.settings.endDate)}
+            </span>
+            <span className="an-tz">ساعت جهانی</span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-          <Kpi
-            label="سود خالص"
-            value={signedMoney(s.netPnl)}
-            sub={pct(s.returnPct)}
-            cls={pnlClass(s.netPnl)}
-          />
-          <Kpi
-            label="نرخ برد"
-            value={plainPct(s.winRate)}
-            sub={`${faNum(s.winners)} سود · ${faNum(s.losers)} ضرر · ${faNum(s.breakeven)} سربه‌سر`}
-          />
-          <Kpi
-            label="ضریب سود"
-            value={pf}
-            sub={`${money(s.grossProfit)} / ${money(s.grossLoss)}`}
-            hint="سود ناخالص تقسیم بر ضرر ناخالص"
-          />
-          <Kpi
-            label="تعداد معاملات"
-            value={faNum(s.totalTrades)}
-            sub={`${faNum(s.longs)} خرید · ${faNum(s.shorts)} فروش`}
-          />
-          <Kpi
-            label="امید ریاضی"
-            value={signedMoney(s.expectancy)}
-            sub={s.expectancyR === null ? 'هر معامله' : `${faNum(s.expectancyR, 2)}R هر معامله`}
-            hint="نرخ برد ضربدر میانگین سود، منهای نرخ باخت ضربدر میانگین ضرر"
-          />
-          <Kpi
-            label="بیشترین افت"
-            value={money(s.drawdown.max)}
-            sub={`${faNum(s.drawdown.maxPct, 2)}٪ از قله`}
-            cls={s.drawdown.max > 0 ? 'text-down' : 'text-fg'}
-          />
-          <Kpi
-            label="میانگین سود"
-            value={s.winners ? signedMoney(s.avgWin) : '—'}
-            cls={s.winners ? 'text-up' : 'text-fg'}
-          />
-          <Kpi
-            label="میانگین ضرر"
-            value={s.losers ? signedMoney(s.avgLoss) : '—'}
-            cls={s.losers ? 'text-down' : 'text-fg'}
-          />
-          <Kpi label="بهترین معامله" value={signedMoney(s.bestWin)} sub={pct(s.bestWinPct)} />
-          <Kpi
-            label="بدترین معامله"
-            value={s.losers ? signedMoney(s.worstLoss) : '—'}
-            sub={s.losers ? pct(s.worstLossPct) : undefined}
-          />
-          <Kpi
-            label="میانگین ریسک به ریوارد"
-            value={s.avgRR === null ? '—' : `۱ : ${faNum(s.avgRR, 2)}`}
-            sub="معامله‌های دارای حد ضرر و حد سود"
-            hint="میانگین ریسک به ریوارد برنامه‌ریزی‌شده؛ فقط معامله‌هایی که هم حد ضرر دارند و هم حد سود"
-          />
-          <Kpi
-            label="بیشترین ریسک به ریوارد"
-            value={s.maxRR === null ? '—' : `۱ : ${faNum(s.maxRR, 2)}`}
-          />
-          <Kpi
-            label="ریسک به ریوارد ایده‌آل"
-            value={a.ideal ? `۱ : ${faNum(a.ideal.target)}` : excursions ? '—' : '…'}
-            sub={a.ideal ? `مجموع ${faNum(a.ideal.totalR, 1)}R` : 'شبیه‌ساز'}
-            hint="حد سودی که مجموع R را بیشینه می‌کرد"
-          />
-          <Kpi
-            label="میانگین R"
-            value={r2(s.avgR, 'R')}
-            sub={s.totalR === null ? undefined : `مجموع ${faNum(s.totalR, 2)}R`}
-            cls={pnlClass(s.avgR ?? 0)}
-          />
-          <Kpi
-            label="میانگین افت"
-            value={money(s.drawdown.average)}
-            sub={`${faNum(s.drawdown.episodes)} دوره`}
-          />
-          <Kpi
-            label="برد و باخت پیاپی"
-            value={`${faNum(s.maxConsecutiveWins)} برد / ${faNum(s.maxConsecutiveLosses)} باخت`}
-            sub="بیشترین رشته"
-          />
-          <Kpi
-            label="میانگین مدت"
-            value={duration(s.avgDuration)}
-            sub={`سود ${duration(s.avgWinDuration)} · ضرر ${duration(s.avgLossDuration)}`}
-          />
-          <Kpi
-            label="ضریب بازیابی"
-            value={r2(s.recoveryFactor)}
-            sub={`شارپ (R) ${r2(s.sharpeR)} · کارمزد ${money(s.totalCommission)}`}
-          />
-        </div>
+        {embedded ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <nav className="an-tabs" aria-label="بخش‌های جلسه">
+              <span className="an-tab-on">عملکرد</span>
+              <Link href={`/backtest/${id}/journal`} className="an-tab">
+                دفتر معاملات
+              </Link>
+            </nav>
+            <div className="ms-auto flex flex-wrap items-center gap-2">{filters}</div>
+          </div>
+        ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card title="منحنی موجودی" className="lg:col-span-2">
-            <LineChart
-              label="موجودی پس از هر معاملهٔ بسته‌شده"
-              baseline={start}
-              points={a.curve.map((p, i) => ({
-                x: i,
-                y: p.balance,
-                tip: (
-                  <span>
-                    {i === 0 ? 'شروع' : `معامله ${faNum(Number(p.tradeId))}`} · {money(p.balance)} ·{' '}
-                    {utcDateTime(p.time)}
-                  </span>
-                ),
-              }))}
+        <section className="an-card">
+          <Heading
+            title="سود و زیان"
+            hint="موجودی حساب پس از هر معاملهٔ بسته‌شده. خط کمرنگ، موجودی شروع است."
+          />
+          <div className="an-metrics">
+            <Metric
+              lead
+              label="سود خالص"
+              value={signedMoney(s.netPnl)}
+              sub={pct(s.returnPct)}
+              cls={pnlClass(s.netPnl)}
             />
-            <h3 className="mb-1 mt-3 text-[12px] text-muted">افت سرمایه</h3>
-            <LineChart
-              label="افت از قلهٔ جاری"
-              height={110}
-              baseline={0}
-              color="var(--tc-down)"
-              points={a.curve.map((p, i) => ({
-                x: i,
-                y: p.drawdown,
-                tip: <span>{money(p.drawdown)}</span>,
-              }))}
+            <Metric
+              label="ضریب سود"
+              value={pf}
+              sub={`${money(s.grossProfit)} / ${money(s.grossLoss)}`}
             />
-          </Card>
-          <Card title="خرید در برابر فروش">
-            {(['buy', 'sell'] as const).map((k) => {
-              const b = a.sides[k];
+            <Metric
+              label="نرخ برد"
+              value={plainPct(s.winRate)}
+              sub={`${faNum(s.winners)} سود · ${faNum(s.losers)} ضرر`}
+            />
+            <Metric
+              label="معاملات"
+              value={faNum(s.totalTrades)}
+              sub={`${faNum(s.longs)} خرید · ${faNum(s.shorts)} فروش`}
+            />
+            <Metric
+              label="بیشترین افت"
+              value={money(s.drawdown.max)}
+              sub={`${faNum(s.drawdown.maxPct, 1)}٪ از قله`}
+              cls={s.drawdown.max > 0 ? 'text-down' : ''}
+            />
+            <Metric
+              label="امید ریاضی"
+              value={signedMoney(s.expectancy)}
+              sub="هر معامله"
+              cls={pnlClass(s.expectancy)}
+            />
+          </div>
+          <LineChart
+            label="منحنی موجودی"
+            baseline={session.settings.startingBalance}
+            color={BLUE}
+            gradient
+            height={280}
+            xLabels={curve.map((p) => shortDate(p.time))}
+            points={curve.map((p, i) => ({
+              x: i,
+              y: p.balance,
+              tip: (
+                <span>
+                  {p.tradeId === null ? 'شروع' : `معامله ${faNum(Number(p.tradeId))}`} ·{' '}
+                  {money(p.balance)} · {utcDateTime(p.time)}
+                </span>
+              ),
+            }))}
+          />
+          <div className="an-tiles an-tiles-6">
+            <Tile
+              label="میانگین سود"
+              value={s.winners ? signedMoney(s.avgWin) : '—'}
+              cls={s.winners ? 'text-up' : ''}
+            />
+            <Tile
+              label="میانگین ضرر"
+              value={s.losers ? signedMoney(s.avgLoss) : '—'}
+              cls={s.losers ? 'text-down' : ''}
+            />
+            <Tile label="بهترین معامله" value={signedMoney(s.bestWin)} sub={pct(s.bestWinPct)} />
+            <Tile
+              label="بدترین معامله"
+              value={s.losers ? signedMoney(s.worstLoss) : '—'}
+              sub={s.losers ? pct(s.worstLossPct) : undefined}
+            />
+            <Tile
+              label="میانگین ریسک به ریوارد"
+              value={s.avgRR === null ? '—' : `۱ : ${faNum(s.avgRR, 2)}`}
+            />
+            <Tile label="میانگین مدت" value={duration(s.avgDuration)} />
+          </div>
+        </section>
+
+        <section className="an-card">
+          <Heading
+            title="امید ریاضی و ضریب سود"
+            hint="نرخ برد ضربدر میانگین سود، منهای نرخ باخت ضربدر میانگین ضرر. نشانگر روی بازهٔ −۲R تا +۲R است."
+          />
+          <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center" dir="ltr">
+            <div className="w-full sm:w-40">
+              <div className={`an-lead tabular-nums ${pnlClass(s.expectancyR ?? 0)}`}>
+                {s.expectancyR === null ? '—' : `${faNum(s.expectancyR, 2)}R`}
+              </div>
+              <div className="an-metric-sub">امید ریاضی · {signedMoney(s.expectancy)}</div>
+            </div>
+            <div className="relative min-w-0 flex-1">
+              <div className="an-expect" />
+              <span className="an-mark" style={{ left: `${expPos}%` }} />
+            </div>
+            <div className="w-full text-start sm:w-28 sm:text-end">
+              <div className="an-lead tabular-nums">{pf}</div>
+              <div className="an-metric-sub">ضریب سود</div>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="an-card">
+            <Heading title="برنده‌ها" swatch={GREEN} />
+            <StatRows
+              rows={[
+                { label: 'تعداد', value: faNum(s.winners) },
+                { label: 'نرخ برد', value: plainPct(s.winRate) },
+                { label: 'سود ناخالص', value: signedMoney(s.grossProfit), cls: 'text-up' },
+                {
+                  label: 'میانگین سود',
+                  value: s.winners ? signedMoney(s.avgWin) : '—',
+                  cls: s.winners ? 'text-up' : '',
+                },
+                { label: 'بزرگ‌ترین سود', value: s.winners ? signedMoney(s.bestWin) : '—' },
+                { label: 'میانگین مدت', value: duration(s.avgWinDuration) },
+                { label: 'بیشترین برد پیاپی', value: faNum(s.maxConsecutiveWins) },
+                { label: 'سربه‌سر', value: faNum(s.breakeven) },
+                ...(s.winnerDrawdownR
+                  ? [
+                      {
+                        label: 'میانگین افت سودده‌ها',
+                        value: `${faNum(s.winnerDrawdownR.avg, 2)}R`,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
+          </section>
+          <section className="an-card">
+            <Heading title="بازنده‌ها" swatch={RED} />
+            <StatRows
+              rows={[
+                { label: 'تعداد', value: faNum(s.losers) },
+                { label: 'نرخ باخت', value: plainPct(lossRate) },
+                { label: 'ضرر ناخالص', value: signedMoney(-s.grossLoss), cls: 'text-down' },
+                {
+                  label: 'میانگین ضرر',
+                  value: s.losers ? signedMoney(s.avgLoss) : '—',
+                  cls: s.losers ? 'text-down' : '',
+                },
+                { label: 'بزرگ‌ترین ضرر', value: s.losers ? signedMoney(s.worstLoss) : '—' },
+                { label: 'میانگین مدت', value: duration(s.avgLossDuration) },
+                { label: 'بیشترین باخت پیاپی', value: faNum(s.maxConsecutiveLosses) },
+              ]}
+            />
+          </section>
+        </div>
+
+        <section className="an-card">
+          <Heading title="عملکرد جهت" hint="سهم برد و باخت در خریدها و فروش‌ها." />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {(
+              [
+                ['buy', 'خرید', GREEN],
+                ['sell', 'فروش', BLUE],
+              ] as const
+            ).map(([key, title, color]) => {
+              const b = a.sides[key];
               return (
-                <div key={k} className="mb-3 rounded-lg border border-line p-3">
-                  <div className="font-semibold">{k === 'buy' ? 'خریدها' : 'فروش‌ها'}</div>
-                  <dl className="mt-1 grid grid-cols-2 gap-1 text-[12.5px]">
-                    <dt className="text-muted">معاملات</dt>
-                    <dd className="text-end tabular-nums">{faNum(b.trades)}</dd>
-                    <dt className="text-muted">نرخ برد</dt>
-                    <dd className="text-end tabular-nums">{plainPct(b.winRate)}</dd>
-                    <dt className="text-muted">سود خالص</dt>
-                    <dd className={`text-end tabular-nums ${pnlClass(b.pnl)}`}>
-                      {signedMoney(b.pnl)}
-                    </dd>
-                    <dt className="text-muted">مجموع R</dt>
-                    <dd className="text-end tabular-nums">{faNum(b.r, 2)}R</dd>
-                  </dl>
+                <div key={key} className="an-inset">
+                  <p className="an-inset-title">{title}</p>
+                  <DonutChart
+                    label={`${title}: برد و باخت`}
+                    caption="برد / باخت"
+                    center={b.trades ? plainPct(b.winRate) : '—'}
+                    parts={[
+                      { value: b.wins, color },
+                      { value: b.losses, color: RED },
+                      { value: b.breakeven, color: 'rgba(255,255,255,0.28)' },
+                    ]}
+                  />
+                  <p className="mt-1 text-center text-[12.5px] text-muted">
+                    {faNum(b.trades)} معامله · برد {faNum(b.wins)} · باخت {faNum(b.losses)}
+                  </p>
+                  <p
+                    className={`mt-0.5 text-center text-[13px] font-semibold tabular-nums ${pnlClass(b.pnl)}`}
+                  >
+                    {signedMoney(b.pnl)}
+                  </p>
                 </div>
               );
             })}
-            <h3 className="mb-1 text-[12px] text-muted">افت روی معاملات سودده (R)</h3>
-            {s.winnerDrawdownR ? (
-              <dl className="grid grid-cols-3 gap-1 text-center text-[12.5px]">
-                <div>
-                  <dt className="text-muted">میانگین</dt>
-                  <dd className="font-semibold">{faNum(s.winnerDrawdownR.avg, 2)}R</dd>
-                </div>
-                <div>
-                  <dt className="text-muted">بیشترین</dt>
-                  <dd className="font-semibold">{faNum(s.winnerDrawdownR.max, 2)}R</dd>
-                </div>
-                <div>
-                  <dt className="text-muted">کمترین</dt>
-                  <dd className="font-semibold">{faNum(s.winnerDrawdownR.min, 2)}R</dd>
-                </div>
-              </dl>
-            ) : (
-              <p className="text-[12px] text-muted">
-                برای این عدد، معاملهٔ سودده با حد ضرر لازم است.
+          </div>
+        </section>
+
+        <section className="an-card">
+          <Heading
+            title="عملکرد سشن‌ها"
+            hint="هر نمودار سشن‌های آسیا، لندن، نیویورک و خارج از سشن را با هم مقایسه می‌کند. ساعت‌ها جهانی است."
+          />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="an-inset">
+              <p className="an-inset-title">نرخ برد</p>
+              <RadarChart
+                label="نرخ برد سشن‌ها"
+                color={GREEN}
+                ceiling={1}
+                format={plainPct}
+                axes={sessionAxes((b) => b.winRate)}
+              />
+            </div>
+            <div className="an-inset">
+              <p className="an-inset-title">تعداد معاملات</p>
+              <RadarChart
+                label="تعداد معاملات سشن‌ها"
+                color={BLUE}
+                format={(v) => faNum(v)}
+                axes={sessionAxes((b) => b.trades)}
+              />
+            </div>
+            <div className="an-inset">
+              <p className="an-inset-title">میانگین R</p>
+              <RadarChart
+                label="میانگین R سشن‌ها"
+                color="#a78bfa"
+                format={(v) => `${faNum(v, 2)}R`}
+                axes={sessionAxes((b) => (b.trades ? b.r / b.trades : 0))}
+              />
+            </div>
+            <div className="an-inset">
+              <p className="an-inset-title">سود</p>
+              <RadarChart
+                label="سود سشن‌ها"
+                color="#f0b429"
+                format={signedMoney}
+                axes={sessionAxes((b) => b.pnl)}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="an-card">
+          <Heading
+            title="عملکرد روزهای هفته"
+            hint="سود خالص بر اساس روز ورود. جمعه آخرین روز این نمودار است."
+          />
+          {empty ? (
+            <FilteredEmpty
+              blank={blank}
+              href={chartHref}
+              title="معامله‌ای در روزهای هفته نیست"
+              body="بعد از بستن چند معامله، سود هر روز هفته این‌جا دیده می‌شود."
+            />
+          ) : (
+            <>
+              <div className="mt-4">
+                <HBars
+                  label="سود خالص بر اساس روز ورود"
+                  format={signedMoney}
+                  rows={a.weekday.map((b, i) => ({
+                    label: WEEKDAY_NAMES[i] ?? '',
+                    value: b.pnl,
+                    tip: `${WEEKDAY_NAMES[i] ?? ''} · ${faNum(b.trades)} معامله · ${signedMoney(b.pnl)}`,
+                  }))}
+                />
+              </div>
+              <p className="an-note">
+                بهترین: {bestOf(a.weekday, WEEKDAY_NAMES)} · بدترین:{' '}
+                {worstOf(a.weekday, WEEKDAY_NAMES)}
               </p>
-            )}
-          </Card>
-        </div>
+            </>
+          )}
+        </section>
 
-        <Card title="تقویم سود و زیان">
-          <PnlCalendar days={a.days} initial={trades[0]?.closeTime ?? session.settings.startDate} />
-        </Card>
+        <section className="an-card">
+          <Heading title="عملکرد ماه" hint="سود خالص هر ماه خورشیدی، بر اساس روز بستن معامله." />
+          {empty ? (
+            <FilteredEmpty
+              blank={blank}
+              href={chartHref}
+              title="معامله‌ای در ماه‌ها نیست"
+              body="ماههایی که در آن‌ها معامله می‌بندید، با سود یا ضررشان این‌جا می‌آیند."
+            />
+          ) : (
+            <>
+              <div className="mt-4">
+                <HBars
+                  label="سود خالص هر ماه"
+                  format={signedMoney}
+                  rows={months.map((row) => ({
+                    label: row.label,
+                    value: row.pnl,
+                    tip: `${row.label} · ${faNum(row.trades)} معامله · ${signedMoney(row.pnl)}`,
+                  }))}
+                />
+              </div>
+              <p className="an-note">
+                بهترین: {extreme(months, 'best')} · بدترین: {extreme(months, 'worst')}
+              </p>
+            </>
+          )}
+        </section>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card title="عملکرد روزهای هفته">
-            <BarChart
-              label="سود خالص بر اساس روز ورود"
-              data={a.weekday.map((b, i): BarDatum => ({
-                label: WEEKDAY_NAMES[i]!,
-                value: b.pnl,
-                tip: bucketTip(WEEKDAY_NAMES[i]!, b),
-              }))}
+        <section className="an-card">
+          <Heading title="عملکرد ساعت ورود" hint="سود خالص بر اساس ساعت ورود، به وقت جهانی." />
+          {empty ? (
+            <FilteredEmpty
+              blank={blank}
+              href={chartHref}
+              title="معامله‌ای در ساعت‌های ورود نیست"
+              body="ساعت‌هایی که وارد معامله می‌شوید، بعد از اولین معامله مشخص می‌شوند."
             />
-            <p className="mt-1 text-[12px] text-muted">
-              بهترین: {bestOf(a.weekday, WEEKDAY_NAMES)} · بدترین:{' '}
-              {worstOf(a.weekday, WEEKDAY_NAMES)}
-            </p>
-          </Card>
-          <Card title="عملکرد ساعت ورود (ساعت جهانی)">
-            <BarChart
-              label="سود خالص بر اساس ساعت ورود"
-              data={a.hour.map((b, h): BarDatum => ({
-                label: faNum(h),
-                value: b.pnl,
-                tip: bucketTip(`${faNum(h)}:۰۰`, b),
-              }))}
+          ) : (
+            <>
+              <BarChart
+                label="سود خالص بر اساس ساعت ورود"
+                data={a.hour.map((b, h): BarDatum => ({
+                  label: faNum(h),
+                  value: b.pnl,
+                  tip: bucketTip(`${faNum(h)}:۰۰`, b),
+                }))}
+              />
+              <p className="an-note">
+                بهترین: {bestOf(a.hour, hourNames())} · بدترین: {worstOf(a.hour, hourNames())}
+              </p>
+            </>
+          )}
+        </section>
+
+        <section className="an-card">
+          <Heading
+            title="تقویم سود و زیان"
+            hint="هر روز به اندازهٔ سود یا ضرر بسته‌شده در آن روز رنگ می‌گیرد."
+          />
+          {empty ? (
+            <FilteredEmpty
+              blank={blank}
+              href={chartHref}
+              ghost="calendar"
+              title="تقویم سود و زیان خالی است"
+              body="روزهایی که معامله می‌بندید رنگی می‌شوند."
             />
-          </Card>
-          <Card title="عملکرد سشن‌ها">
-            <BarChart
-              label="سود خالص بر اساس سشن معاملاتی"
-              data={a.sessions.map((b, i): BarDatum => ({
-                label: SESSION_FA[TRADING_SESSIONS[i]!.id] ?? TRADING_SESSIONS[i]!.label,
-                value: b.pnl,
-                tip: bucketTip(
-                  SESSION_FA[TRADING_SESSIONS[i]!.id] ?? TRADING_SESSIONS[i]!.label,
-                  b,
-                ),
-              }))}
+          ) : (
+            <div className="mt-3">
+              <PnlCalendar
+                days={a.days}
+                initial={trades[0]?.closeTime ?? session.settings.startDate}
+              />
+            </div>
+          )}
+        </section>
+
+        <section className="an-card">
+          <Heading
+            title="میانگین فراوانی معامله"
+            hint="تعداد ورود در هر روز هفته. میانگین، روی روزهایی است که حداقل یک معامله در آن‌ها بسته شده."
+          />
+          {empty ? (
+            <FilteredEmpty
+              blank={blank}
+              href={chartHref}
+              title="ببینید چه زمانی معامله می‌کنید"
+              body="فراوانی ورود در روزهای هفته بعد از اولین معامله مشخص می‌شود."
             />
-          </Card>
-          <Card title="میانگین سود و ضرر دوره‌ای">
-            <table className="w-full text-[12.5px]">
+          ) : (
+            <>
+              <p className="an-note">
+                میانگین {faNum(perDay, 1)} معامله در هر روز فعال · {faNum(activeDays)} روز
+              </p>
+              <BarChart
+                polarity={false}
+                label="تعداد معامله در هر روز هفته"
+                data={a.weekday.map((b, i): BarDatum => ({
+                  label: WEEKDAY_NAMES[i] ?? '',
+                  value: b.trades,
+                  tip: (
+                    <span>
+                      {WEEKDAY_NAMES[i]} · {faNum(b.trades)} معامله
+                    </span>
+                  ),
+                }))}
+              />
+            </>
+          )}
+        </section>
+
+        <section className="an-card">
+          <Heading title="افت سرمایه" hint="فاصلهٔ موجودی از قلهٔ جاری، بعد از هر معامله." />
+          <LineChart
+            label="افت از قلهٔ جاری"
+            height={150}
+            baseline={0}
+            color="var(--tc-down)"
+            points={curve.map((p) => ({
+              x: 0,
+              y: p.drawdown,
+              tip: <span>{money(p.drawdown)}</span>,
+            }))}
+          />
+        </section>
+
+        <section className="an-card">
+          <Heading title="شاخص‌های بیشتر" />
+          <div className="an-tiles">
+            <Tile
+              label="میانگین R"
+              value={r2(s.avgR, 'R')}
+              sub={s.totalR === null ? undefined : `مجموع ${faNum(s.totalR, 2)}R`}
+              cls={pnlClass(s.avgR ?? 0)}
+            />
+            <Tile
+              label="بیشترین ریسک به ریوارد"
+              value={s.maxRR === null ? '—' : `۱ : ${faNum(s.maxRR, 2)}`}
+            />
+            <Tile
+              label="ریسک به ریوارد ایده‌آل"
+              value={a.ideal ? `۱ : ${faNum(a.ideal.target)}` : excursions ? '—' : '…'}
+              sub={a.ideal ? `مجموع ${faNum(a.ideal.totalR, 1)}R` : 'شبیه‌ساز'}
+            />
+            <Tile label="ضریب بازیابی" value={r2(s.recoveryFactor)} />
+            <Tile label="شارپ (R)" value={r2(s.sharpeR)} />
+            <Tile label="کارمزد" value={money(s.totalCommission)} />
+            <Tile
+              label="میانگین افت"
+              value={money(s.drawdown.average)}
+              sub={`${faNum(s.drawdown.episodes)} دوره`}
+            />
+            <Tile label="میانگین MAE" value={r2(s.avgMaeR, 'R')} />
+            <Tile label="میانگین MFE" value={r2(s.avgMfeR, 'R')} />
+          </div>
+        </section>
+
+        <section className="an-card">
+          <Heading
+            title="میانگین دوره‌ای"
+            hint="میانگین سود و ضرر روز، هفته و ماه‌هایی که در آن‌ها معامله بسته شده."
+          />
+          <div className="mt-3 overflow-x-auto">
+            <table className="an-table">
               <thead>
                 <tr className="text-muted">
-                  <th className="py-1 text-start font-medium">دوره</th>
+                  <th className="text-start font-medium">دوره</th>
                   <th className="text-end font-medium">تعداد</th>
                   <th className="text-end font-medium">میانگین سود</th>
                   <th className="text-end font-medium">میانگین ضرر</th>
@@ -497,8 +947,8 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
               </thead>
               <tbody>
                 {a.periods.map(([p, v]) => (
-                  <tr key={p} className="border-t border-line/60 tabular-nums">
-                    <td className="py-1">{PERIOD_FA[p]}</td>
+                  <tr key={p} className="tabular-nums">
+                    <td>{PERIOD_FA[p]}</td>
                     <td className="text-end">{faNum(v.periods)}</td>
                     <td className="text-end text-up">{signedMoney(v.avgGain)}</td>
                     <td className="text-end text-down">{signedMoney(v.avgLoss)}</td>
@@ -509,48 +959,64 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
                 ))}
               </tbody>
             </table>
-          </Card>
-          <Card title="توزیع سود و زیان">
-            <BarChart
-              label="تعداد معاملات در هر بازهٔ سود"
-              polarity={false}
-              data={a.pnlHist.map((b): BarDatum => ({
-                label: compactMoney((b.from + b.to) / 2),
-                value: b.count,
-                tip: (
-                  <span>
-                    {signedMoney(b.from)} تا {signedMoney(b.to)}: {faNum(b.count)} معامله
-                  </span>
-                ),
-              }))}
-            />
-          </Card>
-          <Card title="توزیع ضریب R">
-            <BarChart
-              label="تعداد معاملات در هر بازهٔ R"
-              polarity={false}
-              data={a.rHist.map((b): BarDatum => ({
-                label: faNum((b.from + b.to) / 2, 1),
-                value: b.count,
-                tip: (
-                  <span>
-                    {faNum(b.from, 2)}R تا {faNum(b.to, 2)}R: {faNum(b.count)} معامله
-                  </span>
-                ),
-              }))}
-            />
-          </Card>
+          </div>
+        </section>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className="an-card">
+            <Heading title="توزیع سود و زیان" />
+            {a.pnlHist.length === 0 ? (
+              <p className="an-note">هنوز معامله‌ای نیست.</p>
+            ) : (
+              <BarChart
+                label="تعداد معاملات در هر بازهٔ سود"
+                polarity={false}
+                data={a.pnlHist.map((b): BarDatum => ({
+                  label: compactMoney((b.from + b.to) / 2),
+                  value: b.count,
+                  tip: (
+                    <span>
+                      {signedMoney(b.from)} تا {signedMoney(b.to)}: {faNum(b.count)} معامله
+                    </span>
+                  ),
+                }))}
+              />
+            )}
+          </section>
+          <section className="an-card">
+            <Heading title="توزیع ضریب R" />
+            {a.rHist.length === 0 ? (
+              <p className="an-note">برای این نمودار، معامله باید حد ضرر داشته باشد.</p>
+            ) : (
+              <BarChart
+                label="تعداد معاملات در هر بازهٔ R"
+                polarity={false}
+                data={a.rHist.map((b): BarDatum => ({
+                  label: faNum((b.from + b.to) / 2, 1),
+                  value: b.count,
+                  tip: (
+                    <span>
+                      {faNum(b.from, 2)}R تا {faNum(b.to, 2)}R: {faNum(b.count)} معامله
+                    </span>
+                  ),
+                }))}
+              />
+            )}
+          </section>
         </div>
 
-        <Card title="شبیه‌ساز ریسک به ریوارد">
-          <p className="mb-2 text-[12.5px] text-muted">
-            معاملات دوباره روی دادهٔ یک‌دقیقه‌ای اجرا می‌شوند؛ حد ضرر همان می‌ماند و حد سود روی هر
-            ضریب R امتحان می‌شود. نسبت ایده‌آل همانی است که مجموع R را بیشینه می‌کند
-            {excursions ? '' : ` — در حال محاسبه ${progress}`}.
+        <section className="an-card">
+          <Heading
+            title="شبیه‌ساز ریسک به ریوارد"
+            hint="حد ضرر همان می‌ماند و حد سود روی هر ضریب R دوباره اجرا می‌شود. ردیف پررنگ، هدفی است که مجموع R را بیشینه می‌کند."
+          />
+          <p className="an-note">
+            معاملات روی دادهٔ یک‌دقیقه‌ای دوباره اجرا می‌شوند
+            {excursions ? '.' : ` — در حال محاسبه ${progress}`}
           </p>
           {a.rr ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12.5px]">
+            <div className="mt-2 overflow-x-auto">
+              <table className="an-table">
                 <thead>
                   <tr className="text-muted">
                     {[
@@ -562,7 +1028,7 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
                       'ضریب سود',
                       'میانگین افت سودده‌ها',
                     ].map((h) => (
-                      <th key={h} className="py-1 text-end font-medium first:text-start">
+                      <th key={h} className="text-end font-medium first:text-start">
                         {h}
                       </th>
                     ))}
@@ -572,9 +1038,9 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
                   {a.rr.map((r) => (
                     <tr
                       key={r.target}
-                      className={`border-t border-line/60 tabular-nums ${a.ideal?.target === r.target ? 'bg-accent/10 font-semibold' : ''}`}
+                      className={`tabular-nums ${a.ideal?.target === r.target ? 'an-ideal font-semibold' : ''}`}
                     >
-                      <td className="py-1">
+                      <td>
                         ۱ : {faNum(r.target)}
                         {a.ideal?.target === r.target ? ' · ایده‌آل' : ''}
                       </td>
@@ -592,9 +1058,9 @@ export default function AnalyticsDashboard({ id }: { readonly id: string }) {
               </table>
             </div>
           ) : (
-            <p className="text-[12.5px] text-muted">در حال محاسبه…</p>
+            <p className="an-note">در حال محاسبه…</p>
           )}
-        </Card>
+        </section>
       </main>
     </div>
   );
@@ -609,13 +1075,26 @@ const compactMoney = (v: number) => {
 function bestOf(b: readonly Bucket[], names: readonly string[]): string {
   const active = b.filter((x) => x.trades > 0);
   if (!active.length) return '—';
-  const best = active.reduce((a, x) => (x.pnl > a.pnl ? x : a));
-  return `${names[best.key]} (${signedMoney(best.pnl)})`;
+  const best = active.reduce((acc, x) => (x.pnl > acc.pnl ? x : acc));
+  return `${names[best.key] ?? ''} (${signedMoney(best.pnl)})`;
 }
 
 function worstOf(b: readonly Bucket[], names: readonly string[]): string {
   const active = b.filter((x) => x.trades > 0);
   if (!active.length) return '—';
-  const worst = active.reduce((a, x) => (x.pnl < a.pnl ? x : a));
-  return `${names[worst.key]} (${signedMoney(worst.pnl)})`;
+  const worst = active.reduce((acc, x) => (x.pnl < acc.pnl ? x : acc));
+  return `${names[worst.key] ?? ''} (${signedMoney(worst.pnl)})`;
+}
+
+function extreme(rows: readonly MonthRow[], dir: 'best' | 'worst'): string {
+  const active = rows.filter((row) => row.trades > 0);
+  if (!active.length) return '—';
+  const pick = active.reduce((acc, row) =>
+    dir === 'best' ? (row.pnl > acc.pnl ? row : acc) : row.pnl < acc.pnl ? row : acc,
+  );
+  return `${pick.label} (${signedMoney(pick.pnl)})`;
+}
+
+function hourNames(): string[] {
+  return Array.from({ length: 24 }, (_, h) => faNum(h));
 }

@@ -1,13 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import {
-  ChartApp,
-  createPlaybackDependencies,
-  type ChartAppOptions,
-} from '@/lib/app';
-import { MockMarketProvider, instrumentSpec } from '@/lib/data';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { ChartApp, createPlaybackDependencies, type ChartAppOptions } from '@/lib/app';
+import { MockMarketProvider } from '@/lib/data';
 import type { TimeframeId } from '@/lib/core';
+import { DemoBroker, type DemoAccount, type DemoView } from './demo-account';
 import { ChartControls } from '../chart/ChartControls';
 import { Legend } from '../chart/Legend';
 import { ContextMenu } from '../drawing/ContextMenu';
@@ -37,29 +34,130 @@ function formatPx(symbol: string, n: number): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
-function lastClose(app: ChartApp): number | null {
-  const d = app.engine.seriesData;
-  return d.length > 0 ? d.close[d.length - 1]! : null;
+function useDemo(account: DemoAccount): DemoView {
+  return useSyncExternalStore(
+    (onChange) => account.subscribe(onChange),
+    () => account.snapshot,
+    () => account.snapshot,
+  );
 }
 
-function DemoTicket({ app, symbol }: { app: ChartApp | null; symbol: string }) {
-  const [mid, setMid] = useState<number | null>(null);
-  useEffect(() => {
-    if (!app) return;
-    const read = () => setMid(lastClose(app));
-    read();
-    const offReplay = app.replay.events.on('replay:changed', read);
-    const offData = app.engine.events.on('data:changed', read);
-    return () => {
-      offReplay();
-      offData();
-    };
-  }, [app]);
+function money(v: number): string {
+  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
-  const spread = instrumentSpec(symbol)?.defaultSpread ?? 0;
-  const bid = mid !== null ? mid - spread / 2 : null;
-  const ask = mid !== null ? mid + spread / 2 : null;
+function signedMoney(v: number): string {
+  const n = Math.abs(v) < 0.005 ? 0 : v;
+  const body = Math.abs(n).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${n > 0 ? '+' : n < 0 ? '−' : ''}$${body}`;
+}
 
+function QuoteButtons({
+  view,
+  symbol,
+  onBuy,
+  onSell,
+  testId,
+}: {
+  view: DemoView | null;
+  symbol: string;
+  onBuy: () => void;
+  onSell: () => void;
+  testId: string;
+}) {
+  const disabled = !view?.ready;
+  const quote = (n: number | null | undefined) =>
+    n === null || n === undefined ? '—' : formatPx(symbol, n);
+  return (
+    <div className="flex" dir="ltr">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onSell}
+        data-testid={`${testId}-sell`}
+        className="flex flex-1 cursor-pointer flex-col items-start bg-down/15 px-3 py-2 text-down hover:bg-down/25 disabled:cursor-default disabled:opacity-40"
+      >
+        <span className="text-[11px] font-semibold">فروش</span>
+        <span className="font-mono text-[13px] font-semibold tabular-nums">{quote(view?.bid)}</span>
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onBuy}
+        data-testid={`${testId}-buy`}
+        className="flex flex-1 cursor-pointer flex-col items-end bg-accent/15 px-3 py-2 text-accent hover:bg-accent/25 disabled:cursor-default disabled:opacity-40"
+      >
+        <span className="text-[11px] font-semibold">خرید</span>
+        <span className="font-mono text-[13px] font-semibold tabular-nums">{quote(view?.ask)}</span>
+      </button>
+    </div>
+  );
+}
+
+function LotField({
+  view,
+  onChange,
+  compact = false,
+}: {
+  view: DemoView;
+  onChange: (volume: number) => void;
+  compact?: boolean;
+}) {
+  return (
+    <label className={`flex items-center gap-2 ${compact ? '' : 'justify-between px-3 py-2'}`}>
+      {compact ? null : <span className="text-[11px] text-muted">حجم (لات)</span>}
+      <input
+        aria-label="حجم (لات)"
+        dir="ltr"
+        type="number"
+        min={0}
+        step={view.lotStep}
+        value={view.volume}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-7 w-16 rounded border border-line bg-chart px-2 text-center font-mono tabular-nums text-fg outline-none focus:border-accent"
+      />
+    </label>
+  );
+}
+
+function DemoTicket({ account, symbol }: { account: DemoAccount | null; symbol: string }) {
+  if (!account) return <TicketShell view={null} symbol={symbol} />;
+  return <LiveTicket account={account} symbol={symbol} />;
+}
+
+function LiveTicket({ account, symbol }: { account: DemoAccount; symbol: string }) {
+  const view = useDemo(account);
+  return (
+    <TicketShell
+      view={view}
+      symbol={symbol}
+      onBuy={() => account.market('buy')}
+      onSell={() => account.market('sell')}
+      onVolume={(v) => account.setVolume(v)}
+      onClose={(id) => account.close(id)}
+    />
+  );
+}
+
+function TicketShell({
+  view,
+  symbol,
+  onBuy,
+  onSell,
+  onVolume,
+  onClose,
+}: {
+  view: DemoView | null;
+  symbol: string;
+  onBuy?: () => void;
+  onSell?: () => void;
+  onVolume?: (volume: number) => void;
+  onClose?: (id: string) => void;
+}) {
+  const floating = view?.floating ?? 0;
   return (
     <aside
       className="hidden w-[214px] shrink-0 flex-col border-s border-line bg-panel text-[12px] text-fg lg:flex"
@@ -67,27 +165,92 @@ function DemoTicket({ app, symbol }: { app: ChartApp | null; symbol: string }) {
     >
       <div className="border-b border-line px-3 py-2.5">
         <div className="text-[11px] text-muted">حساب تمرینی</div>
-        <div className="mt-0.5 text-[15px] font-semibold tabular-nums">۱۰٬۰۰۰ دلار</div>
-      </div>
-      <div className="flex border-b border-line">
-        <div className="flex flex-1 flex-col items-start bg-down/15 px-3 py-2 text-down">
-          <span className="text-[11px] font-semibold">فروش</span>
-          <span className="font-mono text-[13px] font-semibold tabular-nums" dir="ltr">
-            {bid === null ? '—' : formatPx(symbol, bid)}
-          </span>
+        <div className="mt-0.5 font-mono text-[15px] font-semibold tabular-nums" dir="ltr">
+          {view ? money(view.equity) : '$10,000.00'}
         </div>
-        <div className="flex flex-1 flex-col items-end bg-accent/15 px-3 py-2 text-accent">
-          <span className="text-[11px] font-semibold">خرید</span>
-          <span className="font-mono text-[13px] font-semibold tabular-nums" dir="ltr">
-            {ask === null ? '—' : formatPx(symbol, ask)}
-          </span>
-        </div>
+        {view && view.positions.length > 0 ? (
+          <div className={`text-[11px] ${floating >= 0 ? 'text-up' : 'text-down'}`}>
+            <span className="font-mono tabular-nums" dir="ltr">
+              {signedMoney(floating)}
+            </span>{' '}
+            باز
+          </div>
+        ) : null}
       </div>
-      <p className="flex-1 px-3 py-3 text-[11.5px] leading-6 text-muted">
-        بازپخش روشن است. ابزار ترسیم را از نوار کناری بردارید، زوم کنید، یا پخش را نگه دارید.
-        معامله روی حساب بعد از ورود ثبت می‌شود.
-      </p>
+      <div className="border-b border-line">
+        <QuoteButtons
+          view={view}
+          symbol={symbol}
+          testId="demo"
+          onBuy={() => onBuy?.()}
+          onSell={() => onSell?.()}
+        />
+      </div>
+      {view && onVolume ? (
+        <div className="border-b border-line">
+          <LotField view={view} onChange={onVolume} />
+        </div>
+      ) : null}
+      {view?.error ? (
+        <p className="px-3 pb-2 text-[11px] leading-5 text-down">{view.error}</p>
+      ) : null}
+      {view && view.positions.length > 0 ? (
+        <ul className="min-h-0 flex-1 overflow-y-auto border-t border-line">
+          {view.positions.map((p) => (
+            <li key={p.id} className="flex items-center gap-2 border-b border-line px-3 py-2">
+              <span className={p.side === 'buy' ? 'text-accent' : 'text-down'}>
+                {p.side === 'buy' ? 'خرید' : 'فروش'}
+              </span>
+              <span className="font-mono tabular-nums text-muted" dir="ltr">
+                {p.volume}
+              </span>
+              <span
+                className={`flex-1 text-end font-mono tabular-nums ${p.pnl >= 0 ? 'text-up' : 'text-down'}`}
+                dir="ltr"
+              >
+                {signedMoney(p.pnl)}
+              </span>
+              <button
+                type="button"
+                aria-label="بستن پوزیشن"
+                onClick={() => onClose?.(p.id)}
+                className="cursor-pointer text-muted hover:text-fg"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="flex-1 px-3 py-3 text-[11.5px] leading-6 text-muted">
+          خرید یا فروش، پوزیشن را روی همین نمودار باز می‌کند. برای بستن، × روی خط قیمت را بزنید.
+        </p>
+      )}
     </aside>
+  );
+}
+
+/** Buy / sell for viewports where the side ticket is hidden. */
+function DemoQuick({ account, symbol }: { account: DemoAccount; symbol: string }) {
+  const view = useDemo(account);
+  return (
+    <div className="border-t border-line bg-panel px-2 py-1.5 lg:hidden">
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1 overflow-hidden rounded-md border border-line">
+          <QuoteButtons
+            view={view}
+            symbol={symbol}
+            testId="demo-quick"
+            onBuy={() => account.market('buy')}
+            onSell={() => account.market('sell')}
+          />
+        </div>
+        <LotField view={view} compact onChange={(v) => account.setVolume(v)} />
+      </div>
+      {view.error ? (
+        <p className="px-1 pt-1 text-[11px] leading-5 text-down">{view.error}</p>
+      ) : null}
+    </div>
   );
 }
 
@@ -102,6 +265,7 @@ function ChartShell({
 }) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [app, setApp] = useState<ChartApp | null>(null);
+  const [account, setAccount] = useState<DemoAccount | null>(null);
   const [init] = useState<{
     symbol: string;
     timeframe: TimeframeId;
@@ -127,6 +291,7 @@ function ChartShell({
     );
     const disconnect = connectBridge(instance);
     appRef.current = instance;
+    let broker: DemoBroker | null = null;
     let cancelled = false;
     void instance
       .start()
@@ -137,16 +302,21 @@ function ChartShell({
         const at = Math.max(48, Math.min(n - 24, Math.floor(n * 0.68)));
         await instance.replay.selectBar(at);
         if (cancelled) return;
+        broker = new DemoBroker(instance, init.symbol);
         instance.replay.setSpeed(1);
         instance.replay.play();
-        if (!cancelled) setApp(instance);
+        if (cancelled) return;
+        setAccount(broker.account);
+        setApp(instance);
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
+      broker?.destroy();
       appRef.current = null;
       disconnect();
       instance.destroy();
+      setAccount(null);
       setApp(null);
     };
   }, [init, appRef]);
@@ -177,8 +347,9 @@ function ChartShell({
             ) : null}
             <LoadingOverlay />
           </main>
-          <DemoTicket app={app} symbol={init.symbol} />
+          <DemoTicket account={account} symbol={init.symbol} />
         </div>
+        {account ? <DemoQuick account={account} symbol={init.symbol} /> : null}
         {app ? <ReplayBar /> : <div className="h-11 shrink-0 border-t border-line bg-panel" />}
         {app ? (
           <>

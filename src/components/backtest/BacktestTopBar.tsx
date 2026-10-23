@@ -18,6 +18,7 @@ import { useUiStore } from '../state/ui-store';
 import { ChartTypeMenu } from '../toolbar/ChartTypeMenu';
 import { TimeframeBar } from '../toolbar/TimeframeBar';
 import { Divider } from '../ui/Divider';
+import { statsHref } from '../home/stats-href';
 import { Icon } from '../ui/Icon';
 import { IconButton } from '../ui/IconButton';
 import type { IconName } from '../ui/icons';
@@ -98,7 +99,7 @@ export function BacktestTopBar() {
   return (
     <header
       dir="ltr"
-      className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-panel/95 px-2 text-[13px] text-fg backdrop-blur-md [scrollbar-width:none]"
+      className="@container/bar flex h-11 shrink-0 items-center gap-1 overflow-clip border-b border-line bg-panel/95 px-2 text-[13px] text-fg backdrop-blur-md"
     >
       {/* Back to Sessions */}
       <Tooltip label="بازگشت به جلسه‌ها">
@@ -141,7 +142,9 @@ export function BacktestTopBar() {
             }`}
             aria-hidden="true"
           />
-          <span className="text-[13px] font-bold tracking-wide text-fg">{name || '…'}</span>
+          <span className="max-w-30 truncate text-[13px] font-bold tracking-wide text-fg">
+            {name || '…'}
+          </span>
         </div>
 
         <Tooltip label="سفارش جدید" shortcut="Alt + N">
@@ -175,7 +178,7 @@ export function BacktestTopBar() {
         button={
           <>
             <Icon name="activity" size={15} />
-            <span className="hidden md:inline">اندیکاتورها</span>
+            <span className="hidden @min-[1280px]/bar:inline">اندیکاتورها</span>
           </>
         }
       >
@@ -213,7 +216,7 @@ export function BacktestTopBar() {
         button={
           <>
             <FlowMark />
-            <span className="hidden lg:inline">جریان سفارش</span>
+            <span className="hidden @min-[1400px]/bar:inline">جریان سفارش</span>
             <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[9.5px] font-bold leading-none text-accent">
               NEW
             </span>
@@ -253,28 +256,28 @@ export function BacktestTopBar() {
         )}
       </Drop>
 
-      <div className="min-w-2 flex-1" />
+      <div className="min-w-0 flex-1" />
 
       {/* Session Navigation & Quick Links */}
       {snap ? (
-        <div className="flex items-center gap-1">
+        <div className="hidden items-center gap-1 @min-[1120px]/bar:flex">
           <Tooltip label="دفتر معاملات">
             <Link
               href={`/backtest/${snap.id}/journal`}
               className={`${ghost} gap-1.5 px-2 text-[12.5px] font-medium`}
             >
               <Icon name="journal" size={15} />
-              <span className="hidden xl:inline">دفتر</span>
+              <span className="hidden @min-[1400px]/bar:inline">دفتر</span>
             </Link>
           </Tooltip>
           <Tooltip label="تحلیل عملکرد جلسه">
             <Link
-              href={`/backtest/${snap.id}/analytics`}
+              href={statsHref(snap.id)}
               data-testid="open-analytics"
               className={`${ghost} gap-1.5 px-2 text-[12.5px] font-medium`}
             >
               <Icon name="chart" size={15} />
-              <span className="hidden lg:inline">تحلیل</span>
+              <span className="hidden @min-[1280px]/bar:inline">تحلیل</span>
             </Link>
           </Tooltip>
         </div>
@@ -283,7 +286,7 @@ export function BacktestTopBar() {
       {/* Session Dropdown Capsule */}
       <Drop
         label="جلسه"
-        className="max-w-44 gap-1.5 rounded-lg bg-chart/65 px-2 text-fg ring-1 ring-inset ring-line/80"
+        className="min-w-0 max-w-32 gap-1.5 overflow-hidden rounded-lg bg-chart/65 px-2 text-fg ring-1 ring-inset ring-line/80 @min-[1200px]/bar:max-w-44"
         button={
           <>
             {snap ? (
@@ -295,7 +298,7 @@ export function BacktestTopBar() {
                 {prop ? 'پراپ' : 'شخصی'}
               </span>
             ) : null}
-            <span className="truncate text-[12.5px] font-semibold">
+            <span className="min-w-0 truncate text-[12.5px] font-semibold">
               {snap?.settings.name ?? 'جلسه'}
             </span>
             <Icon name="chevronDown" size={13} className="shrink-0 text-muted" />
@@ -347,7 +350,7 @@ export function BacktestTopBar() {
                   <span>دفتر معاملات</span>
                 </Link>
                 <Link
-                  href={`/backtest/${snap.id}/analytics`}
+                  href={statsHref(snap.id)}
                   onClick={close}
                   className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
                 >
@@ -422,21 +425,23 @@ export function BacktestTopBar() {
       <Divider />
 
       {/* Utility Icons */}
-      <div className="flex items-center gap-0.5">
-        <IconButton
-          icon="palette"
-          label="پوسته‌ها"
-          onClick={() => openDialog({ type: 'theme-editor' })}
-          size={16}
-        />
-        <IconButton
-          icon="keyboard"
-          label="میانبرها"
-          shortcut="?"
-          onClick={() => openModal({ type: 'shortcuts' })}
-          size={16}
-        />
-        <IconButton icon="camera" label="ذخیره تصویر نمودار" onClick={shoot} size={16} />
+      <div className="flex shrink-0 items-center gap-0.5">
+        <span className="hidden @min-[1200px]/bar:contents">
+          <IconButton
+            icon="palette"
+            label="پوسته‌ها"
+            onClick={() => openDialog({ type: 'theme-editor' })}
+            size={16}
+          />
+          <IconButton
+            icon="keyboard"
+            label="میانبرها"
+            shortcut="?"
+            onClick={() => openModal({ type: 'shortcuts' })}
+            size={16}
+          />
+          <IconButton icon="camera" label="ذخیره تصویر نمودار" onClick={shoot} size={16} />
+        </span>
         <IconButton
           icon="settings"
           label="تنظیمات نمودار"
@@ -484,7 +489,7 @@ function LayoutControl({
   };
 
   return (
-    <div className="hidden items-center rounded-lg bg-chart/50 ring-1 ring-inset ring-line/70 xl:flex">
+    <div className="hidden items-center rounded-lg bg-chart/50 ring-1 ring-inset ring-line/70 @min-[1400px]/bar:flex">
       <Tooltip label="ذخیره چیدمان فعلی">
         <button
           type="button"

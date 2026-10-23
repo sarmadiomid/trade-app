@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { BacktestRuntime, browserBacktestServices, type BacktestController } from '@/lib/app';
 import { setDisplayUtc } from '@/lib/core';
@@ -13,6 +12,7 @@ import { BacktestTopBar } from './BacktestTopBar';
 import { BacktestModals } from './BacktestModals';
 import { BacktestContext } from './context';
 import { lots } from './format';
+import { statsHref } from '../home/stats-href';
 import { usePracticeClock } from './practice-time';
 
 const ORDER_FA: Readonly<Record<string, string>> = {
@@ -40,7 +40,6 @@ type Load =
 
 /** Connects the controller's events to the UI stores. */
 function useBridge(c: BacktestController | null): void {
-  const router = useRouter();
   useEffect(() => {
     if (!c) return;
     const store = useBacktestStore.getState();
@@ -51,7 +50,9 @@ function useBridge(c: BacktestController | null): void {
       c.events.on('notice', (n) => toast(n.text, n.level)),
       c.events.on('ended', () => {
         const id = c.session.id;
-        void c.save().finally(() => router.push(`/backtest/${id}/analytics`));
+        void c.save().finally(() => {
+          window.location.assign(statsHref(id));
+        });
       }),
       c.events.on('command', (cmd) => {
         const s = useBacktestStore.getState();
@@ -82,7 +83,7 @@ function useBridge(c: BacktestController | null): void {
       s.toggleProp(false);
       s.setPanelHidden(false);
     };
-  }, [c, router]);
+  }, [c]);
 }
 
 /** One opened backtest session: the chart with FX Replay's trading and replay UI. */

@@ -55,7 +55,7 @@ export function ReplayButton() {
           }`}
         >
           <Icon name="replay" size={16} />
-          <span className="hidden md:inline">{t('Replay')}</span>
+          <span className="hidden @min-[1020px]/bar:inline">{t('Replay')}</span>
         </button>
       </Tooltip>
       <span className="h-4 w-px bg-line/70" />

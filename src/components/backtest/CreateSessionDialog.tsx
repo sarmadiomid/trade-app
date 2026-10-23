@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useMemo, useRef, useState } from 'react';
 import type { BacktestServices } from '@/lib/app';
 import { DAY_MS } from '@/lib/core';
 import {
@@ -10,22 +11,26 @@ import {
   type SessionType,
 } from '@/lib/backtest';
 import { faNum } from '@/lib/locale/jalali';
-import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { ASSET_FA, fromDateInput, toDateInput, utcDate } from './format';
 import { JalaliDateField } from './JalaliField';
 
+const SHELL = '[--dlg-bg:#0b0c0e] [--dlg-line:#1e2026] [--dlg-fg:#f5f6f8]';
 const field =
-  'h-11 w-full rounded-lg border border-line bg-chart px-3 text-[13px] text-fg outline-none placeholder:text-muted focus:border-accent';
+  'h-11 w-full rounded-xl border border-[#23252c] bg-[#0b0c0e] px-3.5 text-[13.5px] text-white outline-none transition placeholder:text-[#686c78] focus:border-[#1d5eff]';
 const numField = `${field} text-left`;
+const dateField =
+  'flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-[#23252c] bg-[#0b0c0e] px-3.5 text-[13.5px] text-white outline-none transition focus:border-[#1d5eff]';
 
 const BALANCE_PRESETS = [
-  { value: 10_000, label: '۱۰ هزار' },
-  { value: 50_000, label: '۵۰ هزار' },
-  { value: 100_000, label: '۱۰۰ هزار' },
-  { value: 250_000, label: '۲۵۰ هزار' },
+  { value: 10_000, label: '$10K' },
+  { value: 50_000, label: '$50K' },
+  { value: 100_000, label: '$100K' },
+  { value: 250_000, label: '$250K' },
 ] as const;
+
+const STRATEGY_SUGGESTIONS = ['پرایس اکشن', 'اسمارت مانی (ICT)', 'شکست ساختار', 'عرضه و تقاضا', 'اسکالپ سشن لندن'] as const;
 
 type Section = 'basics' | 'more';
 
@@ -73,6 +78,8 @@ export function CreateSessionDialog({
   const [tag, setTag] = useState(initial?.strategyTag ?? '');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [presetOpen, setPresetOpen] = useState(false);
+  const strategyInputRef = useRef<HTMLInputElement>(null);
 
   const settings = useMemo((): SessionSettings | null => {
     const s = fromDateInput(start);
@@ -139,38 +146,71 @@ export function CreateSessionDialog({
     <Dialog
       title={heading}
       onClose={onClose}
-      width={860}
+      width={940}
+      className={SHELL}
       initialFocus="input[aria-label='نام جلسه']"
       header={
-        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-4">
-          <h2 className="text-[16px] font-semibold">{heading}</h2>
-          <div className="flex rounded-lg bg-chart p-1" role="tablist" aria-label="نوع جلسه">
-            {(
-              [
-                ['backtesting', 'بک‌تست'],
-                ['prop', 'پراپ'],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                role="tab"
-                aria-selected={type === id}
-                onClick={() => setType(id)}
-                className={`h-7 rounded-md px-3 text-[13px] font-medium transition ${
-                  type === id ? 'bg-hover text-fg' : 'text-muted hover:text-fg'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        <div className="flex h-16 shrink-0 items-center gap-3.5 border-b border-[#1e2026] px-6">
+          <h2 className="text-[20px] font-bold tracking-tight text-white">{heading}</h2>
+          <div
+            className="flex items-center gap-0.5 rounded-full border border-[#22242a] bg-[#0e0f12] p-1"
+            role="tablist"
+            aria-label="نوع جلسه"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={type === 'backtesting'}
+              onClick={() => setType('backtesting')}
+              className={`h-8 rounded-full px-3.5 text-[13px] font-semibold transition ${
+                type === 'backtesting'
+                  ? 'bg-[#1c1d22] text-white'
+                  : 'text-[#7c808d] hover:text-white'
+              }`}
+            >
+              بک‌تست
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={type === 'prop'}
+              onClick={() => setType('prop')}
+              className={`inline-flex h-8 items-center gap-1.5 rounded-full ps-3.5 pe-2 text-[13px] font-semibold transition ${
+                type === 'prop'
+                  ? 'bg-[#1c1d22] text-white'
+                  : 'text-[#7c808d] hover:text-white'
+              }`}
+            >
+              <span>پراپ</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#102042] px-2 py-0.5 text-[11px] font-semibold text-[#4785ff]">
+                <Icon name="bolt" size={11} className="fill-current" />
+                متوسط
+              </span>
+            </button>
           </div>
           <div className="flex-1" />
+          <div className="relative hidden sm:block">
+            <button
+              type="button"
+              aria-haspopup="listbox"
+              aria-expanded={presetOpen}
+              onClick={() => setPresetOpen((v) => !v)}
+              className="inline-flex h-9 items-center gap-2 rounded-full border border-[#23252c] bg-[#16171b] px-3.5 text-[12.5px] font-medium text-[#7c808d] transition hover:border-[#2f323c] hover:text-[#c5cad6]"
+            >
+              <span>بدون پیش‌فرض</span>
+              <Icon name="chevronDown" size={14} />
+            </button>
+            {presetOpen ? (
+              <div className="absolute end-0 top-full z-20 mt-1.5 w-48 rounded-xl border border-[#23252c] bg-[#141519] p-2.5 text-[12px] text-[#7c808d] shadow-2xl">
+                هنوز پیش‌فرضی ذخیره نشده است.
+              </div>
+            ) : null}
+          </div>
           <button
             type="button"
             aria-label="بستن"
             onClick={onClose}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-fg"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#7c808d] transition hover:bg-[#16171b] hover:text-white"
           >
             <Icon name="close" size={18} />
           </button>
@@ -179,77 +219,103 @@ export function CreateSessionDialog({
       footer={
         <>
           {error ? (
-            <p className="min-w-0 flex-1 text-[12.5px] text-down" role="alert">
+            <p className="min-w-0 flex-1 text-[12.5px] text-[#ff6b81]" role="alert">
               {error}
             </p>
           ) : (
             <div className="flex-1" />
           )}
-          <Button variant="ghost" onClick={onClose}>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 px-4 text-[14px] font-semibold text-[#e5e7eb] transition hover:text-white"
+          >
             انصراف
-          </Button>
-          <Button
-            variant="primary"
-            className="h-9 rounded-full px-5"
+          </button>
+          <button
+            type="button"
             disabled={busy}
             onClick={() => void submit()}
             data-testid="create-session-submit"
+            className="h-10 rounded-full bg-[#0d59f2] px-6 text-[14px] font-semibold text-white transition hover:bg-[#1e68ff] disabled:opacity-40"
           >
             {busy ? 'در حال ساخت…' : 'ساخت جلسه'}
-          </Button>
+          </button>
         </>
       }
     >
-      <div className="flex min-h-[440px] flex-col sm:flex-row">
-        <nav className="flex shrink-0 gap-1 border-b border-line p-3 sm:w-[210px] sm:flex-col sm:border-b-0 sm:border-e">
+      <div className="flex min-h-[520px] flex-col sm:flex-row">
+        <nav className="flex shrink-0 gap-1.5 border-b border-[#1e2026] p-4 sm:w-[236px] sm:flex-col sm:border-b-0 sm:border-e">
           <SectionTab
             active={section === 'basics'}
             title="پایه"
-            text="نام، موجودی، نماد و تاریخ"
+            text="نام، موجودی، نماد، قالب و تاریخ‌ها"
             onClick={() => setSection('basics')}
           />
           <SectionTab
             active={section === 'more'}
             title="گزینه‌های بیشتر"
-            text={type === 'prop' ? 'اسپرد، کارمزد و قوانین پراپ' : 'اسپرد و کارمزد'}
+            text={
+              type === 'prop'
+                ? 'اسپرد و کارمزد، اهرم، مارجین و قوانین پراپ'
+                : 'اسپرد و کارمزد، اهرم، مارجین و اسلیپیج'
+            }
             onClick={() => setSection('more')}
           />
         </nav>
-        <div className="min-w-0 flex-1 space-y-5 p-5 text-[13px]">
+        <div className="min-w-0 flex-1 space-y-5 p-5 text-[13.5px] text-white sm:p-6">
           {section === 'basics' ? (
             <>
-              <label className="block space-y-1.5">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#14357a] bg-[#0b1326] px-4 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] font-bold text-white">نگهداری داده‌ها تا ۱ هفته.</p>
+                  <p className="mt-1 text-[12.5px] leading-6 text-[#8a8f9e]">
+                    طرح فعلی شما از نگهداری داده تا ۱ هفته پشتیبانی می‌کند. در صورت نیاز به زمان
+                    بیشتر، طرح خود را ارتقا دهید.
+                  </p>
+                </div>
+                <Link
+                  href="/home/settings"
+                  onClick={onClose}
+                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#0d59f2] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1e68ff]"
+                >
+                  ارتقا
+                </Link>
+              </div>
+
+              <label className="block space-y-2">
                 <FieldLabel required>نام جلسه</FieldLabel>
                 <input
                   aria-label="نام جلسه"
                   aria-invalid={nameMissing}
-                  className={`${field} ${nameMissing ? 'border-down focus:border-down' : ''}`}
+                  className={`${field} ${nameMissing ? 'border-[#ff6b81] focus:border-[#ff6b81]' : ''}`}
                   placeholder="نام جلسه را بنویسید"
                   value={name}
                   maxLength={60}
                   onChange={(e) => setName(e.target.value)}
                 />
-                {nameMissing ? <p className="text-[12px] text-down">این فیلد لازم است</p> : null}
+                {nameMissing ? <p className="text-[12px] text-[#ff6b81]">این فیلد لازم است</p> : null}
               </label>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <FieldLabel required>موجودی حساب</FieldLabel>
-                <div className="flex flex-wrap gap-1 rounded-lg border border-line p-1">
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#1e2026] bg-[#0b0c0e] p-2.5">
                   {BALANCE_PRESETS.map((p) => {
                     const on = !customBalance && balance === p.value;
                     return (
                       <button
                         key={p.value}
                         type="button"
+                        dir="ltr"
                         aria-pressed={on}
                         onClick={() => {
                           setCustomBalance(false);
                           setBalance(p.value);
                         }}
-                        className={`h-8 flex-1 rounded-md px-2 text-[12.5px] font-semibold transition ${
+                        className={`h-9 min-w-[4.75rem] rounded-lg px-4 text-[13px] font-semibold transition ${
                           on
-                            ? 'bg-accent text-accent-fg'
-                            : 'text-muted hover:bg-hover hover:text-fg'
+                            ? 'border border-[#1d5eff] bg-[#0d1528] text-[#4285ff]'
+                            : 'border border-[#262830] bg-[#17181c] text-[#e5e7eb] hover:border-[#343742] hover:text-white'
                         }`}
                       >
                         {p.label}
@@ -260,10 +326,10 @@ export function CreateSessionDialog({
                     type="button"
                     aria-pressed={customBalance}
                     onClick={() => setCustomBalance(true)}
-                    className={`h-8 flex-1 rounded-md px-2 text-[12.5px] font-semibold transition ${
+                    className={`h-9 min-w-[4.75rem] rounded-lg px-4 text-[13px] font-semibold transition ${
                       customBalance
-                        ? 'bg-accent text-accent-fg'
-                        : 'text-muted hover:bg-hover hover:text-fg'
+                        ? 'border border-[#1d5eff] bg-[#0d1528] text-[#4285ff]'
+                        : 'border border-[#262830] bg-[#17181c] text-[#e5e7eb] hover:border-[#343742] hover:text-white'
                     }`}
                   >
                     دلخواه
@@ -280,58 +346,54 @@ export function CreateSessionDialog({
                     value={balance}
                     onChange={(e) => setBalance(Number(e.target.value))}
                   />
-                ) : (
-                  <p className="text-[12px] text-muted">{faNum(balance)} دلار</p>
-                )}
+                ) : null}
               </div>
 
-              <label className="block space-y-1.5">
-                <FieldLabel>برچسب استراتژی</FieldLabel>
-                <input
-                  aria-label="برچسب استراتژی"
-                  className={field}
-                  placeholder="اختیاری؛ برای گروه‌بندی جلسه‌ها"
+              <div className="space-y-2">
+                <FieldLabel>استراتژی</FieldLabel>
+                <StrategyField
+                  inputRef={strategyInputRef}
                   value={tag}
-                  maxLength={40}
-                  onChange={(e) => setTag(e.target.value)}
+                  onChange={setTag}
                 />
-              </label>
-
-              <label className="block space-y-1.5">
-                <FieldLabel required>نماد</FieldLabel>
-                <select
-                  aria-label="نماد"
-                  className={field}
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value)}
+                <button
+                  type="button"
+                  onClick={() => strategyInputRef.current?.focus()}
+                  className="inline-flex items-center gap-1 text-[13px] font-medium text-[#2f74ff] transition hover:text-[#528bff]"
                 >
-                  {instruments.map((i) => (
-                    <option key={i.symbol} value={i.symbol}>
-                      {i.symbol} · {ASSET_FA[i.symbol] ?? i.description}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[12px] leading-6 text-muted">
+                  <span>+ ساخت استراتژی جدید</span>
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <FieldLabel required>نماد</FieldLabel>
+                  <span className="text-[12.5px] text-[#7c808d]">درخواست نماد</span>
+                </div>
+                <SymbolField instruments={instruments} symbol={symbol} onChange={setSymbol} />
+                <p className="text-[12px] leading-6 text-[#7c808d]">
                   هر لات {faNum(spec.contractSize, 0)} واحد، پیپ {faNum(spec.pipSize)}، حجم{' '}
                   {faNum(spec.lotMin)} تا {faNum(spec.lotMax)} لات.
                 </p>
-              </label>
+              </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block space-y-1.5">
+                <label className="block space-y-2">
                   <FieldLabel required>تاریخ شروع</FieldLabel>
                   <JalaliDateField
                     ariaLabel="تاریخ شروع"
+                    className={dateField}
                     value={start}
                     min={toDateInput(range.start)}
                     max={toDateInput(range.end - DAY_MS)}
                     onChange={setStart}
                   />
                 </label>
-                <label className="block space-y-1.5">
+                <label className="block space-y-2">
                   <FieldLabel required>تاریخ پایان</FieldLabel>
                   <JalaliDateField
                     ariaLabel="تاریخ پایان"
+                    className={dateField}
                     value={end}
                     min={start}
                     max={toDateInput(range.end - DAY_MS)}
@@ -339,7 +401,7 @@ export function CreateSessionDialog({
                   />
                 </label>
               </div>
-              <p className="-mt-3 text-[12px] leading-6 text-muted">
+              <p className="-mt-2 text-[12px] leading-6 text-[#7c808d]">
                 {days > 0 ? `${faNum(days)} روز` : ''}
                 {' · '}
                 داده از {utcDate(range.start)} تا {utcDate(range.end - DAY_MS)}. تاریخ شمسی است و
@@ -371,7 +433,7 @@ export function CreateSessionDialog({
               {type === 'prop' ? (
                 <fieldset className="space-y-3">
                   <legend className="text-[13px] font-semibold">قوانین پراپ</legend>
-                  <p className="text-[12px] leading-6 text-muted">درصد موجودی شروع.</p>
+                  <p className="text-[12px] leading-6 text-[#7c808d]">درصد موجودی شروع.</p>
                   <div className="grid gap-3 sm:grid-cols-3">
                     {(
                       [
@@ -381,7 +443,7 @@ export function CreateSessionDialog({
                       ] as const
                     ).map(([k, label]) => (
                       <label key={k} className="block space-y-1.5">
-                        <span className="text-[12px] text-muted">{label}</span>
+                        <span className="text-[12px] text-[#7c808d]">{label}</span>
                         <input
                           aria-label={label}
                           type="number"
@@ -398,7 +460,7 @@ export function CreateSessionDialog({
                   </div>
                 </fieldset>
               ) : null}
-              <label className="block space-y-1.5">
+              <label className="block space-y-2">
                 <FieldLabel>توضیح</FieldLabel>
                 <input
                   aria-label="توضیح"
@@ -416,6 +478,191 @@ export function CreateSessionDialog({
   );
 }
 
+function StrategyField({
+  inputRef,
+  value,
+  onChange,
+}: {
+  readonly inputRef: React.RefObject<HTMLInputElement | null>;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const q = value.trim().toLowerCase();
+  const filtered = STRATEGY_SUGGESTIONS.filter((s) => !q || s.toLowerCase().includes(q));
+
+  return (
+    <div className="relative">
+      <input
+        ref={inputRef}
+        aria-label="برچسب استراتژی"
+        placeholder="انتخاب استراتژی یا ساخت استراتژی جدید"
+        className={`${field} pe-9`}
+        value={value}
+        maxLength={40}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+      />
+      <Icon
+        name="chevronDown"
+        size={15}
+        className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-[#7c808d]"
+      />
+      {open && filtered.length > 0 ? (
+        <ul
+          role="listbox"
+          aria-label="استراتژی‌ها"
+          className="absolute z-20 mt-1 max-h-44 w-full overflow-auto rounded-xl border border-[#23252c] bg-[#141519] py-1 shadow-2xl"
+        >
+          {filtered.map((item) => (
+            <li key={item} role="option" aria-selected={item === value}>
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(item);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between px-3.5 py-2 text-start text-[13px] transition ${
+                  item === value ? 'bg-[#1c1e26] text-white' : 'text-[#9aa3b5] hover:bg-[#181a20] hover:text-white'
+                }`}
+              >
+                <span>{item}</span>
+                {item === value ? <Icon name="check" size={14} className="text-[#2f74ff]" /> : null}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function symbolLabel(symbol: string, description: string): string {
+  return `${symbol} · ${ASSET_FA[symbol] ?? description}`;
+}
+
+function SymbolField({
+  instruments,
+  symbol,
+  onChange,
+}: {
+  readonly instruments: readonly { symbol: string; description: string }[];
+  readonly symbol: string;
+  readonly onChange: (symbol: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const [cursor, setCursor] = useState(0);
+  const selected = instruments.find((item) => item.symbol === symbol);
+  const label = selected ? symbolLabel(selected.symbol, selected.description) : symbol;
+  const q = query.trim().toLowerCase();
+  const items = instruments.filter((item) => {
+    if (!q) return true;
+    const fa = ASSET_FA[item.symbol] ?? '';
+    const raw = query.trim();
+    return (
+      item.symbol.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      fa.toLowerCase().includes(q) ||
+      fa.includes(raw)
+    );
+  });
+  const active = items.length === 0 ? 0 : Math.min(cursor, items.length - 1);
+
+  const pick = (next: string) => {
+    onChange(next);
+    setOpen(false);
+    setQuery('');
+  };
+
+  return (
+    <div className="relative">
+      <input
+        role="combobox"
+        aria-label="نماد"
+        aria-expanded={open}
+        aria-controls="session-symbols"
+        aria-autocomplete="list"
+        placeholder="انتخاب نماد..."
+        className={`${field} pe-9`}
+        value={open ? query : label}
+        onFocus={() => {
+          setOpen(true);
+          setQuery('');
+          setCursor(Math.max(0, instruments.findIndex((item) => item.symbol === symbol)));
+        }}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+          setCursor(0);
+        }}
+        onBlur={() => setOpen(false)}
+        onKeyDown={(e) => {
+          if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+            setOpen(true);
+            return;
+          }
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setCursor((c) => Math.min(items.length - 1, c + 1));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setCursor((c) => Math.max(0, c - 1));
+          } else if (e.key === 'Enter' && items[active]) {
+            e.preventDefault();
+            pick(items[active]!.symbol);
+          } else if (e.key === 'Escape' && open) {
+            e.stopPropagation();
+            setOpen(false);
+            setQuery('');
+          }
+        }}
+      />
+      <Icon
+        name="chevronDown"
+        size={15}
+        className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-[#7c808d]"
+      />
+      {open ? (
+        <ul
+          id="session-symbols"
+          role="listbox"
+          aria-label="نمادها"
+          className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-xl border border-[#23252c] bg-[#141519] py-1 shadow-2xl"
+        >
+          {items.length === 0 ? (
+            <li className="px-3.5 py-2 text-[12.5px] text-[#7c808d]">نمادی پیدا نشد</li>
+          ) : (
+            items.map((item, i) => (
+              <li key={item.symbol} role="option" aria-selected={i === active}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setCursor(i)}
+                  onClick={() => pick(item.symbol)}
+                  className={`flex w-full items-center gap-2 px-3.5 py-2 text-start text-[13px] ${
+                    i === active ? 'bg-[#1c1e26] text-white' : 'text-[#9aa3b5]'
+                  }`}
+                >
+                  <span dir="ltr" className="w-20 shrink-0 font-semibold text-white">
+                    {item.symbol}
+                  </span>
+                  <span className="truncate">{ASSET_FA[item.symbol] ?? item.description}</span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function FieldLabel({
   children,
   required = false,
@@ -424,9 +671,9 @@ function FieldLabel({
   readonly required?: boolean;
 }) {
   return (
-    <span className="text-[13px] font-medium text-fg">
+    <span className="text-[13px] font-medium text-[#d1d5db]">
       {children}
-      {required ? <span className="text-down"> *</span> : null}
+      {required ? <span className="text-[#ef4444]"> *</span> : null}
     </span>
   );
 }
@@ -447,12 +694,14 @@ function SectionTab({
       type="button"
       aria-current={active ? 'true' : undefined}
       onClick={onClick}
-      className={`rounded-xl px-3 py-2.5 text-start transition ${
-        active ? 'border border-line bg-chart' : 'border border-transparent hover:bg-hover'
+      className={`rounded-xl px-4 py-3.5 text-start transition ${
+        active ? 'bg-[#17181c]' : 'hover:bg-[#17181c]/55'
       }`}
     >
-      <span className="block text-[13px] font-semibold">{title}</span>
-      <span className="mt-0.5 block text-[11.5px] leading-5 text-muted">{text}</span>
+      <span className={`block text-[14.5px] font-bold ${active ? 'text-white' : 'text-[#d1d5db]'}`}>
+        {title}
+      </span>
+      <span className="mt-1 block text-[12px] leading-5 text-[#7c808d]">{text}</span>
     </button>
   );
 }
@@ -477,11 +726,11 @@ function CostRow({
   readonly onValue: (value: number) => void;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 rounded-xl border border-[#1e2026] bg-[#111216] p-4">
       <div className="flex items-center justify-between gap-3">
         <span>
-          <span className="block font-medium">{label}</span>
-          <span className="text-[12px] text-muted">{hint}</span>
+          <span className="block font-medium text-white">{label}</span>
+          <span className="text-[12px] text-[#7c808d]">{hint}</span>
         </span>
         <button
           type="button"
@@ -490,7 +739,7 @@ function CostRow({
           aria-label={label}
           onClick={() => onToggle(!on)}
           className={`flex h-6 w-11 shrink-0 rounded-full p-0.5 transition ${
-            on ? 'justify-end bg-accent' : 'justify-start bg-line'
+            on ? 'justify-end bg-[#0d59f2]' : 'justify-start bg-[#23252c]'
           }`}
         >
           <span className="h-5 w-5 rounded-full bg-white" />

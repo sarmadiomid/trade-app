@@ -120,8 +120,8 @@ export function PnlCalendar({
             !b || Math.abs(b.pnl) < 0.005
               ? 'transparent'
               : b.pnl > 0
-                ? `rgba(8,153,129,${alpha})`
-                : `rgba(242,54,69,${alpha})`;
+                ? `rgba(47,206,154,${alpha})`
+                : `rgba(255,93,115,${alpha})`;
           return (
             <div
               key={cell.t}

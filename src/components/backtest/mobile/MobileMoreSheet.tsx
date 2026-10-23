@@ -8,6 +8,7 @@ import { drawingRegistry } from '@/lib/drawings';
 import { useApp } from '../../state/app-context';
 import { useUiStore } from '../../state/ui-store';
 import { Icon } from '../../ui/Icon';
+import { statsHref } from '../../home/stats-href';
 import type { IconName } from '../../ui/icons';
 import { MobileSheet } from '../../chart/mobile/MobileSheet';
 import {
@@ -218,7 +219,7 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
               label="Positions and orders"
               onClick={() => setPanel('positions')}
             />
-            <Tile span={2} icon="chart" label="Analytics" href={`/backtest/${snap.id}/analytics`} />
+            <Tile span={2} icon="chart" label="Analytics" href={statsHref(snap.id)} />
             <Tile span={3} icon="front" label="Layouts" onClick={() => setPanel('layouts')} />
             <Tile
               span={3}

@@ -63,12 +63,14 @@ export function JalaliDateField({
   max,
   onChange,
   ariaLabel,
+  className,
 }: {
   readonly value: string;
   readonly min?: string;
   readonly max?: string;
   readonly onChange: (value: string) => void;
   readonly ariaLabel: string;
+  readonly className?: string;
 }) {
   const current = gregorianInputToJalali(value) ?? { jy: 1403, jm: 1, jd: 1 };
   const [open, setOpen] = useState(false);
@@ -119,7 +121,10 @@ export function JalaliDateField({
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openCalendar())}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-line bg-chart px-2.5 text-[13px] text-fg outline-none focus:border-accent"
+        className={
+          className ??
+          'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-line bg-chart px-2.5 text-[13px] text-fg outline-none focus:border-accent'
+        }
       >
         <span>{labelOf(current)}</span>
         <Icon name="calendar" size={15} className="shrink-0 text-muted" />

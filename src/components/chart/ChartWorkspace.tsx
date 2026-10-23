@@ -171,7 +171,8 @@ export default function ChartWorkspace({
           <div className="chart-mob h-10 w-full shrink-0 items-center gap-1 border-b border-line bg-panel px-1.5">
             {toolbarStart}
             <div className="min-w-0 flex-1" />
-            {toolbarEnd}
+            {/* CSS hides this bar on desktop, but React still mounts it. Wait for the chart so slots can call useApp(). */}
+            {app ? toolbarEnd : null}
           </div>
         )}
         <div className="flex min-h-0 flex-1">

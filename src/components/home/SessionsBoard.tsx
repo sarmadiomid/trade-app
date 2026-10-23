@@ -7,6 +7,7 @@ import { accountConfig, computeStats, equityCurve, type SessionSummary } from '@
 import { faDigits, JALALI_MONTHS, JALALI_WEEKDAYS, utcToJalali } from '@/lib/locale/jalali';
 import { faNum, money, signedMoney, utcDate } from '../backtest/format';
 import { remainingDays } from './overview';
+import { statsHref } from './stats-href';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
@@ -247,7 +248,7 @@ export function SessionsBoard({
             {menu ? (
               <div className="absolute end-0 z-20 mt-1 w-40 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-1 shadow-2xl">
                 <Link
-                  href={`/backtest/${summary.id}/analytics`}
+                  href={statsHref(summary.id)}
                   className="block rounded-lg px-3 py-2 text-[13px] hover:bg-[var(--h-chip)]"
                   onClick={() => setMenu(false)}
                 >

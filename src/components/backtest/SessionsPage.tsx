@@ -11,6 +11,7 @@ import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { CreateSessionDialog } from './CreateSessionDialog';
+import { statsHref } from '../home/stats-href';
 import { faNum, money, pnlClass, signedMoney, utcDate, utcDateTime } from './format';
 
 const STATUS = {
@@ -135,7 +136,7 @@ export default function SessionsPage() {
                       {s.status === 'in-progress' ? 'ادامه' : 'باز کردن'}
                     </Link>
                     <Link
-                      href={`/backtest/${s.id}/analytics`}
+                      href={statsHref(s.id)}
                       className="inline-flex h-8 items-center rounded-md border border-line px-3 text-[13px] hover:bg-hover"
                     >
                       عملکرد

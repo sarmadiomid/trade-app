@@ -7,6 +7,7 @@ import { outcomeOf, type SessionSummary, type SessionType } from '@/lib/backtest
 import { faDigits, utcToJalali } from '@/lib/locale/jalali';
 import { dropPracticeTime, readPracticeStore, type PracticeStore } from '../backtest/practice-time';
 import { faNum, money } from '../backtest/format';
+import { statsHref } from './stats-href';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
@@ -234,9 +235,9 @@ export function PracticeOverview({
           icon={null}
           path={BOOK}
           title="آموزش"
-          text="بیشتر بدانید"
-          hint="درس‌های تمرین روی نمودار."
-          href="/lessons"
+          text="به زودی"
+          hint="درس‌ها هنوز باز نشده‌اند."
+          href="/home/learn"
         />
       </div>
 
@@ -832,7 +833,7 @@ function SessionRow({
         <Link
           href={`/backtest/${session.id}`}
           aria-label={`ادامه ${session.name}`}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2f6bff] text-white shadow-[0_0_16px_rgba(47,107,255,0.45)]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#0d59f2] text-white shadow-[0_0_16px_rgba(13,89,242,0.45)] transition hover:bg-[#1e68ff]"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M8 5v14l12-7z" fill="currentColor" />
@@ -875,7 +876,7 @@ function SessionRow({
           name="journal"
         />
         <Link
-          href={`/backtest/${session.id}/analytics`}
+          href={statsHref(session.id)}
           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--h-line)] px-3 text-[12px] font-medium transition hover:bg-[var(--h-chip)]"
         >
           <Icon name="chart" size={14} />

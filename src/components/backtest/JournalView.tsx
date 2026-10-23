@@ -14,6 +14,7 @@ import {
   type Trade,
 } from '@/lib/backtest';
 import { useThemeCssVars } from '../hooks/useThemeCssVars';
+import { statsHref } from '../home/stats-href';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import {
@@ -98,7 +99,7 @@ export default function JournalView({ id }: { readonly id: string }) {
         </h1>
         <div className="flex-1" />
         <Link
-          href={`/backtest/${id}/analytics`}
+          href={statsHref(id)}
           className="inline-flex h-8 items-center rounded-md border border-line px-3 text-[13px] hover:bg-hover"
         >
           عملکرد

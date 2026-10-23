@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { browserBacktestServices } from '@/lib/app';
 import type { SessionSummary, SessionType } from '@/lib/backtest';
@@ -13,6 +14,16 @@ import { PracticeOverview, PracticeSkeleton } from './PracticeOverview';
 import { signedMoney } from '../backtest/format';
 import { HOME_ICONS, HomeShell, ShellMenuButton, ShellTools } from './HomeShell';
 import { SessionsBoard } from './SessionsBoard';
+import { statsHref } from './stats-href';
+
+const AnalyticsDashboard = dynamic(() => import('../backtest/analytics/AnalyticsDashboard'), {
+  ssr: false,
+  loading: () => (
+    <p className="px-4 py-8 text-center text-[13px] text-[var(--h-muted)] sm:px-8">
+      در حال بارگذاری…
+    </p>
+  ),
+});
 import { api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
@@ -53,9 +64,22 @@ function pnlTone(v: number): string {
 }
 
 /** `/home`: practice hub. Sidebar, tabs and the two session starters follow the reference layout, in RTL. */
-export function HomeDashboard({ user }: { readonly user: Me }) {
+export function HomeDashboard({
+  user,
+  initialTab = 'dashboard',
+  sessionId = null,
+}: {
+  readonly user: Me;
+  readonly initialTab?: Tab;
+  readonly sessionId?: string | null;
+}) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('dashboard');
+  const pathname = usePathname();
+  const params = useParams();
+  const routeSession =
+    pathname.startsWith('/home/stats/') && typeof params.id === 'string' ? params.id : null;
+  const tab = routeSession ? 'stats' : initialTab;
+  const statsSession = routeSession ?? sessionId;
   const [creating, setCreating] = useState<SessionType | null>(null);
   const [active, setActive] = useState<BattleSummary | null | 'error'>(null);
   const [sessions, setSessions] = useState<SessionSummary[] | null | 'error'>(null);
@@ -81,6 +105,19 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
   const streak = sessions && sessions !== 'error' ? practiceStreak(list) : 0;
   const battle = active && active !== 'error' ? active : null;
   const notices = (battle ? 1 : 0) + list.filter((s) => s.status === 'in-progress').length;
+
+  const openTab = (id: Tab) => {
+    if (id === 'stats') {
+      const sid = statsSession ?? list[0]?.id ?? null;
+      router.push(sid ? statsHref(sid) : '/home?tab=stats');
+      return;
+    }
+    router.push(id === 'dashboard' ? '/home' : `/home?tab=${id}`);
+  };
+
+  const openStats = (id: string) => {
+    router.push(statsHref(id));
+  };
 
   return (
     <HomeShell
@@ -142,7 +179,7 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
                 type="button"
                 role="tab"
                 aria-selected={on}
-                onClick={() => setTab(t.id)}
+                onClick={() => openTab(t.id)}
                 className={`inline-flex h-11 shrink-0 items-center gap-2 border-b-2 px-3 text-[14px] font-medium transition ${
                   on
                     ? 'border-[var(--h-text)] text-[var(--h-text)]'
@@ -181,7 +218,11 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
         ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {tab === 'dashboard' ? (
+          {routeSession ? (
+            <div data-testid="session-analytics">
+              <AnalyticsDashboard key={routeSession} id={routeSession} embedded />
+            </div>
+          ) : tab === 'dashboard' ? (
             sessions === null ? (
               <PracticeSkeleton />
             ) : sessions === 'error' ? (
@@ -204,7 +245,7 @@ export function HomeDashboard({ user }: { readonly user: Me }) {
           ) : tab === 'trades' ? (
             <TradeList sessions={sessions} />
           ) : (
-            <Stats sessions={sessions} />
+            <StatsPane sessions={sessions} sessionId={statsSession} onPick={openStats} />
           )}
         </div>
       </div>
@@ -461,40 +502,69 @@ function TradeList({ sessions }: { readonly sessions: SessionSummary[] | null | 
   );
 }
 
-function Stats({ sessions }: { readonly sessions: SessionSummary[] | null | 'error' }) {
+function StatsPane({
+  sessions,
+  sessionId,
+  onPick,
+}: {
+  readonly sessions: SessionSummary[] | null | 'error';
+  readonly sessionId: string | null;
+  readonly onPick: (id: string) => void;
+}) {
+  if (sessionId) {
+    const choices = sessions && sessions !== 'error' ? sessions : [];
+    return (
+      <div>
+        {choices.length > 1 ? (
+          <div className="px-4 pt-4 sm:px-8">
+            <label className="inline-flex items-center gap-2 text-[13px] text-[var(--h-muted)]">
+              جلسه
+              <select
+                aria-label="جلسه"
+                className="h-9 rounded-lg border border-[var(--h-line)] bg-[var(--h-field)] px-2 text-[13px] text-[var(--h-text)]"
+                value={sessionId}
+                onChange={(e) => onPick(e.target.value)}
+              >
+                {choices.some((s) => s.id === sessionId) ? null : (
+                  <option value={sessionId}>این جلسه</option>
+                )}
+                {choices.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        ) : null}
+        <AnalyticsDashboard id={sessionId} embedded />
+      </div>
+    );
+  }
   if (sessions === null) return <Skeleton />;
   if (sessions === 'error') return <Note text="آمار بارگذاری نشد." />;
-  const pnl = sessions.reduce((n, s) => n + (s.balance - s.startingBalance), 0);
-  const trades = sessions.reduce((n, s) => n + s.trades, 0);
-  const tiles = [
-    ['جلسه‌ها', faNum(sessions.length)],
-    ['در جریان', faNum(sessions.filter((s) => s.status === 'in-progress').length)],
-    ['تمام‌شده', faNum(sessions.filter((s) => s.status === 'completed').length)],
-    ['معاملات', faNum(trades)],
-  ] as const;
+  if (sessions.length === 0) {
+    return <Note text="هنوز جلسه‌ای نیست. از داشبورد یک جلسه بسازید تا آمارش این‌جا بیاید." />;
+  }
   return (
     <Panel>
-      <h2 className="mb-3 text-[15px] font-semibold">آمار تمرین</h2>
-      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {tiles.map(([k, v]) => (
-          <div
-            key={k}
-            className="rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-3 py-3"
-          >
-            <dt className="text-[12px] text-[var(--h-muted)]">{k}</dt>
-            <dd className="mt-1 text-[20px] font-bold tabular-nums">{v}</dd>
-          </div>
+      <h2 className="mb-3 text-[15px] font-semibold">یک جلسه را انتخاب کنید</h2>
+      <ul className="flex flex-col gap-2">
+        {sessions.map((s) => (
+          <li key={s.id}>
+            <button
+              type="button"
+              onClick={() => onPick(s.id)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-3 text-start transition hover:border-[var(--h-accent)]/40"
+            >
+              <span className="min-w-0 truncate text-[14px] font-semibold">{s.name}</span>
+              <bdi dir="ltr" className="shrink-0 text-[12px] text-[var(--h-muted)]">
+                {s.symbol}
+              </bdi>
+            </button>
+          </li>
         ))}
-      </dl>
-      <div className="mt-3 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-3">
-        <p className="text-[12px] text-[var(--h-muted)]">برآیند حساب‌ها</p>
-        <p className={`mt-1 text-[22px] font-bold tabular-nums ${pnlTone(pnl)}`}>
-          {signedMoney(pnl)}
-        </p>
-        <p className="mt-1 text-[12px] leading-6 text-[var(--h-muted)]">
-          جمع سود و زیان بسته‌شدهٔ جلسه‌ها نسبت به موجودی شروع. ارقام به دلار حساب مجازی است.
-        </p>
-      </div>
+      </ul>
     </Panel>
   );
 }
