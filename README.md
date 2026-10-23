@@ -44,6 +44,29 @@ npm run typecheck  # tsc --noEmit
 npm run check      # typecheck + lint + test
 ```
 
+### Docker
+
+Production joins the shared VPS Docker network `infra` and uses that MongoDB
+(`MONGODB_URI` in `.env`). There is no Mongo service in `compose.yaml`.
+
+```bash
+cp .env.example .env   # set AUTH_SECRET + MONGODB_URI (infra hostname)
+docker compose up --build                                    # VPS / production
+docker compose -f compose.yaml -f compose.dev.yaml up --build # local + Mongo
+# http://localhost:3000
+```
+
+### CI/CD
+
+Same pattern as Nofelloshato: on PRs/pushes to `main`, GitHub Actions runs
+`npm run check`, a Next.js build, and `docker compose config`. Pushes to `main`
+(and manual `workflow_dispatch`) SSH into the VPS, `git pull`, and
+`docker compose up -d --build --remove-orphans`.
+
+Repo secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_DEPLOY_PATH`
+(optional `VPS_SSH_PORT`, default 22). On the VPS, `.env` must point
+`MONGODB_URI` at the shared Mongo container on `infra`.
+
 These URL options help with testing:
 
 | Query                 | Effect                                                                 |

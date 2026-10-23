@@ -1,0 +1,35 @@
+# Production stack (VPS deploy uses this via `docker compose up`).
+# Expects shared MongoDB on the external Docker network `infra`.
+# Local hot-reload + local Mongo:
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+#
+#   cp .env.example .env   # set AUTH_SECRET and MONGODB_URI
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: tradingchart:latest
+    ports:
+      - "${BIND:-127.0.0.1:3000}:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # Hostname must resolve on the shared `infra` network (e.g. mongo / mongodb).
+      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in .env}
+      MONGODB_DB: ${MONGODB_DB:-tradingchart}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+      BINANCE_BASE_URL: ${BINANCE_BASE_URL:-}
+      KAVENEGAR_API_KEY: ${KAVENEGAR_API_KEY:-}
+      KAVENEGAR_TEMPLATE: ${KAVENEGAR_TEMPLATE:-}
+    networks:
+      - infra
+    restart: unless-stopped
+
+networks:
+  infra:
+    external: true
+    name: infra

@@ -1,0 +1,54 @@
+# Local development: own Mongo + non-external network (no VPS `infra` required).
+#   docker compose -f compose.yaml -f compose.dev.yaml up --build
+#
+# AUTH_SECRET / MONGODB_URI fallbacks are for local one-command startup only.
+
+services:
+  app:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+      AUTH_SECRET: ${AUTH_SECRET:-dev-only-change-me}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017}
+      MONGODB_DB: ${MONGODB_DB:-tradingchart}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: ./package.json
+        - action: rebuild
+          path: ./package-lock.json
+        - action: sync+restart
+          path: ./next.config.ts
+          target: /app/next.config.ts
+
+  mongo:
+    image: mongo:7.0
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - infra
+    restart: unless-stopped
+
+networks:
+  # Override production's external `infra` so local runs don't need the VPS network.
+  infra:
+    name: trade-app-dev
+    external: false
+
+volumes:
+  mongo-data:

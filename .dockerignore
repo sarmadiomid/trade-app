@@ -1,0 +1,60 @@
+# Version control
+.git/
+.gitignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+LICENSE
+docs/
+
+# Docker files (avoid recursive inclusion)
+Dockerfile*
+compose.yaml
+compose.*.yaml
+compose.dev.yaml
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+
+# Environment and secrets
+**/.npmrc
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js / build
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Test
+tests/
+vitest.config.ts
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
