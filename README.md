@@ -31,6 +31,7 @@ only for UI state.
 - Layered canvases with dirty flags, viewport culling and level-of-detail decimation. With 50k
   candles on screen, a frame costs about 5 ms of JS.
 
+
 ## Getting started
 
 ```bash
