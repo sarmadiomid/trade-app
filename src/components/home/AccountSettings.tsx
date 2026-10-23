@@ -731,10 +731,11 @@ function deviceLabel(): string {
 
 /** Current browser as the one active device. The cap is two. */
 function DevicesPane() {
-  const [name, setName] = useState('این مرورگر');
-  useEffect(() => {
-    setName(deviceLabel());
-  }, []);
+  const name = useSyncExternalStore(
+    () => () => {},
+    deviceLabel,
+    () => 'این مرورگر',
+  );
   const used = 1;
   const free = DEVICE_MAX - used;
   return (
