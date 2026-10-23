@@ -27,8 +27,12 @@ export function PriceSkipperBar() {
   const propOpen = useBacktestStore((s) => s.propOpen);
   const panelHidden = useBacktestStore((s) => s.panelHidden);
   const setPanelHidden = useBacktestStore((s) => s.setPanelHidden);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
+  const allowRewind = useBacktestStore((s) => s.allowRewind);
+  const sessionLinks = useBacktestStore((s) => s.sessionLinks);
   if (!snap) return null;
   const ended = snap.status !== 'active';
+  const blocked = ended || !actionsEnabled;
   const atStart = snap.cursor <= snap.start;
   const detailsOpen = !panelHidden;
   const open = snap.positions.length > 0;
@@ -40,7 +44,7 @@ export function PriceSkipperBar() {
       role="region"
       aria-label="نوار بازپخش"
       dir="rtl"
-      className="relative grid h-[3.25rem] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-line bg-panel px-2.5 text-[13px]"
+      className="relative grid h-[3.25rem] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 overflow-x-auto border-t border-line bg-panel px-2.5 text-[13px]"
     >
       <div
         className="absolute inset-x-0 -top-px h-0.5 bg-line/60"
@@ -70,7 +74,7 @@ export function PriceSkipperBar() {
           label="یک کندل به عقب"
           shortcut={chordLabel('Alt+Z')}
           tooltipSide="top"
-          disabled={atStart || snap.loading}
+          disabled={!allowRewind || atStart || snap.loading || !actionsEnabled}
           onClick={() => void c.requestRewind()}
           className="text-muted hover:text-fg"
           size={16}
@@ -80,7 +84,7 @@ export function PriceSkipperBar() {
             type="button"
             aria-label={snap.playing ? 'مکث' : 'پخش'}
             aria-pressed={snap.playing}
-            disabled={ended}
+            disabled={blocked}
             onClick={() => c.togglePlay()}
             data-testid="bt-play"
             className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
@@ -106,7 +110,7 @@ export function PriceSkipperBar() {
           label="کندل بعدی"
           shortcut={chordLabel('Ctrl+Space')}
           tooltipSide="top"
-          disabled={ended || snap.loading}
+          disabled={blocked || snap.loading}
           onClick={() => void c.next()}
           data-testid="bt-next"
           className="text-muted hover:text-fg"
@@ -152,7 +156,7 @@ export function PriceSkipperBar() {
           <button
             type="button"
             dir="rtl"
-            disabled={ended || snap.loading}
+            disabled={blocked || snap.loading}
             onClick={() => openModal({ type: 'go-to' })}
             className="flex h-8 w-[10.5rem] items-center justify-center gap-1.5 rounded-md px-2 text-fg hover:bg-hover disabled:opacity-60"
           >
@@ -194,7 +198,7 @@ export function PriceSkipperBar() {
           testId="bt-pnl"
         />
         <span className="mx-1 h-6 w-px shrink-0 bg-line" />
-        {snap.prop ? (
+        {snap.prop && sessionLinks ? (
           <Tooltip label="قوانین پراپ" shortcut="Tab" side="top">
             <button
               type="button"

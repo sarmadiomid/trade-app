@@ -16,6 +16,7 @@ export function MobileBacktestBar() {
   const snap = useBacktestStore((s) => s.snap);
   const deck = useBacktestStore((s) => s.replayDeck);
   const setDeck = useBacktestStore((s) => s.setReplayDeck);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const [trade, setTrade] = useState(false);
   const [more, setMore] = useState(false);
 
@@ -24,6 +25,7 @@ export function MobileBacktestBar() {
   if (!snap) return null;
   if (deck) return <ReplayDeck onClose={() => setDeck(false)} />;
   const ended = snap.status !== 'active';
+  const blocked = ended || !actionsEnabled;
 
   return (
     <div dir="ltr" className="relative w-full bg-chart">
@@ -39,7 +41,7 @@ export function MobileBacktestBar() {
             type="button"
             data-testid="mobile-play"
             aria-label="Open replay controls"
-            disabled={ended}
+            disabled={blocked}
             onClick={() => setDeck(true)}
             className="flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center rounded-full border-2 border-line bg-panel text-fg shadow-[0_0_0_4px_rgba(255,255,255,0.03)] active:scale-95 disabled:opacity-40"
           >
@@ -52,7 +54,7 @@ export function MobileBacktestBar() {
           </button>
         </div>
         <div className="flex flex-1 items-center justify-end gap-1.5">
-          <TradeButton onClick={() => setTrade(true)} />
+          <TradeButton disabled={blocked} onClick={() => setTrade(true)} />
           <span className="h-7 w-px shrink-0 bg-line" />
           <button
             type="button"
@@ -65,7 +67,7 @@ export function MobileBacktestBar() {
           </button>
         </div>
       </div>
-      {trade ? <MobileTradeSheet onClose={() => setTrade(false)} /> : null}
+      {trade && !blocked ? <MobileTradeSheet onClose={() => setTrade(false)} /> : null}
       {more ? <MobileMoreSheet onClose={() => setMore(false)} /> : null}
     </div>
   );
@@ -75,8 +77,10 @@ export function MobileBacktestBar() {
 export function MobileReplayTop() {
   const snap = useBacktestStore((s) => s.snap);
   const deck = useBacktestStore((s) => s.replayDeck);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const [trade, setTrade] = useState(false);
   if (!snap || !deck) return null;
+  const blocked = snap.status !== 'active' || !actionsEnabled;
   return (
     <div dir="ltr" className="flex items-start gap-2 pr-16">
       <div className="pointer-events-auto flex h-14 min-w-0 items-center rounded-xl border border-line bg-panel/90 px-3 shadow-md backdrop-blur">
@@ -89,9 +93,9 @@ export function MobileReplayTop() {
       </div>
       <div className="flex-1" />
       <div className="pointer-events-auto shrink-0 rounded-lg bg-panel/90 shadow-md backdrop-blur">
-        <TradeButton onClick={() => setTrade(true)} />
+        <TradeButton disabled={blocked} onClick={() => setTrade(true)} />
       </div>
-      {trade ? (
+      {trade && !blocked ? (
         <div className="pointer-events-auto">
           <MobileTradeSheet onClose={() => setTrade(false)} />
         </div>
@@ -100,14 +104,21 @@ export function MobileReplayTop() {
   );
 }
 
-function TradeButton({ onClick }: { readonly onClick: () => void }) {
+function TradeButton({
+  onClick,
+  disabled = false,
+}: {
+  readonly onClick: () => void;
+  readonly disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       data-testid="mobile-trade"
       aria-label="Buy or sell"
+      disabled={disabled}
       onClick={onClick}
-      className="flex h-10 w-[5.75rem] shrink-0 flex-col overflow-hidden rounded-lg border border-line"
+      className="flex h-10 w-[5.75rem] shrink-0 flex-col overflow-hidden rounded-lg border border-line disabled:opacity-40"
     >
       <span className="flex flex-1 items-center justify-center gap-0.5 text-[10px] font-bold leading-none tracking-wide text-[#6b9bff]">
         <Icon name="chevronDown" size={11} strokeWidth={2.2} className="rotate-180" />
@@ -127,6 +138,8 @@ function ReplayDeck({ onClose }: { readonly onClose: () => void }) {
   const c = useBacktest();
   const snap = useBacktestStore((s) => s.snap);
   const openModal = useBacktestStore((s) => s.openModal);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
+  const allowRewind = useBacktestStore((s) => s.allowRewind);
   const timeframe = useUiStore((s) => s.timeframe);
   const [sync, setSync] = useState(false);
 
@@ -138,6 +151,7 @@ function ReplayDeck({ onClose }: { readonly onClose: () => void }) {
 
   if (!snap) return null;
   const ended = snap.status !== 'active';
+  const blocked = ended || !actionsEnabled;
   const atStart = snap.cursor <= snap.start;
   const status = ended ? 'ENDED' : snap.playing ? 'PLAYING' : 'PAUSED';
 
@@ -185,7 +199,7 @@ function ReplayDeck({ onClose }: { readonly onClose: () => void }) {
           <button
             type="button"
             aria-label="Step back"
-            disabled={atStart || snap.loading}
+            disabled={!allowRewind || atStart || snap.loading || !actionsEnabled}
             onClick={() => void c.requestRewind()}
             className="absolute left-0.5 flex h-10 w-7 items-center justify-center text-muted active:text-fg disabled:opacity-30"
           >
@@ -195,7 +209,7 @@ function ReplayDeck({ onClose }: { readonly onClose: () => void }) {
             type="button"
             data-testid="mobile-play"
             aria-label={snap.playing ? 'Pause' : 'Play'}
-            disabled={ended}
+            disabled={blocked}
             onClick={() => c.togglePlay()}
             className="flex h-[3.75rem] w-[3.75rem] flex-col items-center justify-center gap-0.5 rounded-full border-2 border-accent bg-chart text-accent shadow-[0_0_14px_rgba(41,98,255,0.45)] active:scale-95 disabled:opacity-40"
           >
@@ -210,7 +224,7 @@ function ReplayDeck({ onClose }: { readonly onClose: () => void }) {
           <button
             type="button"
             aria-label="Step forward"
-            disabled={ended || snap.loading}
+            disabled={blocked || snap.loading}
             onClick={() => void c.next()}
             className="absolute right-0.5 flex h-10 w-7 items-center justify-center text-muted active:text-fg disabled:opacity-30"
           >
@@ -218,7 +232,7 @@ function ReplayDeck({ onClose }: { readonly onClose: () => void }) {
           </button>
           <button
             type="button"
-            disabled={ended || snap.loading}
+            disabled={blocked || snap.loading}
             onClick={() => openModal({ type: 'go-to' })}
             className="absolute bottom-1.5 px-2 py-0.5 text-[9px] font-semibold tracking-[0.2em] text-muted active:text-fg disabled:opacity-30"
           >

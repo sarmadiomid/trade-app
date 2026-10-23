@@ -125,8 +125,10 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
                 aria-selected={tab === t.id}
                 onClick={() => select(t.id)}
                 data-testid={`tab-${t.id}`}
-                className={`h-10 shrink-0 rounded-full px-4 text-[13.5px] font-medium transition ${
-                  tab === t.id ? 'bg-panel text-fg' : 'text-muted hover:text-fg'
+                className={`inline-flex h-11 shrink-0 items-center border-b-2 px-3 text-[14px] font-medium transition ${
+                  tab === t.id
+                    ? 'border-[var(--h-text)] text-[var(--h-text)]'
+                    : 'border-transparent text-[var(--h-muted)] hover:text-[var(--h-text)]'
                 }`}
               >
                 {t.label}

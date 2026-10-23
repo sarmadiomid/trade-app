@@ -1,37 +1,15 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { BacktestRuntime, browserBacktestServices, type BacktestController } from '@/lib/app';
 import { setDisplayUtc } from '@/lib/core';
-import type { MenuEntry } from '../drawing/ContextMenu';
 import { useUiStore } from '../state/ui-store';
-import { Icon } from '../ui/Icon';
-import { BacktestTopBar } from './BacktestTopBar';
-import { BacktestModals } from './BacktestModals';
-import { BacktestContext } from './context';
-import { lots } from './format';
 import { statsHref } from '../home/stats-href';
+import { BacktestContext } from './context';
 import { usePracticeClock } from './practice-time';
-
-const ORDER_FA: Readonly<Record<string, string>> = {
-  'Buy Limit': 'خرید لیمیت',
-  'Buy Stop': 'خرید استاپ',
-  'Sell Limit': 'فروش لیمیت',
-  'Sell Stop': 'فروش استاپ',
-};
-import { OrderTicket } from './OrderTicket';
-import { PriceSkipperBar } from './PriceSkipperBar';
-import { PropRulesPanel } from './PropRulesPanel';
+import { SessionChart } from './SessionChart';
 import { useBacktestStore } from './store';
-import { TradingPanel } from './TradingPanel';
-import { MobileBacktestBar, MobileReplayTop } from './mobile/MobileBacktestBar';
-
-const ChartWorkspace = dynamic(() => import('../chart/ChartWorkspace'), {
-  ssr: false,
-  loading: () => <div className="h-full w-full bg-chart" />,
-});
 
 type Load =
   | { readonly status: 'loading' }
@@ -82,6 +60,9 @@ function useBridge(c: BacktestController | null): void {
       s.openModal(null);
       s.toggleProp(false);
       s.setPanelHidden(false);
+      s.setActionsEnabled(true);
+      s.setAllowRewind(true);
+      s.setSessionLinks(true);
     };
   }, [c]);
 }
@@ -90,10 +71,13 @@ function useBridge(c: BacktestController | null): void {
 export default function BacktestSessionView({ id }: { readonly id: string }) {
   const [load, setLoad] = useState<Load>({ status: 'loading' });
   const [controller, setController] = useState<BacktestController | null>(null);
-  const ticket = useBacktestStore((s) => s.ticket);
 
   useEffect(() => {
     setDisplayUtc(true);
+    const ui = useBacktestStore.getState();
+    ui.setActionsEnabled(true);
+    ui.setAllowRewind(true);
+    ui.setSessionLinks(true);
     let cancelled = false;
     const services = browserBacktestServices();
     void services.repo.load(id).then((session) => {
@@ -120,10 +104,8 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
         ? {
             wrapDeps: runtime.wrapDeps.bind(runtime),
             onApp: (app: Parameters<BacktestRuntime['attach']>[0] | null) => {
-              if (app) {
-                useBacktestStore.getState().setPanelHidden(true);
-                setController(runtime.attach(app));
-              } else {
+              if (app) setController(runtime.attach(app));
+              else {
                 runtime.detach();
                 setController(null);
               }
@@ -152,97 +134,14 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
     );
   }
 
-  const chartMenuItems = ({ time, price }: { time: number; price: number }): MenuEntry[] => {
-    const c = controller;
-    if (!c || c.ended) return [];
-    const vol = c.session.quickVolume > 0 ? c.session.quickVolume : c.cfg.lotMin;
-    const p = c.spec.pricePrecision;
-    const orders: MenuEntry[] = c.trading.rightClickOrders(price).map((o) => ({
-      label: `${ORDER_FA[o.label] ?? o.label} ${lots(vol)} @ ${o.price.toFixed(p)}`,
-      run: () => {
-        c.trading.place({
-          side: o.side,
-          type: o.kind,
-          price: o.price,
-          volume: vol,
-          sl: null,
-          tp: null,
-        });
-      },
-    }));
-    const entries: MenuEntry[] = [
-      ...orders,
-      {
-        label: 'سفارش تازه روی این قیمت…',
-        icon: 'plus',
-        run: () => {
-          const o = c.trading.rightClickOrders(price)[0];
-          if (o)
-            useBacktestStore.getState().openTicket({ side: o.side, type: o.kind, price: o.price });
-        },
-      },
-    ];
-    if (time < c.cursor)
-      entries.push({
-        label: 'بازپخش تا این نقطه',
-        icon: 'replay',
-        run: () =>
-          void c.replayToBar(time).then((check) => {
-            if (!check.ok)
-              useBacktestStore.getState().openModal({
-                type: 'confirm-rewind',
-                time: Math.min(c.cursor, time),
-                check,
-              });
-          }),
-      });
-    return entries;
-  };
-
   return (
     <BacktestContext.Provider value={controller}>
-      <ChartWorkspace
+      <SessionChart
         wrapDeps={callbacks.wrapDeps}
         onApp={callbacks.onApp}
         appOptions={callbacks.appOptions}
-        hideReplay
-        locale="fa"
-        toolbar={<BacktestTopBar />}
-        mobileChrome="replace"
-        mobileStart={
-          <Link
-            href="/backtest"
-            aria-label="بازگشت به جلسه‌ها"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-fg hover:bg-hover"
-          >
-            <Icon name="chevronLeft" size={20} />
-          </Link>
-        }
-        mobileTop={controller ? <MobileReplayTop /> : null}
-        mobileFooter={controller ? <MobileBacktestBar /> : null}
-        onSidePanelClose={() => useBacktestStore.getState().openTicket(null)}
-        overlay={
-          controller ? (
-            <>
-              <PropRulesPanel />
-              <BacktestModals />
-            </>
-          ) : null
-        }
-        sidePanel={controller && ticket ? <OrderTicket key={ticketKey(ticket)} /> : null}
-        footer={
-          controller ? (
-            <div dir="rtl" className="flex shrink-0 flex-col">
-              <TradingPanel />
-              <PriceSkipperBar />
-            </div>
-          ) : null
-        }
-        chartMenuItems={chartMenuItems}
+        controller={controller}
       />
     </BacktestContext.Provider>
   );
 }
-
-const ticketKey = (t: { side: string; type: string; price?: number }) =>
-  `${t.side}:${t.type}:${t.price ?? ''}`;

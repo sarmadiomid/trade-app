@@ -31,6 +31,7 @@ export function TradingPanel({ sheet = false }: { readonly sheet?: boolean }) {
   const openModal = useBacktestStore((s) => s.openModal);
   const panelHidden = useBacktestStore((s) => s.panelHidden);
   const setPanelHidden = useBacktestStore((s) => s.setPanelHidden);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const [collapsed, setCollapsed] = useState(false);
   if (!snap || (panelHidden && !sheet)) return null;
   const p = c.spec.pricePrecision;
@@ -39,7 +40,7 @@ export function TradingPanel({ sheet = false }: { readonly sheet?: boolean }) {
     { id: 'orders' as const, label: 'سفارش‌ها', count: snap.orders.length },
     { id: 'history' as const, label: 'تاریخچه', count: snap.trades.length },
   ];
-  const active = snap.status === 'active';
+  const active = snap.status === 'active' && actionsEnabled;
   return (
     <section
       aria-label="پنل معاملات"

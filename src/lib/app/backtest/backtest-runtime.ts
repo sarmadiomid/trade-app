@@ -24,6 +24,9 @@ import { pickStorage } from '../composition';
 import { BacktestController } from './backtest-controller';
 import { backtestShortcuts } from './backtest-shortcuts';
 
+/** Opening chart interval for a backtest session and a battle. Both hosts use this. */
+export const SESSION_CHART_TIMEFRAME = '15m' as const;
+
 /** Chart records shared with the regular chart (everything else is per session). */
 export const SHARED_KEYS = [
   APP_CONFIG.storageKeys.themes,
@@ -129,7 +132,7 @@ export class BacktestRuntime {
   appOptions(): ChartAppOptions {
     return {
       symbol: this.session.settings.symbol,
-      timeframe: '15m',
+      timeframe: SESSION_CHART_TIMEFRAME,
       shortcuts: backtestShortcuts(() => this.controllerRef),
     };
   }

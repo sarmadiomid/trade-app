@@ -10,18 +10,19 @@ import { enNum } from './format';
 import { useBacktestStore } from './store';
 
 /**
- * Quick Buy/Sell. `dock` sits in the replay bar (backtest). The default floats on the chart
- * (battles): SELL at Bid · quantity · BUY at Ask, plus scalper presets and the order ticket.
+ * Quick Buy/Sell. `dock` sits in the replay bar (backtest and battle). The floating layout
+ * is the same controls drawn over the chart.
  */
 export function QuickTradePanel({ dock = false }: { readonly dock?: boolean }) {
   const c = useBacktest();
   const snap = useBacktestStore((s) => s.snap);
   const openTicket = useBacktestStore((s) => s.openTicket);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const [scalperOpen, setScalperOpen] = useState(false);
   if (!snap) return null;
   if (dock) return <DockTrade />;
   const precision = c.spec.pricePrecision;
-  const disabled = snap.status !== 'active';
+  const disabled = snap.status !== 'active' || !actionsEnabled;
   const spreadPips = snap.spread > 0 ? snap.spread / c.spec.pipSize : 0;
   return (
     <div className="absolute left-2 top-8 z-10 flex flex-col gap-1" data-testid="quick-panel">
@@ -118,10 +119,11 @@ function DockTrade() {
   const c = useBacktest();
   const snap = useBacktestStore((s) => s.snap);
   const openTicket = useBacktestStore((s) => s.openTicket);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const [scalperOpen, setScalperOpen] = useState(false);
   if (!snap) return null;
   const precision = c.spec.pricePrecision;
-  const disabled = snap.status !== 'active';
+  const disabled = snap.status !== 'active' || !actionsEnabled;
   const lotDecimals = Math.max(0, Math.min(3, Math.ceil(-Math.log10(c.spec.lotStep))));
   const spreadPips = snap.spread > 0 ? snap.spread / c.spec.pipSize : 0;
   const side =

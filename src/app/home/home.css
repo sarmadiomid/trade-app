@@ -1,7 +1,12 @@
-/* Shared shell for /home and the battles hub. Colours live here so those pages
-   match even when the chart theme is different. --tc-* feeds the same utilities. */
+/* Shared shell for /home, the battles hub, and a battle lobby. These use this palette.
+   data-palette="theme" opts a shell into the active chart theme instead. */
 
 .home-shell {
+  font-family: Vazirmatn, Tahoma, sans-serif;
+  font-feature-settings: 'ss01';
+}
+
+.home-shell:not([data-palette='theme']) {
   --h-bg: #07090f;
   --h-side: #0b0e16;
   --h-card: #10141e;
@@ -23,14 +28,12 @@
   --tc-up: #3dcea0;
   --tc-down: #ff6b81;
   color-scheme: dark;
-  font-family: Vazirmatn, Tahoma, sans-serif;
-  font-feature-settings: 'ss01';
   background:
     radial-gradient(70% 42% at 50% -8%, rgba(47, 92, 196, 0.28), transparent 62%), var(--h-bg);
   color: var(--h-text);
 }
 
-.home-shell[data-scheme='light'] {
+.home-shell[data-scheme='light']:not([data-palette='theme']) {
   --h-bg: #eef2f7;
   --h-side: #f7f9fc;
   --h-card: #ffffff;
@@ -46,6 +49,22 @@
   color-scheme: light;
   background:
     radial-gradient(70% 42% at 50% -8%, rgba(37, 99, 235, 0.14), transparent 62%), var(--h-bg);
+}
+
+.home-shell[data-palette='theme'] {
+  --h-bg: var(--tc-bg);
+  --h-side: var(--tc-panel);
+  --h-card: var(--tc-panel);
+  --h-line: var(--tc-border);
+  --h-text: var(--tc-text);
+  --h-muted: var(--tc-muted);
+  --h-soft: var(--tc-hover);
+  --h-chip: color-mix(in srgb, var(--tc-text) 7%, transparent);
+  --h-accent: var(--tc-accent);
+  --h-field: var(--tc-bg);
+  color-scheme: inherit;
+  background: var(--tc-bg);
+  color: var(--tc-text);
 }
 
 .home-preview {

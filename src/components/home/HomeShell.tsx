@@ -11,9 +11,14 @@ import {
   type ReactNode,
 } from 'react';
 import { formatIranianMobile } from '@/auth/phone';
+import { APP_CONFIG } from '@/lib/app/config';
+import type { Theme } from '@/lib/core';
 import { faDigits } from '@/lib/locale/jalali';
+import { LocalStorageStorage, VersionedStore } from '@/lib/storage';
+import { darkTheme, parseTheme, themeRegistry } from '@/lib/themes';
 import { LogoMark } from '../marketing/Logo';
 import { useThemeCssVars } from '../hooks/useThemeCssVars';
+import { useUiStore } from '../state/ui-store';
 import { initials } from '../platform/AppHeader';
 import type { Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
@@ -89,6 +94,7 @@ function writeCollapsed(next: boolean) {
 
 interface ShellContextValue {
   readonly scheme: Scheme;
+  readonly palette: 'home' | 'theme';
   readonly toggleScheme: () => void;
   readonly openDrawer: () => void;
   readonly menu: Menu | null;
@@ -110,11 +116,14 @@ export function HomeShell({
   user,
   notices,
   noticeMenu,
+  palette = 'home',
   children,
 }: {
   readonly user: Me;
   readonly notices: number;
   readonly noticeMenu: ReactNode;
+  /** `theme` follows the active chart theme. `home` keeps the practice palette. */
+  readonly palette?: 'home' | 'theme';
   readonly children: ReactNode;
 }) {
   useThemeCssVars();
@@ -144,6 +153,24 @@ export function HomeShell({
     };
   }, [menu, drawer]);
 
+  useEffect(() => {
+    if (palette !== 'theme') return;
+    let cancel = false;
+    void themeStore()
+      .load(APP_CONFIG.storageKeys.themes, 'themes', validateStoredThemes)
+      .then((stored) => {
+        if (cancel || !stored) return;
+        if (useUiStore.getState().themes.length > 0) return;
+        useUiStore.setState({
+          themes: [...themeRegistry.list(), ...stored.themes],
+          activeTheme: resolveStoredTheme(stored),
+        });
+      });
+    return () => {
+      cancel = true;
+    };
+  }, [palette]);
+
   const toggleScheme = () => writeScheme(scheme === 'dark' ? 'light' : 'dark');
   const toggleNav = () => {
     if (window.matchMedia('(min-width: 1024px)').matches) {
@@ -158,6 +185,7 @@ export function HomeShell({
     <ShellContext.Provider
       value={{
         scheme,
+        palette,
         toggleScheme,
         openDrawer: () => setDrawer(true),
         menu,
@@ -168,6 +196,7 @@ export function HomeShell({
     >
       <div
         data-scheme={scheme}
+        data-palette={palette === 'theme' ? 'theme' : undefined}
         lang="fa"
         dir="rtl"
         className="home-shell flex h-full min-h-0 overflow-hidden"
@@ -212,7 +241,11 @@ export function HomeShell({
           <div className={`flex flex-col items-center px-4 pb-4 ${collapsed ? 'lg:px-2' : ''}`}>
             <span className="relative">
               <span
-                className={`flex items-center justify-center rounded-full border border-[var(--h-line)] bg-[radial-gradient(circle_at_32%_28%,#252832,#121419)] font-bold text-white ${
+                className={`flex items-center justify-center rounded-full border font-bold ${
+                  palette === 'theme'
+                    ? 'border-line bg-hover text-fg'
+                    : 'border-[var(--h-line)] bg-[radial-gradient(circle_at_32%_28%,#252832,#121419)] text-white'
+                } ${
                   collapsed
                     ? 'h-11 w-11 text-[14px] lg:h-11 lg:w-11'
                     : 'h-[72px] w-[72px] text-[22px]'
@@ -336,7 +369,7 @@ export function ShellMenuButton() {
 
 /** Pro, language, theme, help and notices. Sits in each page's own header. */
 export function ShellTools() {
-  const { scheme, toggleScheme, menu, openMenu, notices, noticeMenu } = useShell();
+  const { scheme, palette, toggleScheme, menu, openMenu, notices, noticeMenu } = useShell();
   return (
     <div className="flex items-center gap-1.5">
       <Link
@@ -372,9 +405,11 @@ export function ShellTools() {
           </div>
         ) : null}
       </div>
-      <IconButton label={scheme === 'dark' ? 'زمینه روشن' : 'زمینه تیره'} onClick={toggleScheme}>
-        <Icon path={scheme === 'dark' ? HOME_ICONS.sun : HOME_ICONS.moon} size={16} />
-      </IconButton>
+      {palette === 'home' ? (
+        <IconButton label={scheme === 'dark' ? 'زمینه روشن' : 'زمینه تیره'} onClick={toggleScheme}>
+          <Icon path={scheme === 'dark' ? HOME_ICONS.sun : HOME_ICONS.moon} size={16} />
+        </IconButton>
+      ) : null}
       <Link
         href="/#faq"
         aria-label="راهنما"
@@ -386,7 +421,7 @@ export function ShellTools() {
         <IconButton label="اعلان‌ها" pressed={menu === 'bell'} onClick={() => openMenu('bell')}>
           <Icon path={HOME_ICONS.bell} size={16} />
           {notices > 0 ? (
-            <span className="absolute end-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[#ff6b81]" />
+            <span className="absolute end-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-down" />
           ) : null}
         </IconButton>
         {menu === 'bell' ? (
@@ -454,5 +489,28 @@ function NavBadge({
     >
       {children}
     </span>
+  );
+}
+
+type StoredThemes = { readonly themes: Theme[]; readonly activeId: string };
+
+function themeStore() {
+  return new VersionedStore(new LocalStorageStorage(localStorage));
+}
+
+function validateStoredThemes(data: unknown): StoredThemes | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const d = data as { themes?: unknown; activeId?: unknown };
+  const themes = Array.isArray(d.themes)
+    ? d.themes.map((t) => parseTheme(t)).filter((t): t is Theme => t !== null)
+    : [];
+  return { themes, activeId: typeof d.activeId === 'string' ? d.activeId : darkTheme.id };
+}
+
+function resolveStoredTheme(stored: StoredThemes): Theme {
+  return (
+    themeRegistry.get(stored.activeId) ??
+    stored.themes.find((t) => t.id === stored.activeId) ??
+    darkTheme
   );
 }

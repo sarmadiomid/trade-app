@@ -30,7 +30,16 @@ interface BacktestUiState {
   readonly modal: Modal | null;
   /** Phone replay deck is open in place of the session bar. */
   readonly replayDeck: boolean;
+  /** Buy, sell, and stepping. A battle turns this off while trading is closed. */
+  readonly actionsEnabled: boolean;
+  /** Step-back and "replay to this bar". Off in a battle, which only moves forward. */
+  readonly allowRewind: boolean;
+  /** Journal, analytics, and session settings. Off in a battle. */
+  readonly sessionLinks: boolean;
   setReplayDeck(open: boolean): void;
+  setActionsEnabled(enabled: boolean): void;
+  setAllowRewind(enabled: boolean): void;
+  setSessionLinks(enabled: boolean): void;
   setSnap(snap: BacktestSnapshot | null): void;
   openTicket(t: TicketState | null): void;
   setTab(tab: BacktestUiState['tab']): void;
@@ -48,7 +57,13 @@ export const useBacktestStore = create<BacktestUiState>((set) => ({
   panelHidden: false,
   modal: null,
   replayDeck: false,
+  actionsEnabled: true,
+  allowRewind: true,
+  sessionLinks: true,
   setReplayDeck: (replayDeck) => set({ replayDeck }),
+  setActionsEnabled: (actionsEnabled) => set({ actionsEnabled }),
+  setAllowRewind: (allowRewind) => set({ allowRewind }),
+  setSessionLinks: (sessionLinks) => set({ sessionLinks }),
   setSnap: (snap) => set({ snap }),
   openTicket: (ticket) => set({ ticket }),
   setTab: (tab) => set({ tab }),

@@ -41,6 +41,8 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
   const pushToast = useUiStore((s) => s.pushToast);
   const setDesktop = useDesktopMode((s) => s.setForced);
   const [panel, setPanel] = useState<Panel>(null);
+  const sessionLinks = useBacktestStore((s) => s.sessionLinks);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const [layouts, setLayouts] = useState<ChartLayout[]>(readLayouts);
   const [activeId, setActiveId] = useState<string | null>(readActiveLayout);
 
@@ -197,6 +199,7 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
               icon="list"
               label="Order"
               onClick={() => {
+                if (!actionsEnabled) return;
                 onClose();
                 openTicket({ side: 'buy', type: 'market' });
               }}
@@ -212,24 +215,30 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
               accent={indicatorCount > 0}
               onClick={() => setPanel('indicators')}
             />
-            <Tile span={2} icon="journal" label="Journal" href={`/backtest/${snap.id}/journal`} />
+            {sessionLinks ? (
+              <Tile span={2} icon="journal" label="Journal" href={`/backtest/${snap.id}/journal`} />
+            ) : null}
             <Tile
               span={2}
               icon="target"
               label="Positions and orders"
               onClick={() => setPanel('positions')}
             />
-            <Tile span={2} icon="chart" label="Analytics" href={statsHref(snap.id)} />
+            {sessionLinks ? (
+              <Tile span={2} icon="chart" label="Analytics" href={statsHref(snap.id)} />
+            ) : null}
             <Tile span={3} icon="front" label="Layouts" onClick={() => setPanel('layouts')} />
-            <Tile
-              span={3}
-              icon="settings"
-              label="Settings"
-              onClick={() => {
-                onClose();
-                openModal({ type: 'settings' });
-              }}
-            />
+            {sessionLinks ? (
+              <Tile
+                span={3}
+                icon="settings"
+                label="Settings"
+                onClick={() => {
+                  onClose();
+                  openModal({ type: 'settings' });
+                }}
+              />
+            ) : null}
             <Tile span={6} icon="home" label="Dashboard" href="/home" />
           </div>
         </div>

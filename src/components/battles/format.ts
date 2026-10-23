@@ -2,10 +2,10 @@ import type { BattleStatus, WinCondition } from '@/lib/battles';
 import { WIN_FA } from './fa';
 
 export const STATUS: Readonly<Record<BattleStatus, readonly [string, string]>> = {
-  standby: ['در انتظار', 'bg-[#f5c451]/15 text-[#f5c451]'],
+  standby: ['در انتظار', 'bg-accent/15 text-accent'],
   countdown: ['شروع', 'bg-accent/15 text-accent'],
   live: ['در جریان', 'bg-up/15 text-up'],
-  paused: ['متوقف', 'bg-[#f5c451]/15 text-[#f5c451]'],
+  paused: ['متوقف', 'bg-hover text-fg'],
   completed: ['تمام‌شده', 'bg-hover text-muted'],
   cancelled: ['لغوشده', 'bg-hover text-muted'],
 };

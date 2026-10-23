@@ -13,7 +13,11 @@ import { NamespacedStorage } from '@/lib/storage';
 import type { ChartApp, ChartAppOptions } from '../chart-app';
 import type { AppDependencies } from '../composition';
 import { BacktestController } from '../backtest/backtest-controller';
-import { SHARED_KEYS, type BacktestServices } from '../backtest/backtest-runtime';
+import {
+  SESSION_CHART_TIMEFRAME,
+  SHARED_KEYS,
+  type BacktestServices,
+} from '../backtest/backtest-runtime';
 import { backtestShortcuts } from '../backtest/backtest-shortcuts';
 import { battleAccountConfig, battleSessionSettings } from './battle-config';
 
@@ -114,7 +118,7 @@ export class BattleRuntime {
   appOptions(): ChartAppOptions {
     return {
       symbol: this.seat.symbol,
-      timeframe: '1m',
+      timeframe: SESSION_CHART_TIMEFRAME,
       shortcuts: backtestShortcuts(() => this.controllerRef).filter((s) =>
         BATTLE_HOTKEYS.has(s.id),
       ),

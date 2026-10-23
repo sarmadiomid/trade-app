@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { chordLabel } from '@/lib/app';
 import { isTimeframeId } from '@/lib/core';
-import { seriesRegistry } from '@/lib/series';
 import {
   readActiveLayout,
   readLayouts,
@@ -28,22 +27,31 @@ import { captureChart } from './capture';
 import { BacktestContext } from './context';
 import { useBacktestStore } from './store';
 
-const FLOW = ['volume-footprint', 'session-volume-profile', 'tpo'] as const;
-
-const FLOW_FA: Readonly<Record<string, string>> = {
-  'volume-footprint': 'فوت‌پرینت حجم',
-  'session-volume-profile': 'پروفایل حجم سشن',
-  tpo: 'TPO (نمای بازار)',
-};
-
 const ghost =
   'inline-flex h-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-fg disabled:pointer-events-none disabled:opacity-40';
 
-/** Desktop session bar: symbol & playback capsule on the left, intervals & order-flow in the center, session & tools on the right. */
-export function BacktestTopBar() {
+/** Desktop session bar: symbol & playback capsule on the left, intervals in the center, session & tools on the right. */
+export function BacktestTopBar({
+  homeHref = '/backtest',
+  homeLabel = 'بازگشت به جلسه‌ها',
+  end,
+  badge,
+  subtitle,
+}: {
+  readonly homeHref?: string;
+  readonly homeLabel?: string;
+  /** Host controls placed before the session menu (the battle timer, for example). */
+  readonly end?: ReactNode;
+  /** Replaces the شخصی / پراپ badge. */
+  readonly badge?: ReactNode;
+  /** Replaces the session-menu subtitle. */
+  readonly subtitle?: string;
+} = {}) {
   const app = useApp();
   const c = useContext(BacktestContext);
   const snap = useBacktestStore((s) => s.snap);
+  const sessionLinks = useBacktestStore((s) => s.sessionLinks);
+  const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const openModal = useBacktestStore((s) => s.openModal);
   const openTicket = useBacktestStore((s) => s.openTicket);
   const toggleProp = useBacktestStore((s) => s.toggleProp);
@@ -66,7 +74,6 @@ export function BacktestTopBar() {
   const name = snap?.settings.symbol ?? symbol?.symbol ?? '';
   const ended = snap ? snap.status !== 'active' : true;
   const playing = snap?.playing ?? false;
-  const flowOn = (FLOW as readonly string[]).includes(chartType);
   const prop = snap?.settings.type === 'prop';
 
   const shoot = () => {
@@ -102,10 +109,10 @@ export function BacktestTopBar() {
       className="@container/bar flex h-11 shrink-0 items-center gap-1 overflow-clip border-b border-line bg-panel/95 px-2 text-[13px] text-fg backdrop-blur-md"
     >
       {/* Back to Sessions */}
-      <Tooltip label="بازگشت به جلسه‌ها">
+      <Tooltip label={homeLabel}>
         <Link
-          href="/backtest"
-          aria-label="بازگشت به جلسه‌ها"
+          href={homeHref}
+          aria-label={homeLabel}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-hover hover:text-fg"
         >
           <Icon name="chevronLeft" size={17} />
@@ -118,7 +125,7 @@ export function BacktestTopBar() {
           <button
             type="button"
             aria-label={playing ? 'مکث' : 'پخش'}
-            disabled={!c || ended}
+            disabled={!c || ended || !actionsEnabled}
             onClick={() => c?.togglePlay()}
             className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40 ${
               playing
@@ -151,7 +158,7 @@ export function BacktestTopBar() {
           <button
             type="button"
             aria-label="سفارش جدید"
-            disabled={!c || ended}
+            disabled={!c || ended || !actionsEnabled}
             onClick={() => openTicket({ side: 'buy', type: 'market' })}
             className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted transition-colors hover:bg-accent/15 hover:text-accent disabled:opacity-40"
           >
@@ -208,58 +215,12 @@ export function BacktestTopBar() {
         )}
       </Drop>
 
-      {/* Order Flow Dropdown */}
-      <Drop
-        label="جریان سفارش"
-        active={flowOn}
-        className="gap-1.5 px-2"
-        button={
-          <>
-            <FlowMark />
-            <span className="hidden @min-[1400px]/bar:inline">جریان سفارش</span>
-            <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[9.5px] font-bold leading-none text-accent">
-              NEW
-            </span>
-          </>
-        }
-      >
-        {(close) => (
-          <div dir="rtl" className="-m-1.5 flex min-w-56 flex-col gap-0.5 p-1" role="menu">
-            <div className="px-2 pt-0.5 pb-1 text-[10.5px] font-semibold text-muted">
-              ابزارهای جریان سفارش
-            </div>
-            {FLOW.map((id) => {
-              const def = seriesRegistry.get(id);
-              if (!def) return null;
-              const on = chartType === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={on}
-                  onClick={() => {
-                    close();
-                    app.settings.update({ chartType: id });
-                  }}
-                  className={`flex h-8 items-center gap-2.5 rounded-md px-2 text-start text-[12.5px] transition-colors ${
-                    on ? 'bg-accent/15 font-semibold text-accent' : 'text-fg hover:bg-hover'
-                  }`}
-                >
-                  <Icon path={def.icon} size={16} className={on ? 'text-accent' : 'text-muted'} />
-                  <span className="flex-1">{FLOW_FA[id] ?? def.label}</span>
-                  {on ? <Icon name="check" size={14} className="text-accent" /> : null}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </Drop>
-
       <div className="min-w-0 flex-1" />
 
+      {end}
+
       {/* Session Navigation & Quick Links */}
-      {snap ? (
+      {sessionLinks && snap ? (
         <div className="hidden items-center gap-1 @min-[1120px]/bar:flex">
           <Tooltip label="دفتر معاملات">
             <Link
@@ -289,15 +250,16 @@ export function BacktestTopBar() {
         className="min-w-0 max-w-32 gap-1.5 overflow-hidden rounded-lg bg-chart/65 px-2 text-fg ring-1 ring-inset ring-line/80 @min-[1200px]/bar:max-w-44"
         button={
           <>
-            {snap ? (
-              <span
-                className={`hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline ${
-                  prop ? 'bg-[#f7a60024] text-[#f7a600]' : 'bg-accent/15 text-accent'
-                }`}
-              >
-                {prop ? 'پراپ' : 'شخصی'}
-              </span>
-            ) : null}
+            {badge ??
+              (snap ? (
+                <span
+                  className={`hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline ${
+                    prop ? 'bg-[#f7a60024] text-[#f7a600]' : 'bg-accent/15 text-accent'
+                  }`}
+                >
+                  {prop ? 'پراپ' : 'شخصی'}
+                </span>
+              ) : null)}
             <span className="min-w-0 truncate text-[12.5px] font-semibold">
               {snap?.settings.name ?? 'جلسه'}
             </span>
@@ -315,51 +277,55 @@ export function BacktestTopBar() {
                     {snap.settings.symbol}
                   </span>
                   <span>·</span>
-                  <span>{prop ? 'ارزیابی پراپ' : 'حساب شخصی'}</span>
+                  <span>{subtitle ?? (prop ? 'ارزیابی پراپ' : 'حساب شخصی')}</span>
                 </div>
               </div>
             ) : null}
-            <MenuItem
-              icon="info"
-              onClick={() => {
-                close();
-                openModal({ type: 'settings' });
-              }}
-            >
-              مشخصات و قوانین جلسه
-            </MenuItem>
-            {prop ? (
-              <MenuItem
-                icon="shield"
-                onClick={() => {
-                  close();
-                  toggleProp();
-                }}
-              >
-                پنجره قوانین پراپ
-              </MenuItem>
-            ) : null}
-            {snap ? (
+            {sessionLinks ? (
               <>
-                <Link
-                  href={`/backtest/${snap.id}/journal`}
-                  onClick={close}
-                  className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
+                <MenuItem
+                  icon="info"
+                  onClick={() => {
+                    close();
+                    openModal({ type: 'settings' });
+                  }}
                 >
-                  <Icon name="journal" size={15} className="text-muted" />
-                  <span>دفتر معاملات</span>
-                </Link>
-                <Link
-                  href={statsHref(snap.id)}
-                  onClick={close}
-                  className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
-                >
-                  <Icon name="chart" size={15} className="text-muted" />
-                  <span>تحلیل عملکرد</span>
-                </Link>
+                  مشخصات و قوانین جلسه
+                </MenuItem>
+                {prop ? (
+                  <MenuItem
+                    icon="shield"
+                    onClick={() => {
+                      close();
+                      toggleProp();
+                    }}
+                  >
+                    پنجره قوانین پراپ
+                  </MenuItem>
+                ) : null}
+                {snap ? (
+                  <>
+                    <Link
+                      href={`/backtest/${snap.id}/journal`}
+                      onClick={close}
+                      className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
+                    >
+                      <Icon name="journal" size={15} className="text-muted" />
+                      <span>دفتر معاملات</span>
+                    </Link>
+                    <Link
+                      href={statsHref(snap.id)}
+                      onClick={close}
+                      className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
+                    >
+                      <Icon name="chart" size={15} className="text-muted" />
+                      <span>تحلیل عملکرد</span>
+                    </Link>
+                  </>
+                ) : null}
+                <div role="separator" className="my-1 h-px bg-line/70" />
               </>
             ) : null}
-            <div role="separator" className="my-1 h-px bg-line/70" />
             <MenuItem
               icon="keyboard"
               onClick={() => {
@@ -625,9 +591,4 @@ function MenuItem({
       <span>{children}</span>
     </button>
   );
-}
-
-function FlowMark() {
-  const icon = seriesRegistry.get('volume-footprint')?.icon;
-  return icon ? <Icon path={icon} size={15} /> : <Icon name="activity" size={15} />;
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
-import { AppHeader } from '../../platform/AppHeader';
+import { HomeShell, ShellMenuButton, ShellTools } from '../../home/HomeShell';
 import type { Me } from '../../platform/api';
 import { useThemeCssVars } from '../../hooks/useThemeCssVars';
 import { Icon } from '../../ui/Icon';
@@ -44,7 +44,7 @@ export default function BattleRoom({ id, user }: { readonly id: string; readonly
       );
     }
     return (
-      <div className="flex h-full w-full items-center justify-center bg-chart">
+      <div className="home-shell flex h-full w-full items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-line border-t-accent" />
       </div>
     );
@@ -94,9 +94,16 @@ export default function BattleRoom({ id, user }: { readonly id: string; readonly
 
 function Shell({ user, children }: { readonly user: Me; readonly children: React.ReactNode }) {
   return (
-    <div className="h-full overflow-y-auto bg-chart text-fg">
-      <AppHeader fa user={user} />
-      {children}
-    </div>
+    <HomeShell user={user} notices={0} noticeMenu={null}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-2 px-4 pt-4 sm:px-6">
+          <ShellMenuButton />
+          <div className="ms-auto">
+            <ShellTools />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      </div>
+    </HomeShell>
   );
 }

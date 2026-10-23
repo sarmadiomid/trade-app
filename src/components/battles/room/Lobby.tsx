@@ -156,11 +156,11 @@ export function Lobby({
                     }`}
                   >
                     {host ? (
-                      <span className="absolute start-2 top-2 text-[#f2c14e]" title="میزبان">
+                      <span className="absolute start-2 top-2 text-accent" title="میزبان">
                         <Icon name="crown" size={15} />
                       </span>
                     ) : null}
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#2a3550] to-[#1b2236] text-[15px] font-bold">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-hover text-[15px] font-bold text-fg">
                       {initials(p.name)}
                     </span>
                     <span className="mt-2 max-w-full truncate text-[13px] font-semibold">

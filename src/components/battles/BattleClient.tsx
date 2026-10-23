@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import type { Me } from '../platform/api';
 
-const loading = () => <div className="h-full w-full bg-chart" />;
+const loading = () => <div className="home-shell h-full w-full" />;
 const hubLoading = () => <div className="home-shell h-full w-full" />;
 
 /** Client-only boundaries: battle pages use the canvas chart and browser storage. */
@@ -15,5 +15,9 @@ export function BattlesHubClient({ user }: { readonly user: Me }) {
 }
 
 export function BattleRoomClient({ id, user }: { readonly id: string; readonly user: Me }) {
-  return <Room id={id} user={user} />;
+  return (
+    <div className="h-dvh w-full">
+      <Room id={id} user={user} />
+    </div>
+  );
 }
