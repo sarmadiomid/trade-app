@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { formatIranianMobile } from '@/auth/phone';
-import { APP_CONFIG } from '@/lib/app/config';
+import { APP_CONFIG } from '@/lib/app';
 import type { Theme } from '@/lib/core';
 import { faDigits } from '@/lib/locale/jalali';
 import { LocalStorageStorage, VersionedStore } from '@/lib/storage';

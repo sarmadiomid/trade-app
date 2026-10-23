@@ -11,7 +11,7 @@ export interface SmsResult {
  * verify/lookup API; without them (development only) the code is logged and returned.
  */
 export async function sendOtpSms(phone: string, code: string): Promise<SmsResult> {
-  if (process.env.NODE_ENV !== 'production') console.log(`[otp] ${phone}: ${code}`);
+  if (process.env.NODE_ENV !== 'production') console.warn(`[otp] ${phone}: ${code}`);
   const apiKey = process.env.KAVENEGAR_API_KEY;
   const template = process.env.KAVENEGAR_TEMPLATE;
   if (apiKey && template) {
