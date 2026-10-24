@@ -126,7 +126,11 @@ export class BattleRuntime {
   }
 
   /** Starts the account and brings it to the trader's replay cursor. */
-  attach(app: ChartApp, cursor: number, onAction: (a: LoggedAction) => void): BacktestController {
+  attach(
+    app: ChartApp,
+    cursor: number,
+    persistAction: (a: LoggedAction) => Promise<void>,
+  ): BacktestController {
     const c = new BacktestController(app, {
       session: this.session,
       spec: this.spec,
@@ -135,7 +139,7 @@ export class BattleRuntime {
       clock: app.deps.clock,
       timer: app.deps.runtime.timer,
       cursorRef: this.cursorRef,
-      onAction,
+      persistAction,
       end: this.end,
     });
     this.controllerRef = c;

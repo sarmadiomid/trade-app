@@ -9,7 +9,7 @@ export const volumeRenderer: LayerRenderer = {
   zIndex: 5,
   render(ctx, f) {
     const pane = f.layout.volumePane;
-    if (!pane || f.volumeMax <= 0 || f.series.length === 0) return;
+    if (!pane || f.options.volumeHidden || f.volumeMax <= 0 || f.series.length === 0) return;
     const { dpr } = f;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.save();

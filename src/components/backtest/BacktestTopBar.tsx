@@ -11,12 +11,12 @@ import {
   writeLayouts,
   type ChartLayout,
 } from '../chart/mobile/layouts';
-import { useVolumeChip } from '../chart/mobile/mobile-ui';
 import { useApp } from '../state/app-context';
 import { useUiStore } from '../state/ui-store';
 import { ChartTypeMenu } from '../toolbar/ChartTypeMenu';
 import { TimeframeBar } from '../toolbar/TimeframeBar';
 import { Divider } from '../ui/Divider';
+import { journalHref } from '../home/journal-href';
 import { statsHref } from '../home/stats-href';
 import { Icon } from '../ui/Icon';
 import { IconButton } from '../ui/IconButton';
@@ -197,8 +197,9 @@ export function BacktestTopBar({
               aria-checked={volumeOn}
               onClick={() => {
                 const next = !volumeOn;
-                app.settings.update({ volumeVisible: next });
-                if (next) useVolumeChip.getState().setOpen(true);
+                app.settings.update(
+                  next ? { volumeVisible: true, volumeHidden: false } : { volumeVisible: false },
+                );
                 close();
               }}
               className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
@@ -224,7 +225,7 @@ export function BacktestTopBar({
         <div className="hidden items-center gap-1 @min-[1120px]/bar:flex">
           <Tooltip label="دفتر معاملات">
             <Link
-              href={`/backtest/${snap.id}/journal`}
+              href={journalHref(snap.id)}
               className={`${ghost} gap-1.5 px-2 text-[12.5px] font-medium`}
             >
               <Icon name="journal" size={15} />
@@ -306,7 +307,7 @@ export function BacktestTopBar({
                 {snap ? (
                   <>
                     <Link
-                      href={`/backtest/${snap.id}/journal`}
+                      href={journalHref(snap.id)}
                       onClick={close}
                       className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
                     >
@@ -381,10 +382,13 @@ export function BacktestTopBar({
           volumeVisible: volumeOn,
         })}
         apply={(layout) => {
-          app.settings.update({ chartType: layout.chartType, volumeVisible: layout.volumeVisible });
+          app.settings.update({
+            chartType: layout.chartType,
+            volumeVisible: layout.volumeVisible,
+            ...(layout.volumeVisible ? { volumeHidden: false } : {}),
+          });
           if (isTimeframeId(layout.timeframe)) void app.setTimeframe(layout.timeframe);
           app.themes.setActive(layout.themeId);
-          if (layout.volumeVisible) useVolumeChip.getState().setOpen(true);
         }}
       />
 

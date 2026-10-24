@@ -74,5 +74,5 @@ export function luminance(color: string): number {
 }
 
 export function contrastText(background: string): string {
-  return luminance(background) > 0.6 ? '#131722' : '#ffffff';
+  return luminance(background) > 0.6 ? '#141924' : '#ffffff';
 }

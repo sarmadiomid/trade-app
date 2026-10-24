@@ -81,7 +81,7 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
   const stoppedRef = useRef(false);
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
   const reportedRef = useRef(view.cursor);
-  const onActionRef = useRef<(a: LoggedAction) => void>(() => {});
+  const onActionRef = useRef<(a: LoggedAction) => Promise<void>>(async () => {});
   useTicker(250);
 
   useEffect(() => {
@@ -126,20 +126,26 @@ function ArenaSeat({ view, viewRef, meId, now, refetch, run }: ArenaProps) {
     return queueRef.current;
   }, [runtime, view.id]);
 
-  // Every action goes to the server in order; a rejection resyncs with the server's record.
+  // The trade is stored before the chart shows it. A rejection leaves the position unchanged.
   useEffect(() => {
     onActionRef.current = (logged) => {
       reportedRef.current = Math.max(reportedRef.current, logged.t);
-      queueRef.current = queueRef.current.then(() =>
-        api(`/api/battles/${view.id}/actions`, {
-          method: 'POST',
-          body: { t: logged.t, action: logged.a },
-        }).catch(async (e: unknown) => {
-          const msg = faMessage(e instanceof Error ? e.message : 'The action was not accepted');
-          useUiStore.getState().pushToast(msg, 'error');
+      const run = queueRef.current.then(async () => {
+        try {
+          await api(`/api/battles/${view.id}/actions`, {
+            method: 'POST',
+            body: { t: logged.t, action: logged.a },
+          });
+        } catch (e: unknown) {
           if (e instanceof ApiError && (e.status === 409 || e.status === 422)) await resync();
-        }),
+          throw new Error(faMessage(e instanceof Error ? e.message : 'The action was not accepted'));
+        }
+      });
+      queueRef.current = run.then(
+        () => undefined,
+        () => undefined,
       );
+      return run;
     };
   }, [view.id, resync]);
 

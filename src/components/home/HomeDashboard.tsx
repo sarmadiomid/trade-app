@@ -14,6 +14,7 @@ import { PracticeOverview, PracticeSkeleton } from './PracticeOverview';
 import { signedMoney } from '../backtest/format';
 import { HOME_ICONS, HomeShell, ShellMenuButton, ShellTools } from './HomeShell';
 import { SessionsBoard } from './SessionsBoard';
+import { journalHref } from './journal-href';
 import { statsHref } from './stats-href';
 
 const AnalyticsDashboard = dynamic(() => import('../backtest/analytics/AnalyticsDashboard'), {
@@ -478,22 +479,25 @@ function TradeList({ sessions }: { readonly sessions: SessionSummary[] | null | 
           const pnl = s.balance - s.startingBalance;
           return (
             <li key={s.id}>
-              <Link
-                href={`/backtest/${s.id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-3 transition hover:border-[var(--h-accent)]/40"
-              >
-                <span className="min-w-0">
+              <div className="flex items-center gap-3 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-3 transition hover:border-[var(--h-accent)]/40">
+                <Link href={journalHref(s.id)} className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-semibold">{s.name}</span>
                   <span className="text-[12px] text-[var(--h-muted)]">
                     <bdi dir="ltr">{s.symbol}</bdi>
                     {' · '}
                     {faNum(s.trades)} معامله
                   </span>
-                </span>
+                </Link>
+                <Link
+                  href={`/backtest/${s.id}`}
+                  className="shrink-0 text-[12px] font-medium text-[var(--h-accent)]"
+                >
+                  نمودار
+                </Link>
                 <span className={`shrink-0 text-[13px] font-semibold tabular-nums ${pnlTone(pnl)}`}>
                   {signedMoney(pnl)}
                 </span>
-              </Link>
+              </div>
             </li>
           );
         })}

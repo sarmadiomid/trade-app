@@ -8,6 +8,7 @@ import { drawingRegistry } from '@/lib/drawings';
 import { useApp } from '../../state/app-context';
 import { useUiStore } from '../../state/ui-store';
 import { Icon } from '../../ui/Icon';
+import { journalHref } from '../../home/journal-href';
 import { statsHref } from '../../home/stats-href';
 import type { IconName } from '../../ui/icons';
 import { MobileSheet } from '../../chart/mobile/MobileSheet';
@@ -18,7 +19,7 @@ import {
   writeLayouts,
   type ChartLayout,
 } from '../../chart/mobile/layouts';
-import { useDesktopMode, useVolumeChip } from '../../chart/mobile/mobile-ui';
+import { useDesktopMode } from '../../chart/mobile/mobile-ui';
 import { TradingPanel } from '../TradingPanel';
 import { useBacktestStore } from '../store';
 
@@ -95,10 +96,13 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
   };
 
   const applyLayout = (layout: ChartLayout) => {
-    app.settings.update({ chartType: layout.chartType, volumeVisible: layout.volumeVisible });
+    app.settings.update({
+      chartType: layout.chartType,
+      volumeVisible: layout.volumeVisible,
+      ...(layout.volumeVisible ? { volumeHidden: false } : {}),
+    });
     if (isTimeframeId(layout.timeframe)) void app.setTimeframe(layout.timeframe);
     app.themes.setActive(layout.themeId);
-    if (layout.volumeVisible) useVolumeChip.getState().setOpen(true);
     setActiveId(layout.id);
     writeActiveLayout(layout.id);
     pushToast(`Applied “${layout.name}”`);
@@ -216,7 +220,7 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
               onClick={() => setPanel('indicators')}
             />
             {sessionLinks ? (
-              <Tile span={2} icon="journal" label="Journal" href={`/backtest/${snap.id}/journal`} />
+              <Tile span={2} icon="journal" label="Journal" href={journalHref(snap.id)} />
             ) : null}
             <Tile
               span={2}
@@ -325,8 +329,9 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
           type="button"
           onClick={() => {
             const next = !options.volumeVisible;
-            app.settings.update({ volumeVisible: next });
-            if (next) useVolumeChip.getState().setOpen(true);
+            app.settings.update(
+              next ? { volumeVisible: true, volumeHidden: false } : { volumeVisible: false },
+            );
           }}
           className="flex h-12 w-full items-center gap-3 rounded-xl bg-chart px-3 text-left"
         >

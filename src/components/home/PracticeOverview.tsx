@@ -5,8 +5,9 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { browserBacktestServices } from '@/lib/app';
 import { outcomeOf, type SessionSummary, type SessionType } from '@/lib/backtest';
 import { faDigits, utcToJalali } from '@/lib/locale/jalali';
-import { dropPracticeTime, readPracticeStore, type PracticeStore } from '../backtest/practice-time';
+import { dropPracticeTime, loadPracticeTime, type PracticeStore } from '../backtest/practice-time';
 import { faNum, money } from '../backtest/format';
+import { journalHref } from './journal-href';
 import { statsHref } from './stats-href';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
@@ -117,14 +118,19 @@ export function PracticeOverview({
   }, [ids, sessions]);
 
   useEffect(() => {
+    let cancel = false;
     const read = () => {
-      setPractice(readPracticeStore());
-      setNow(Date.now());
+      void loadPracticeTime().then((store) => {
+        if (cancel) return;
+        setPractice(store);
+        setNow(Date.now());
+      });
     };
     read();
     window.addEventListener('focus', read);
     document.addEventListener('visibilitychange', read);
     return () => {
+      cancel = true;
       window.removeEventListener('focus', read);
       document.removeEventListener('visibilitychange', read);
     };
@@ -870,11 +876,7 @@ function SessionRow({
         </span>
         <IconLink label={`حذف ${session.name}`} onClick={onDelete} name="trash" />
         <IconLink label={`ویرایش نام ${session.name}`} onClick={onRename} name="edit" />
-        <IconLink
-          label={`دفتر ${session.name}`}
-          href={`/backtest/${session.id}/journal`}
-          name="journal"
-        />
+        <IconLink label={`دفتر ${session.name}`} href={journalHref(session.id)} name="journal" />
         <Link
           href={statsHref(session.id)}
           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--h-line)] px-3 text-[12px] font-medium transition hover:bg-[var(--h-chip)]"

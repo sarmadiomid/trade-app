@@ -28,6 +28,7 @@ import { MobileChartOverlay } from './mobile/MobileChartOverlay';
 import { MobileTimeDock } from './mobile/MobileTimeDock';
 import { restoreDesktopMode, useCompactChart, useDesktopMode } from './mobile/mobile-ui';
 import { Legend } from './Legend';
+import { VolumeLegend } from './VolumeLegend';
 
 /** Reads optional URL overrides: ?provider=synthetic, ?bars=50000 (stress test). */
 function urlOptions() {
@@ -188,6 +189,7 @@ export default function ChartWorkspace({
             {app ? (
               <>
                 <Legend />
+                <VolumeLegend />
                 <ChartControls />
                 <FavoritesToolbar />
                 <MobileChartOverlay

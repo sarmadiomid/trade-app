@@ -11,6 +11,7 @@ import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { CreateSessionDialog } from './CreateSessionDialog';
+import { journalHref } from '../home/journal-href';
 import { statsHref } from '../home/stats-href';
 import { faNum, money, pnlClass, signedMoney, utcDate, utcDateTime } from './format';
 
@@ -142,7 +143,7 @@ export default function SessionsPage() {
                       عملکرد
                     </Link>
                     <Link
-                      href={`/backtest/${s.id}/journal`}
+                      href={journalHref(s.id)}
                       className="inline-flex h-8 items-center rounded-md border border-line px-3 text-[13px] hover:bg-hover"
                     >
                       دفتر

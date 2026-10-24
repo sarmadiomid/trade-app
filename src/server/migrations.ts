@@ -59,6 +59,24 @@ export const MIGRATIONS: readonly Migration[] = [
       ]);
     },
   },
+  {
+    id: '004-practice-ledger',
+    description: 'Backtest sessions, position opens and closes, screenshots; logins last 48 hours',
+    async up(db) {
+      const ttl = 48 * 60 * 60 * 1000;
+      await Promise.all([
+        db.collection('backtest_sessions').createIndex({ userId: 1, updatedAt: -1 }),
+        db.collection('position_events').createIndex({ userId: 1, scope: 1, scopeId: 1 }),
+        db.collection('backtest_shots').createIndex({ userId: 1, sessionId: 1 }),
+      ]);
+      const sessions = db.collection<{ _id: string; createdAt: Date; expiresAt: Date }>('sessions');
+      const cursor = sessions.find({});
+      for await (const s of cursor) {
+        const cap = new Date(new Date(s.createdAt).getTime() + ttl);
+        if (s.expiresAt > cap) await sessions.updateOne({ _id: s._id }, { $set: { expiresAt: cap } });
+      }
+    },
+  },
 ];
 
 export const defaultDisplayName = (phone: string) => `Trader ${phone.slice(-4)}`;

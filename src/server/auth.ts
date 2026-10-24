@@ -8,7 +8,8 @@ import { defaultDisplayName } from './migrations';
 import { sendOtpSms } from './sms';
 
 export const SESSION_COOKIE = 'tc_session';
-export const SESSION_DAYS = 30;
+/** A login is valid for 48 hours, then the cookie and the database row both expire. */
+export const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
 
 const OTP_TTL_MS = 2 * 60_000;
 const OTP_MAX_ATTEMPTS = 5;
@@ -131,7 +132,7 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
     _id: hashToken(token),
     userId: user._id,
     createdAt: now,
-    expiresAt: new Date(now.getTime() + SESSION_DAYS * 86_400_000),
+    expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
   });
   return {
     ok: true,
@@ -146,8 +147,13 @@ export async function userFromToken(
 ): Promise<(SessionUser & { _id: ObjectId }) | null> {
   if (!token) return null;
   const { sessions, users } = await collections();
-  const session = await sessions.findOne({ _id: hashToken(token), expiresAt: { $gt: new Date() } });
+  const now = new Date();
+  const session = await sessions.findOne({ _id: hashToken(token), expiresAt: { $gt: now } });
   if (!session) return null;
+  if (now.getTime() - session.createdAt.getTime() > SESSION_TTL_MS) {
+    await sessions.deleteOne({ _id: session._id });
+    return null;
+  }
   const user = await users.findOne({ _id: session.userId });
   return user
     ? { _id: user._id, id: user._id.toHexString(), phone: user.phone, name: nameOf(user) }
@@ -177,5 +183,5 @@ export const sessionCookieOptions = {
   sameSite: 'lax' as const,
   secure: process.env.NODE_ENV === 'production',
   path: '/',
-  maxAge: SESSION_DAYS * 86_400,
+  maxAge: SESSION_TTL_MS / 1000,
 };

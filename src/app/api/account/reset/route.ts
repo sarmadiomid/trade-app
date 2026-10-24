@@ -15,11 +15,15 @@ export async function POST(req: NextRequest) {
     if (active) {
       return json({ error: 'اول از نبرد جاری خارج شوید، بعد حساب را بازنشانی کنید.' }, 409);
     }
-    const { chartRecords, battleProfiles, battleQueue } = await collections();
+    const { chartRecords, battleProfiles, battleQueue, backtestSessions, positionEvents, backtestShots } =
+      await collections();
     await Promise.all([
       chartRecords.deleteMany({ userId: user._id }),
       battleProfiles.deleteOne({ _id: user._id }),
       battleQueue.deleteOne({ _id: user._id }),
+      backtestSessions.deleteMany({ userId: user._id }),
+      positionEvents.deleteMany({ userId: user._id }),
+      backtestShots.deleteMany({ userId: user._id }),
     ]);
     return json({ ok: true });
   } catch (e) {

@@ -73,7 +73,11 @@ const CHART_TYPE_GROUPS: SettingsGroup[] = [
     label: 'Bars',
     visibleWhen: chartType('bars'),
     fields: [
-      { kind: 'boolean', key: 'opt.barsColorOnPrevClose', label: 'Color bars based on previous close' },
+      {
+        kind: 'boolean',
+        key: 'opt.barsColorOnPrevClose',
+        label: 'Color bars based on previous close',
+      },
       { kind: 'boolean', key: 'opt.barsHlc', label: 'HLC bars' },
       { kind: 'boolean', key: 'opt.barsThin', label: 'Thin bars' },
     ],
@@ -479,6 +483,12 @@ export const CHART_SETTINGS_SCHEMA: SettingsSchema = {
           label: 'Volume',
           fields: [
             { kind: 'boolean', key: 'opt.volumeVisible', label: 'Show volume pane' },
+            {
+              kind: 'boolean',
+              key: 'opt.volumeHidden',
+              label: 'Hide volume bars',
+              visibleWhen: { key: 'opt.volumeVisible', truthy: true },
+            },
             { kind: 'color', key: 'theme.volumeUp', label: 'Up', inline: true },
             { kind: 'color', key: 'theme.volumeDown', label: 'Down', inline: true },
             {

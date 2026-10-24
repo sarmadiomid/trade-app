@@ -34,6 +34,7 @@ import { connectBridge } from '../state/bridge';
 import { useUiStore } from '../state/ui-store';
 import { ChartControls } from '../chart/ChartControls';
 import { Legend } from '../chart/Legend';
+import { VolumeLegend } from '../chart/VolumeLegend';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { IconButton } from '../ui/IconButton';
@@ -327,6 +328,7 @@ function Player({
               {app ? (
                 <>
                   <Legend />
+                  <VolumeLegend />
                   {free ? (
                     <>
                       <ChartControls />
@@ -345,7 +347,7 @@ function Player({
                 <svg width="22" height="22" viewBox="0 0 24 24" className="drop-shadow">
                   <path
                     d="M4 2l15 9-6.5 1.6L9.8 19z"
-                    fill="var(--tc-accent, #2962ff)"
+                    fill="var(--tc-accent, #3b78ff)"
                     stroke="white"
                     strokeWidth="1.5"
                   />

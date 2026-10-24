@@ -10,8 +10,8 @@ import { autoRowSize, rowOf, valueArea } from '../shared/profile';
 import { sessionsInRange } from '../shared/sessions';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-const VALUE_AREA_COLOR = '#2962ff';
-const POC_COLOR = '#f23645';
+const VALUE_AREA_COLOR = '#3b78ff';
+const POC_COLOR = '#ff6b81';
 const INITIAL_BALANCE_COLOR = '#f7a600';
 /** Periods forming the initial balance (the first hour with 30-minute periods). */
 const INITIAL_BALANCE_PERIODS = 2;

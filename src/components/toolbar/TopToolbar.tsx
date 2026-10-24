@@ -4,7 +4,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { chordLabel } from '@/lib/app';
 import { seriesRegistry } from '@/lib/series';
 import { captureChart } from '../backtest/capture';
-import { useVolumeChip } from '../chart/mobile/mobile-ui';
 import { useApp } from '../state/app-context';
 import { useUiStore } from '../state/ui-store';
 import { Divider } from '../ui/Divider';
@@ -84,14 +83,18 @@ export function TopToolbar({
     const el = document.documentElement;
     if (!el.requestFullscreen) {
       pushToast(
-        fa ? 'تمام‌صفحه در این مرورگر پشتیبانی نمی‌شود' : 'Full screen is not supported on this browser',
+        fa
+          ? 'تمام‌صفحه در این مرورگر پشتیبانی نمی‌شود'
+          : 'Full screen is not supported on this browser',
         'error',
       );
       return;
     }
     el.requestFullscreen().catch(() =>
       pushToast(
-        fa ? 'تمام‌صفحه در این مرورگر پشتیبانی نمی‌شود' : 'Full screen is not supported on this browser',
+        fa
+          ? 'تمام‌صفحه در این مرورگر پشتیبانی نمی‌شود'
+          : 'Full screen is not supported on this browser',
         'error',
       ),
     );
@@ -123,7 +126,11 @@ export function TopToolbar({
             onClick={() => openDialog({ type: 'symbol-search' })}
             className="group flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-chart/65 px-2.5 text-[13px] font-bold tracking-wide text-fg ring-1 ring-inset ring-line/80 transition-colors hover:bg-hover hover:ring-accent/40"
           >
-            <Icon name="search" size={15} className="text-muted transition-colors group-hover:text-accent" />
+            <Icon
+              name="search"
+              size={15}
+              className="text-muted transition-colors group-hover:text-accent"
+            />
             <span dir="ltr" className="max-w-30 truncate">
               {symbol?.symbol ?? '…'}
             </span>
@@ -148,9 +155,7 @@ export function TopToolbar({
           aria-expanded={indAnchor !== null}
           onClick={(e) => setIndAnchor(indAnchor ? null : e.currentTarget)}
           className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-medium transition-colors ${
-            indAnchor !== null || volumeOn
-              ? 'bg-accent/12 text-accent'
-              : 'text-fg hover:bg-hover'
+            indAnchor !== null || volumeOn ? 'bg-accent/12 text-accent' : 'text-fg hover:bg-hover'
           }`}
         >
           <Icon name="activity" size={15} />
@@ -166,8 +171,9 @@ export function TopToolbar({
               aria-checked={volumeOn}
               onClick={() => {
                 const next = !volumeOn;
-                app.settings.update({ volumeVisible: next });
-                if (next) useVolumeChip.getState().setOpen(true);
+                app.settings.update(
+                  next ? { volumeVisible: true, volumeHidden: false } : { volumeVisible: false },
+                );
                 setIndAnchor(null);
               }}
               className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[12.5px] text-fg transition-colors hover:bg-hover"
@@ -207,7 +213,11 @@ export function TopToolbar({
       </Tooltip>
       {flowAnchor ? (
         <Popover anchor={flowAnchor} onClose={() => setFlowAnchor(null)}>
-          <div dir={fa ? 'rtl' : 'ltr'} className="-m-1.5 flex min-w-56 flex-col gap-0.5 p-1" role="menu">
+          <div
+            dir={fa ? 'rtl' : 'ltr'}
+            className="-m-1.5 flex min-w-56 flex-col gap-0.5 p-1"
+            role="menu"
+          >
             <div className="px-2 pt-0.5 pb-1 text-[10.5px] font-semibold tracking-wider text-muted uppercase">
               {t('Order Flow')}
             </div>
@@ -276,7 +286,7 @@ export function TopToolbar({
         <span
           className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset @min-[1240px]/bar:inline-flex ${
             source === 'binance'
-              ? 'bg-[#0899811a] text-up ring-up/30'
+              ? 'bg-up/10 text-up ring-up/30'
               : 'bg-[#f7a6001a] text-[#f7a600] ring-[#f7a600]/30'
           }`}
           title={

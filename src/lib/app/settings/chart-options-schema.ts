@@ -110,6 +110,7 @@ export const chartOptionsSchema = z
     watermarkText: z.string().max(80),
     fontSize: z.number().min(8).max(20),
     volumeVisible: z.boolean(),
+    volumeHidden: z.boolean(),
     volumePaneRatio: z.number().min(volume.minRatio).max(volume.maxRatio),
     rightMargin: z.number().min(0).max(200),
     marginTop: z.number().min(0).max(40),

@@ -2,16 +2,16 @@
 
 /* Design tokens. Values are overwritten at runtime from the active theme (see useThemeCssVars). */
 :root {
-  --tc-bg: #0a0c13;
-  --tc-panel: #1e222d;
-  --tc-border: #2a2e39;
-  --tc-text: #d1d4dc;
-  --tc-muted: #787b86;
-  --tc-hover: #2a2e39;
-  --tc-accent: #2962ff;
+  --tc-bg: #07090f;
+  --tc-panel: #10141e;
+  --tc-border: rgba(255, 255, 255, 0.08);
+  --tc-text: #f4f7fb;
+  --tc-muted: #8e98ab;
+  --tc-hover: #232a3b;
+  --tc-accent: #3b78ff;
   --tc-accent-text: #ffffff;
-  --tc-up: #089981;
-  --tc-down: #f23645;
+  --tc-up: #3dcea0;
+  --tc-down: #ff6b81;
   color-scheme: dark;
 }
 

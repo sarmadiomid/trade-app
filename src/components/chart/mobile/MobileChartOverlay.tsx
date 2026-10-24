@@ -7,7 +7,6 @@ import { useFavoritesStore } from '../../state/favorites-store';
 import { useUiStore } from '../../state/ui-store';
 import { Icon } from '../../ui/Icon';
 import { captureChart } from '../../backtest/capture';
-import { useVolumeChip } from './mobile-ui';
 import { MobileToolsSheet } from './MobileToolsSheet';
 
 /** Phone chrome over the chart: screenshot, tools, the volume pill, and pinned tools. */
@@ -20,10 +19,7 @@ export function MobileChartOverlay({
 }) {
   const app = useApp();
   const symbol = useUiStore((s) => s.symbol?.symbol ?? 'chart');
-  const volumeOn = useUiStore((s) => s.options.volumeVisible);
   const pushToast = useUiStore((s) => s.pushToast);
-  const chipOpen = useVolumeChip((s) => s.open);
-  const setChipOpen = useVolumeChip((s) => s.setOpen);
   const tools = useFavoritesStore((s) => s.tools);
   const visible = useFavoritesStore((s) => s.visible);
   const vertical = useFavoritesStore((s) => s.vertical);
@@ -103,33 +99,6 @@ export function MobileChartOverlay({
           </div>
         </div>
         {below}
-        <div className="flex items-start gap-2">
-          {chipOpen ? (
-            <div className="pointer-events-auto flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-line/80 bg-panel/95 px-2.5 text-[13px] shadow-md">
-              <span className={volumeOn ? 'text-fg' : 'text-muted'}>Volume</span>
-              <button
-                type="button"
-                aria-label={volumeOn ? 'Hide volume' : 'Show volume'}
-                aria-pressed={volumeOn}
-                onClick={() => app.settings.update({ volumeVisible: !volumeOn })}
-                className="flex h-6 w-6 items-center justify-center text-muted hover:text-fg"
-              >
-                <Icon name={volumeOn ? 'eye' : 'eyeOff'} size={15} />
-              </button>
-              <button
-                type="button"
-                aria-label="Remove volume"
-                onClick={() => {
-                  app.settings.update({ volumeVisible: false });
-                  setChipOpen(false);
-                }}
-                className="flex h-6 w-6 items-center justify-center text-muted hover:text-fg"
-              >
-                <Icon name="close" size={14} />
-              </button>
-            </div>
-          ) : null}
-        </div>
       </div>
 
       {showDock && vertical ? (

@@ -7,6 +7,7 @@ import { accountConfig, computeStats, equityCurve, type SessionSummary } from '@
 import { faDigits, JALALI_MONTHS, JALALI_WEEKDAYS, utcToJalali } from '@/lib/locale/jalali';
 import { faNum, money, signedMoney, utcDate } from '../backtest/format';
 import { remainingDays } from './overview';
+import { journalHref } from './journal-href';
 import { statsHref } from './stats-href';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
@@ -255,7 +256,7 @@ export function SessionsBoard({
                   آمار جلسه
                 </Link>
                 <Link
-                  href={`/backtest/${summary.id}/journal`}
+                  href={journalHref(summary.id)}
                   className="block rounded-lg px-3 py-2 text-[13px] hover:bg-[var(--h-chip)]"
                   onClick={() => setMenu(false)}
                 >
@@ -377,7 +378,7 @@ export function SessionsBoard({
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-[15px] font-semibold">معاملات اخیر</h3>
           <Link
-            href={`/backtest/${summary.id}/journal`}
+            href={journalHref(summary.id)}
             className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--h-line)] px-3 text-[12px]"
           >
             <Icon name="journal" size={14} /> دفتر

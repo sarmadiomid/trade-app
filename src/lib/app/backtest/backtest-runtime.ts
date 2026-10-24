@@ -12,15 +12,16 @@ import {
   validateSettings,
   type BacktestRepository,
   type BacktestSession,
+  type LoggedAction,
   type SessionSettings,
 } from '@/lib/backtest';
 import { MockMarketProvider, instrumentSpec, INSTRUMENTS } from '@/lib/data';
-import { NamespacedStorage } from '@/lib/storage';
+import { MemoryStorage, NamespacedStorage } from '@/lib/storage';
+import { RemoteBacktestRepository } from './remote-repository';
 import type { ChartApp, ChartAppOptions } from '../chart-app';
 import type { AppDependencies } from '../composition';
 import { APP_CONFIG } from '../config';
 import { systemClock } from '../browser-runtime';
-import { pickStorage } from '../composition';
 import { BacktestController } from './backtest-controller';
 import { backtestShortcuts } from './backtest-shortcuts';
 
@@ -49,16 +50,18 @@ export interface BacktestServices {
 let market: MockMarketProvider | null = null;
 let browserServices: BacktestServices | null = null;
 
-/** Backtest services on the browser's persistent storage (one instance per page). */
+/** Backtest services whose sessions and trades live in the server database. */
 export function browserBacktestServices(): BacktestServices {
-  browserServices ??= createBacktestServices(pickStorage());
+  browserServices ??= createBacktestServices(new MemoryStorage(), new RemoteBacktestRepository());
   return browserServices;
 }
 
-export function createBacktestServices(storage: StorageAdapter): BacktestServices {
+export function createBacktestServices(
+  storage: StorageAdapter,
+  repo: BacktestRepository = new StorageBacktestRepository(storage),
+): BacktestServices {
   market ??= new MockMarketProvider();
   const m = market;
-  const repo = new StorageBacktestRepository(storage);
   const spec = (symbol: string) => instrumentSpec(symbol) ?? m.getSymbolInfo(symbol);
   return {
     market: m,
@@ -87,7 +90,11 @@ export function createBacktestServices(storage: StorageAdapter): BacktestService
       const now = systemClock.now();
       const id = createIdGenerator(createRng(now >>> 0), 'bt')();
       const session = createSession({ id, now, settings, initialBid, spec: spec(settings.symbol) });
-      await repo.save(session);
+      try {
+        await repo.save(session);
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : 'ذخیرهٔ جلسه ناموفق بود' };
+      }
       return { session };
     },
   };
@@ -138,6 +145,7 @@ export class BacktestRuntime {
   }
 
   attach(app: ChartApp): BacktestController {
+    const confirm = this.services.repo.confirmAction?.bind(this.services.repo);
     const c = new BacktestController(app, {
       session: this.session,
       spec: this.spec,
@@ -146,6 +154,9 @@ export class BacktestRuntime {
       clock: app.deps.clock,
       timer: app.deps.runtime.timer,
       cursorRef: this.cursorRef,
+      ...(confirm
+        ? { persistAction: (action: LoggedAction) => confirm(this.session.id, action) }
+        : {}),
     });
     this.controllerRef = c;
     void c.start();

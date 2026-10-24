@@ -24,6 +24,7 @@ import {
   type Standing,
 } from '@/lib/battles';
 import { MINUTE_MS } from '@/lib/core';
+import { deletePositionEvents, deleteScopeEvents, replacePositionEvents } from '../backtest/positions';
 import { collections, type BattleChatDoc, type BattleDoc, type BattleParticipantDoc } from '../db';
 import { bidBefore, pick, pickMarketStart, randomUnit } from './market';
 import { simulateParticipant, validateAction } from './simulate';
@@ -402,6 +403,7 @@ async function recordResults(b: BattleDoc): Promise<void> {
     );
   }
   await battles.updateOne({ _id: b._id }, { $set: { results: out } });
+  await syncBattleAccounts(b, true);
 }
 
 // ---- participation -----------------------------------------------------------------------
@@ -446,7 +448,7 @@ export async function findByCode(code: string): Promise<BattleDoc | null> {
 
 export async function leaveBattle(id: string, user: Player): Promise<BattleDoc> {
   const target = await loadBattle(id);
-  return mutate(target._id, (b, now) => {
+  const after = await mutate(target._id, (b, now) => {
     const me = b.participants.find((p) => p.userId.equals(user._id));
     if (!me) throw new BattleError('You are not in this battle', 409);
     const msg = { $each: [systemMessage(`${user.name} left`, now)], $slice: -MAX_CHAT };
@@ -473,6 +475,9 @@ export async function leaveBattle(id: string, user: Player): Promise<BattleDoc> 
     const i = b.participants.indexOf(me);
     return { $set: { [`participants.${i}.leftT`]: cursorOf(b, me) }, $push: { chat: msg } };
   });
+  if (after.participants.some((p) => p.userId.equals(user._id))) await syncTrader(after, user._id);
+  else await deletePositionEvents(user._id, 'battle', after._id.toHexString());
+  return after;
 }
 
 export type ControlOp = 'start' | 'pause' | 'resume' | 'restart' | 'end' | 'cancel';
@@ -481,7 +486,7 @@ export type ControlOp = 'start' | 'pause' | 'resume' | 'restart' | 'end' | 'canc
 export async function controlBattle(id: string, user: Player, op: ControlOp): Promise<BattleDoc> {
   const target = await loadBattle(id);
   if (!target.hostId?.equals(user._id)) throw new BattleError('Only the host can do that', 403);
-  return mutate(target._id, (b, now) => {
+  const battle = await mutate(target._id, (b, now) => {
     const say = (text: string) => ({ $each: [systemMessage(text, now)], $slice: -MAX_CHAT });
     switch (op) {
       case 'start':
@@ -541,7 +546,9 @@ export async function controlBattle(id: string, user: Player, op: ControlOp): Pr
           $push: { chat: say('The host closed the battle') },
         };
     }
-  }).then(async (b) => (op === 'end' ? endEarly(b) : b));
+  });
+  if (op === 'restart') await deleteScopeEvents('battle', battle._id.toHexString());
+  return op === 'end' ? endEarly(battle) : battle;
 }
 
 async function endEarly(b: BattleDoc): Promise<BattleDoc> {
@@ -574,7 +581,7 @@ export async function submitAction(
     throw new BattleError('Invalid action');
   const action = parsed.data as TradeAction;
   const target = await loadBattle(id);
-  return mutate(target._id, (b, now) => {
+  const saved = await mutate(target._id, (b, now) => {
     if (b.status === 'paused') throw new BattleError('The battle is paused', 409);
     if (b.status !== 'live') throw new BattleError('Trading is closed', 409);
     const i = b.participants.findIndex((p) => p.userId.equals(user._id));
@@ -594,13 +601,15 @@ export async function submitAction(
       $set: { [`participants.${i}.cursor`]: at },
     };
   });
+  await syncTrader(saved, user._id);
+  return saved;
 }
 
 /** The trader stepped their replay forward to market time `t`. */
 export async function advanceCursor(id: string, user: Player, t: unknown): Promise<BattleDoc> {
   if (typeof t !== 'number' || !Number.isFinite(t)) throw new BattleError('Invalid time');
   const target = await loadBattle(id);
-  return mutate(target._id, (b) => {
+  const saved = await mutate(target._id, (b) => {
     if (b.status === 'paused') throw new BattleError('The battle is paused', 409);
     if (b.status !== 'live') throw new BattleError('Trading is closed', 409);
     const i = b.participants.findIndex((p) => p.userId.equals(user._id));
@@ -611,6 +620,8 @@ export async function advanceCursor(id: string, user: Player, t: unknown): Promi
     if (at <= cursorOf(b, me)) return null;
     return { $set: { [`participants.${i}.cursor`]: at } };
   });
+  await syncTrader(saved, user._id);
+  return saved;
 }
 
 export async function postChat(id: string, user: Player, text: unknown): Promise<BattleDoc> {
@@ -630,6 +641,19 @@ export async function postChat(id: string, user: Player, text: unknown): Promise
     };
     return { $push: { chat: { $each: [msg], $slice: -MAX_CHAT } } };
   });
+}
+
+/** Writes the trader's opens and closes from the server's simulation. */
+async function syncTrader(b: BattleDoc, userId: ObjectId, final = false): Promise<void> {
+  const p = b.participants.find((x) => x.userId.equals(userId));
+  if (!p) return;
+  const done = final || b.status === 'completed' || p.leftT !== null;
+  const sim = simulateParticipant(b, p, done ? endOf(b) : cursorOf(b, p), done);
+  await replacePositionEvents(p.userId, 'battle', b._id.toHexString(), b.symbol, sim.account);
+}
+
+async function syncBattleAccounts(b: BattleDoc, final = false): Promise<void> {
+  await Promise.all(b.participants.map((p) => syncTrader(b, p.userId, final)));
 }
 
 export { START_ELO };

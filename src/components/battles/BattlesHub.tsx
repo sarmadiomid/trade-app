@@ -229,7 +229,7 @@ function JoinById() {
         maxLength={8}
         dir="ltr"
         data-testid="join-code"
-        className={`h-10 w-36 rounded-s-lg border bg-panel px-3 text-center font-mono text-[13px] tracking-widest outline-none focus:border-accent ${
+        className={`h-10 w-36 rounded-r-lg border bg-panel px-3 text-center font-mono text-[13px] tracking-widest outline-none focus:border-accent ${
           error ? 'border-down' : 'border-line'
         }`}
       />

@@ -34,10 +34,12 @@ export const priceAxisRenderer: LayerRenderer = {
       ctx.moveTo(volumeAxis.x, volumeAxis.y + 0.5);
       ctx.lineTo(volumeAxis.x + volumeAxis.width, volumeAxis.y + 0.5);
       ctx.stroke();
-      ctx.fillStyle = c.text;
-      for (const t of f.volumeTicks) {
-        if (t.y < volumeAxis.y + 8 || t.y > volumeAxis.y + volumeAxis.height - 4) continue;
-        ctx.fillText(formatCompact(t.price, 1), volumeAxis.x + PAD, t.y);
+      if (!f.options.volumeHidden) {
+        ctx.fillStyle = c.text;
+        for (const t of f.volumeTicks) {
+          if (t.y < volumeAxis.y + 8 || t.y > volumeAxis.y + volumeAxis.height - 4) continue;
+          ctx.fillText(formatCompact(t.price, 1), volumeAxis.x + PAD, t.y);
+        }
       }
     }
     drawValueLabels(ctx, f);

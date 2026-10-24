@@ -90,7 +90,12 @@ export const DEFAULT_SHORTCUTS: ReadonlyArray<ShortcutDefinition<ChartApp>> = [
     keys: ['Alt+V'],
     description: 'Toggle volume pane',
     category: 'Chart',
-    run: (a) => a.settings.toggle('volumeVisible'),
+    run: (a) => {
+      const on = a.settings.options.volumeVisible;
+      a.settings.update(
+        on ? { volumeVisible: false } : { volumeVisible: true, volumeHidden: false },
+      );
+    },
   },
   {
     id: 'scroll-left',

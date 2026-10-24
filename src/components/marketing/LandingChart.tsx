@@ -7,6 +7,7 @@ import type { TimeframeId } from '@/lib/core';
 import { DemoBroker, type DemoAccount, type DemoView } from './demo-account';
 import { ChartControls } from '../chart/ChartControls';
 import { Legend } from '../chart/Legend';
+import { VolumeLegend } from '../chart/VolumeLegend';
 import { ContextMenu } from '../drawing/ContextMenu';
 import { DrawingToolbar } from '../drawing/DrawingToolbar';
 import { FloatingToolbar } from '../drawing/FloatingToolbar';
@@ -340,6 +341,7 @@ function ChartShell({
             {app ? (
               <>
                 <Legend />
+                <VolumeLegend />
                 <ChartControls />
                 <FloatingToolbar />
                 <TextEditorOverlay />
@@ -396,12 +398,12 @@ export function LandingChart() {
   return (
     <div
       ref={hostRef}
-      className="relative h-[520px] overflow-hidden rounded-[22px] bg-[#131722] sm:h-[560px] lg:h-[620px]"
+      className="relative h-[520px] overflow-hidden rounded-[22px] bg-[#07090f] sm:h-[560px] lg:h-[620px]"
     >
       {visible ? (
         <ChartShell symbol={demo.symbol} timeframe={demo.timeframe} appRef={appRef} />
       ) : (
-        <div className="flex h-full items-center justify-center text-[13px] text-[#787b86]">
+        <div className="flex h-full items-center justify-center text-[13px] text-[#8e98ab]">
           در حال آماده کردن نمودار…
         </div>
       )}

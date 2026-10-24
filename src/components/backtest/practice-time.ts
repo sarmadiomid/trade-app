@@ -1,104 +1,135 @@
 'use client';
 
 import { useEffect } from 'react';
-import { tehranDayKey } from '../home/overview';
+import { sanitizePracticeImport, type PracticeLog } from '@/lib/backtest/session/practice';
 
 const KEY = 'chartix-practice-ms';
-
-export interface PracticeLog {
-  readonly totalMs: number;
-  readonly days: Readonly<Record<string, number>>;
-}
+const SYNCED = 'chartix-practice-ms-synced';
 
 export type PracticeStore = Readonly<Record<string, PracticeLog>>;
 
-function empty(): PracticeLog {
-  return { totalMs: 0, days: {} };
+let uploading: Promise<void> | null = null;
+
+function redirectToLogin(): void {
+  const login = new URL('/login', window.location.origin);
+  login.searchParams.set('next', window.location.pathname);
+  window.location.replace(login.href);
 }
 
-function isLog(v: unknown): v is PracticeLog {
-  if (!v || typeof v !== 'object') return false;
-  const o = v as { totalMs?: unknown; days?: unknown };
-  if (typeof o.totalMs !== 'number' || !o.days || typeof o.days !== 'object') return false;
-  return true;
-}
-
-/** Wall-clock time the replay page has been open, per session. Absent on the server. */
-export function readPracticeStore(): PracticeStore {
-  if (typeof localStorage === 'undefined') return {};
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return {};
-    const out: Record<string, PracticeLog> = {};
-    for (const [id, row] of Object.entries(parsed)) {
-      if (!isLog(row)) continue;
-      const days: Record<string, number> = {};
-      for (const [day, ms] of Object.entries(row.days)) {
-        if (typeof ms === 'number' && ms > 0) days[day] = ms;
-      }
-      out[id] = { totalMs: row.totalMs, days };
+/** Sends the minutes this browser already counted, once, then forgets the local copy. */
+function uploadLocalOnce(): Promise<void> {
+  if (typeof localStorage === 'undefined' || localStorage.getItem(SYNCED)) return Promise.resolve();
+  uploading ??= (async () => {
+    let raw: unknown = {};
+    try {
+      const text = localStorage.getItem(KEY);
+      raw = text ? JSON.parse(text) : {};
+    } catch {
+      raw = {};
     }
-    return out;
+    const res = await fetch('/api/backtest/practice', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ import: raw }),
+    });
+    if (res.status === 401) {
+      redirectToLogin();
+      return;
+    }
+    if (!res.ok) throw new Error('practice import failed');
+    localStorage.setItem(SYNCED, '1');
+    localStorage.removeItem(KEY);
+  })().catch((e: unknown) => {
+    uploading = null;
+    throw e;
+  });
+  return uploading;
+}
+
+/** Account-wide visible time. Empty when the request fails. */
+export async function loadPracticeTime(): Promise<PracticeStore> {
+  try {
+    await uploadLocalOnce();
+    const res = await fetch('/api/backtest/practice', { credentials: 'same-origin', cache: 'no-store' });
+    if (res.status === 401) {
+      redirectToLogin();
+      return {};
+    }
+    if (!res.ok) return {};
+    const data = (await res.json()) as { practice?: unknown };
+    return sanitizePracticeImport(data.practice);
   } catch {
     return {};
   }
 }
 
-export function addPracticeTime(sessionId: string, ms: number, now = Date.now()): void {
-  if (!(ms > 0) || typeof localStorage === 'undefined') return;
-  const store: Record<string, PracticeLog> = { ...readPracticeStore() };
-  const prev = store[sessionId] ?? empty();
-  const day = tehranDayKey(now);
-  store[sessionId] = {
-    totalMs: prev.totalMs + ms,
-    days: { ...prev.days, [day]: (prev.days[day] ?? 0) + ms },
-  };
-  try {
-    localStorage.setItem(KEY, JSON.stringify(store));
-  } catch {
-    // A full or blocked store just stops the chart from growing.
+export async function addPracticeTime(sessionId: string, ms: number): Promise<void> {
+  await uploadLocalOnce();
+  const res = await fetch('/api/backtest/practice', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId, ms }),
+  });
+  if (res.status === 401) {
+    redirectToLogin();
+    return;
   }
+  if (!res.ok) throw new Error('practice save failed');
 }
 
+/** Drops a not-yet-uploaded row so a deleted session is not copied to the account later. */
 export function dropPracticeTime(sessionId: string): void {
   if (typeof localStorage === 'undefined') return;
-  const store: Record<string, PracticeLog> = { ...readPracticeStore() };
-  if (!store[sessionId]) return;
-  delete store[sessionId];
   try {
+    const text = localStorage.getItem(KEY);
+    if (!text) return;
+    const parsed = JSON.parse(text) as unknown;
+    if (!parsed || typeof parsed !== 'object' || !(sessionId in parsed)) return;
+    const store = { ...(parsed as Record<string, unknown>) };
+    delete store[sessionId];
     localStorage.setItem(KEY, JSON.stringify(store));
   } catch {
-    // Ignore quota errors; the session row is already gone.
+    // The session row is already gone on the server.
   }
 }
 
-/** Counts visible time on the replay page and writes it every few seconds. */
+/** Counts visible time on the replay page and writes it to the account every few seconds. */
 export function usePracticeClock(sessionId: string | null): void {
   useEffect(() => {
     if (!sessionId) return;
     let acc = 0;
     let last = document.visibilityState === 'visible' ? performance.now() : 0;
-    const sample = (force: boolean) => {
+    let sending = false;
+    const sample = () => {
       const now = performance.now();
-      // Count up to this instant first, including the moment the tab hides.
       if (last > 0) {
         const dt = now - last;
         if (dt > 0 && dt < 60_000) acc += dt;
       }
       last = document.visibilityState === 'visible' ? now : 0;
-      if (acc >= 1000 || (force && acc > 0)) {
-        addPracticeTime(sessionId, acc);
-        acc = 0;
-      }
     };
-    const id = window.setInterval(() => sample(false), 5000);
-    const onHide = () => sample(true);
+    const flush = (force: boolean) => {
+      sample();
+      if (sending || (acc < 1000 && !(force && acc > 0))) return;
+      const ms = Math.min(60_000, Math.round(acc));
+      acc = Math.max(0, acc - ms);
+      sending = true;
+      void addPracticeTime(sessionId, ms)
+        .catch(() => {
+          acc += ms;
+        })
+        .finally(() => {
+          sending = false;
+        });
+    };
+    const id = window.setInterval(() => flush(false), 5000);
+    const onHide = () => flush(true);
     document.addEventListener('visibilitychange', onHide);
     window.addEventListener('pagehide', onHide);
     return () => {
-      sample(true);
+      flush(true);
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', onHide);
       window.removeEventListener('pagehide', onHide);

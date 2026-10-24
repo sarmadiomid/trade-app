@@ -70,8 +70,11 @@ export interface BacktestControllerDeps {
   readonly timer: Timer;
   /** Shared with the cursor-gated chart provider. */
   readonly cursorRef: { value: number };
-  /** Called with every action once applied (battles send them to the server). */
-  readonly onAction?: (action: LoggedAction) => void;
+  /**
+   * Stores the action in the database before the chart shows it. When set, the position
+   * opens or closes only after this resolves.
+   */
+  readonly persistAction?: (action: LoggedAction) => Promise<void>;
   /** Market time the replay stops at, when not the end of the session's last day (battles). */
   readonly end?: number;
 }
@@ -107,6 +110,8 @@ export class BacktestController {
   private snapTimer: number | null = null;
   private readonly disposers: Array<() => void> = [];
   private destroyed = false;
+  /** A trade is on its way to the database; the chart must not apply another one yet. */
+  private tradeLock = false;
   /** Set by the UI while a dialog is open: hotkeys are ignored. */
   inputBlocked = false;
 
@@ -262,6 +267,10 @@ export class BacktestController {
 
   /** Rewinds to `time` (re-simulates the session up to it). */
   async rewindTo(time: number, force = false): Promise<RewindCheck> {
+    if (this.tradeLock) {
+      this.notice('error', 'معامله در حال ثبت روی سرور است');
+      return { ok: true, removed: 0, reopened: 0 };
+    }
     const s = this.session;
     const t = Math.max(s.settings.startDate, Math.min(time, this.cursor));
     if (t >= this.cursor) return { ok: true, removed: 0, reopened: 0 };
@@ -293,6 +302,7 @@ export class BacktestController {
 
   /** Go to: forward jump to `time`, processing every minute in between. */
   async goTo(time: number): Promise<string | null> {
+    if (this.tradeLock) return 'معامله در حال ثبت روی سرور است';
     const target = Math.min(time, this.end);
     if (target <= this.cursor) return 'پرش فقط به جلو است. برای برگشت از بازگردانی استفاده کنید.';
     if (this.ended) return 'این جلسه تمام شده است';
@@ -318,7 +328,7 @@ export class BacktestController {
    * Used when an outside clock drives the replay (a battle) instead of the Price Skipper.
    */
   async follow(target: number): Promise<void> {
-    if (this.busy || this.ended) return;
+    if (this.busy || this.ended || this.tradeLock) return;
     const t = Math.min(target, this.end);
     if (t <= this.cursor) return;
     this.busy = true;
@@ -395,20 +405,53 @@ export class BacktestController {
     return id;
   }
 
-  /** Applies and logs an action. Returns an error message or null. */
+  /**
+   * Applies and logs an action. When the session is stored on the server, the broker fill
+   * is written first and the position appears only after that write succeeds.
+   */
   act(action: TradeAction): string | null {
+    if (this.tradeLock) {
+      this.notice('error', 'معاملهٔ قبلی هنوز در حال ثبت است');
+      return 'معاملهٔ قبلی هنوز در حال ثبت است';
+    }
+    const probe = new ExecutionEngine(this.cfg, structuredClone(this.engine.state));
+    probe.state.time = Math.max(probe.state.time, this.cursor);
+    const preview = probe.apply(action);
+    if (!preview.ok) {
+      this.notice('error', preview.error);
+      return preview.error;
+    }
+    const logged = { t: this.cursor, a: action };
+    const persist = this.deps.persistAction;
+    if (persist) {
+      this.tradeLock = true;
+      void persist(logged).then(
+        () => {
+          this.tradeLock = false;
+          if (!this.destroyed) this.commitAction(action, logged);
+        },
+        (e: unknown) => {
+          this.tradeLock = false;
+          this.notice('error', e instanceof Error ? e.message : 'معامله در سرور ثبت نشد');
+        },
+      );
+      return null;
+    }
+    this.commitAction(action, logged);
+    return null;
+  }
+
+  /** The broker accepted the action (locally, or the server already stored it). */
+  private commitAction(action: TradeAction, logged: LoggedAction): void {
     const res = this.engine.apply(action);
     if (!res.ok) {
       this.notice('error', res.error);
-      return res.error;
+      return;
     }
-    const logged = { t: this.cursor, a: action };
     this.session.actions.push(logged);
-    this.deps.onAction?.(logged);
     this.handleEvents(res.events);
     this.overlay.invalidate();
     this.changed();
-    return null;
   }
 
   notice(level: BacktestEventMap['notice']['level'], text: string): void {
@@ -451,7 +494,7 @@ export class BacktestController {
   // ---- stepping internals ----------------------------------------------------------------------
 
   private async stepOnce(): Promise<void> {
-    if (this.busy || this.ended) return;
+    if (this.busy || this.ended || this.tradeLock) return;
     if (this.cursor >= this.end) return this.finish();
     this.busy = true;
     try {

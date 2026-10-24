@@ -7,7 +7,7 @@ import type {
   FinalResult,
   RankedFormat,
 } from '@/lib/battles';
-import type { TradeAction } from '@/lib/backtest';
+import type { BacktestSession, TradeAction } from '@/lib/backtest';
 import { migrate } from './migrations';
 
 export interface UserDoc {
@@ -134,6 +134,45 @@ export interface BattleProfileDoc {
   updatedAt: number;
 }
 
+/** One backtest session owned by a user. The account inside is the server's simulation. */
+export interface BacktestSessionDoc {
+  /** Client session id (`bt…`). */
+  _id: string;
+  userId: ObjectId;
+  version: number;
+  session: BacktestSession;
+  /** Wall-clock time the replay page was visible. Kept beside `session` so a cursor save cannot wipe it. */
+  practice?: { totalMs: number; days: Record<string, number> };
+  updatedAt: Date;
+}
+
+/** A position open or close the server recorded. The chart shows the trade only after this exists. */
+export interface PositionEventDoc {
+  _id: string;
+  userId: ObjectId;
+  scope: 'backtest' | 'battle';
+  scopeId: string;
+  kind: 'open' | 'close';
+  positionId: string;
+  marketTime: number;
+  price: number;
+  volume: number;
+  side: 'buy' | 'sell';
+  reason: string | null;
+  pnl: number | null;
+  symbol: string;
+  createdAt: Date;
+}
+
+/** Screenshot attached to a journal entry. */
+export interface BacktestShotDoc {
+  _id: string;
+  userId: ObjectId;
+  sessionId: string;
+  data: string;
+  updatedAt: Date;
+}
+
 /** A trader searching for a ranked match. */
 export interface BattleQueueDoc {
   /** The user's id. */
@@ -157,6 +196,9 @@ export interface Collections {
   battles: Collection<BattleDoc>;
   battleProfiles: Collection<BattleProfileDoc>;
   battleQueue: Collection<BattleQueueDoc>;
+  backtestSessions: Collection<BacktestSessionDoc>;
+  positionEvents: Collection<PositionEventDoc>;
+  backtestShots: Collection<BacktestShotDoc>;
 }
 
 const globalForMongo = globalThis as unknown as {
@@ -165,7 +207,7 @@ const globalForMongo = globalThis as unknown as {
 
 async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
   const client = await clientPromise;
-  const db: Db = client.db(process.env.MONGODB_DB ?? 'tradingchart');
+  const db: Db = client.db(process.env.MONGODB_DB ?? 'candelo');
   await migrate(db);
   return {
     db,
@@ -176,6 +218,9 @@ async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
     battles: db.collection<BattleDoc>('battles'),
     battleProfiles: db.collection<BattleProfileDoc>('battle_profiles'),
     battleQueue: db.collection<BattleQueueDoc>('battle_queue'),
+    backtestSessions: db.collection<BacktestSessionDoc>('backtest_sessions'),
+    positionEvents: db.collection<PositionEventDoc>('position_events'),
+    backtestShots: db.collection<BacktestShotDoc>('backtest_shots'),
   };
 }
 

@@ -138,7 +138,7 @@ export class TradeOverlay {
     this.hits.push({ kind: 'label', line, box });
     x = box.x - 4;
     for (const g of [...line.ghosts].reverse()) {
-      const color = g === 'sl' ? '#ff9800' : '#22ab94';
+      const color = g === 'sl' ? '#ff9800' : '#3dcea0';
       const gb = drawLabel(ctx, g.toUpperCase(), x, y, { ...opts, bg: color, fg: '#ffffff' });
       this.hits.push({ kind: g === 'sl' ? 'ghost-sl' : 'ghost-tp', line, box: gb });
       x = gb.x - 3;

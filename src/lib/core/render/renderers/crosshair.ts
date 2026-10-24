@@ -36,7 +36,7 @@ export const crosshairRenderer: LayerRenderer = {
     const label = { bg: c.crosshairLabelBg, fg: c.crosshairLabelText, font: f.font };
     if (ch.region === 'price-pane') {
       drawLabel(ctx, f.formatPrice(ch.price), priceAxis.x + 1, ch.y, label);
-    } else if (volumeAxis && volumePane) {
+    } else if (volumeAxis && volumePane && !f.options.volumeHidden) {
       const vol =
         ((volumePane.y + volumePane.height - ch.y) /
           (volumePane.height * ENGINE_CONFIG.volume.headroom)) *

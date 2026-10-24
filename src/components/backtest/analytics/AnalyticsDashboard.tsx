@@ -40,9 +40,11 @@ import {
   utcDateTime,
   WEEKDAY_NAMES,
 } from '../format';
+import { journalHref } from '../../home/journal-href';
 import { useStoredSession } from '../useStoredSession';
 import { BarChart, DonutChart, HBars, LineChart, RadarChart, type BarDatum } from './charts';
 import { PnlCalendar } from './PnlCalendar';
+import { RRSimulator } from './RRSimulator';
 
 type SideFilter = 'all' | 'buy' | 'sell';
 
@@ -448,7 +450,7 @@ export default function AnalyticsDashboard({
             </Link>
             <nav className="an-tabs" aria-label="بخش‌های جلسه">
               <span className="an-tab-on">عملکرد</span>
-              <Link href={`/backtest/${id}/journal`} className="an-tab">
+              <Link href={journalHref(id)} className="an-tab">
                 دفتر معاملات
               </Link>
             </nav>
@@ -490,7 +492,7 @@ export default function AnalyticsDashboard({
           <div className="flex flex-wrap items-center gap-2">
             <nav className="an-tabs" aria-label="بخش‌های جلسه">
               <span className="an-tab-on">عملکرد</span>
-              <Link href={`/backtest/${id}/journal`} className="an-tab">
+              <Link href={journalHref(id)} className="an-tab">
                 دفتر معاملات
               </Link>
             </nav>
@@ -1008,58 +1010,14 @@ export default function AnalyticsDashboard({
         <section className="an-card">
           <Heading
             title="شبیه‌ساز ریسک به ریوارد"
-            hint="حد ضرر همان می‌ماند و حد سود روی هر ضریب R دوباره اجرا می‌شود. ردیف پررنگ، هدفی است که مجموع R را بیشینه می‌کند."
+            hint="حد ضرر همان می‌ماند و حد سود روی هر ضریب R دوباره اجرا می‌شود. هدف ایده‌آل همانی است که مجموع R را بیشینه می‌کند."
           />
-          <p className="an-note">
-            معاملات روی دادهٔ یک‌دقیقه‌ای دوباره اجرا می‌شوند
-            {excursions ? '.' : ` — در حال محاسبه ${progress}`}
-          </p>
-          {a.rr ? (
-            <div className="mt-2 overflow-x-auto">
-              <table className="an-table">
-                <thead>
-                  <tr className="text-muted">
-                    {[
-                      'هدف',
-                      'معاملات',
-                      'نرخ برد',
-                      'مجموع R',
-                      'امید ریاضی',
-                      'ضریب سود',
-                      'میانگین افت سودده‌ها',
-                    ].map((h) => (
-                      <th key={h} className="text-end font-medium first:text-start">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {a.rr.map((r) => (
-                    <tr
-                      key={r.target}
-                      className={`tabular-nums ${a.ideal?.target === r.target ? 'an-ideal font-semibold' : ''}`}
-                    >
-                      <td>
-                        ۱ : {faNum(r.target)}
-                        {a.ideal?.target === r.target ? ' · ایده‌آل' : ''}
-                      </td>
-                      <td className="text-end">{faNum(r.trades)}</td>
-                      <td className="text-end">{plainPct(r.winRate)}</td>
-                      <td className={`text-end ${pnlClass(r.totalR)}`}>{faNum(r.totalR, 2)}R</td>
-                      <td className="text-end">{faNum(r.expectancyR, 2)}R</td>
-                      <td className="text-end">
-                        {r.profitFactor === null ? '—' : faNum(r.profitFactor, 2)}
-                      </td>
-                      <td className="text-end">{faNum(r.avgDrawdownR, 2)}R</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="an-note">در حال محاسبه…</p>
-          )}
+          <RRSimulator
+            rows={a.rr}
+            ideal={a.ideal}
+            ready={excursions !== null}
+            progress={progress}
+          />
         </section>
       </main>
     </div>

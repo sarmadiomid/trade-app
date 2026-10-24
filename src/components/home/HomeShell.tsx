@@ -274,7 +274,9 @@ export function HomeShell({
             {NAV.map((item) => {
               const activeNav =
                 item.href === '/home'
-                  ? pathname === '/home' || pathname.startsWith('/home/stats')
+                  ? pathname === '/home' ||
+                    pathname.startsWith('/home/stats') ||
+                    pathname.startsWith('/home/journal')
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <Link

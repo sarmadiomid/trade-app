@@ -1,11 +1,13 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { chordLabel } from '@/lib/app';
-import { TIMEFRAMES } from '@/lib/core';
+import { TIMEFRAMES, type TimeframeId } from '@/lib/core';
 import { FREQUENCIES, TICKER_VALUES } from '@/lib/backtest';
+import { useUiStore } from '../state/ui-store';
 import { Icon } from '../ui/Icon';
 import { IconButton } from '../ui/IconButton';
+import { Popover } from '../ui/Popover';
 import { Tooltip } from '../ui/Tooltip';
 import { useBacktest } from './context';
 import { faNum, failReasonFa, pnlClass, signedUsd, usd, utcDateTime } from './format';
@@ -44,7 +46,7 @@ export function PriceSkipperBar() {
       role="region"
       aria-label="نوار بازپخش"
       dir="rtl"
-      className="relative grid h-[3.25rem] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 overflow-x-auto border-t border-line bg-panel px-2.5 text-[13px]"
+      className="@container/skip relative grid h-[3.25rem] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 overflow-x-auto border-t border-line bg-panel px-2.5 text-[13px]"
     >
       <div
         className="absolute inset-x-0 -top-px h-0.5 bg-line/60"
@@ -117,23 +119,7 @@ export function PriceSkipperBar() {
           size={16}
         />
         <Sep />
-        <Tooltip label="گام بازپخش: اندازه هر قدم" shortcut="Alt + 4 / Alt + 5" side="top">
-          <SelectWrap>
-            <select
-              aria-label="گام کندل"
-              data-testid="bt-ticker"
-              className={selectCls}
-              value={snap.tickerValue}
-              onChange={(e) => c.setTickerValue(e.target.value as (typeof TICKER_VALUES)[number])}
-            >
-              {TICKER_VALUES.map((tf) => (
-                <option key={tf} value={tf}>
-                  {TIMEFRAMES[tf].label}
-                </option>
-              ))}
-            </select>
-          </SelectWrap>
-        </Tooltip>
+        <TickerStepControl value={snap.tickerValue} />
         <Tooltip label="سرعت پخش: کندل در ثانیه" shortcut="Alt + 2 / Alt + 3" side="top">
           <SelectWrap>
             <select
@@ -234,6 +220,134 @@ export function PriceSkipperBar() {
           </button>
         </Tooltip>
       </div>
+    </div>
+  );
+}
+
+const TICKER_GROUPS: readonly {
+  readonly label: string;
+  readonly items: readonly TimeframeId[];
+}[] = [
+  { label: 'دقیقه', items: ['1m', '5m', '15m', '30m'] },
+  { label: 'ساعت', items: ['1h', '4h'] },
+  { label: 'روز', items: ['1D'] },
+];
+
+/** Desktop tick-step picker. Backtest and battle share this bar. */
+function TickerStepControl({ value }: { readonly value: TimeframeId }) {
+  const c = useBacktest();
+  const chartTf = useUiStore((s) => s.timeframe);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [synced, setSynced] = useState(false);
+  const canSync = (TICKER_VALUES as readonly TimeframeId[]).includes(chartTf);
+  const linked = synced && canSync;
+  const chartLabel = TIMEFRAMES[chartTf].label;
+
+  useEffect(() => {
+    if (linked && value !== chartTf) c.setTickerValue(chartTf);
+  }, [linked, chartTf, value, c]);
+
+  const syncLabel = !canSync
+    ? `تایم‌فریم ${chartLabel} برای گام کندل موجود نیست`
+    : synced
+      ? 'گام کندل با تایم‌فریم نمودار همگام است'
+      : 'همگام‌سازی گام کندل با تایم‌فریم نمودار';
+
+  return (
+    <div className="flex items-center rounded-lg bg-panel/70 p-0.5 ring-1 ring-inset ring-line/80">
+      <button
+        type="button"
+        aria-label="گام کندل"
+        aria-haspopup="menu"
+        aria-expanded={anchor !== null}
+        data-testid="bt-ticker"
+        data-value={value}
+        onClick={(e) => setAnchor(anchor ? null : e.currentTarget)}
+        className={`flex h-7 items-center gap-1 rounded-md ps-2 pe-1.5 text-[12.5px] font-semibold tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+          anchor
+            ? 'bg-accent/15 text-accent'
+            : linked
+              ? 'text-accent hover:bg-hover'
+              : 'text-fg hover:bg-hover'
+        }`}
+      >
+        <span className="min-w-7 text-center">{TIMEFRAMES[value].label}</span>
+        <Icon
+          name="chevronDown"
+          size={12}
+          className={`transition-transform duration-150 ${anchor ? 'rotate-180' : 'text-muted'}`}
+        />
+      </button>
+      <span className="mx-0.5 h-4 w-px shrink-0 bg-line" />
+      <Tooltip label={syncLabel} side="top">
+        <button
+          type="button"
+          aria-label={syncLabel}
+          aria-pressed={linked}
+          data-testid="bt-ticker-sync"
+          disabled={!canSync}
+          onClick={() => setSynced((on) => !on)}
+          className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11.5px] font-semibold tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40 ${
+            linked
+              ? 'bg-accent/15 text-accent'
+              : canSync && value !== chartTf
+                ? 'text-fg hover:bg-hover'
+                : 'text-muted hover:bg-hover hover:text-fg'
+          }`}
+        >
+          <Icon name="link" size={13} />
+          <span className="hidden @min-[900px]/skip:inline">{chartLabel}</span>
+        </button>
+      </Tooltip>
+      {anchor ? (
+        <Popover anchor={anchor} onClose={() => setAnchor(null)}>
+          <div dir="rtl" role="menu" aria-label="گام کندل" className="-m-1.5 w-55 p-1.5">
+            <div className="flex items-start justify-between gap-2 px-1 pb-2">
+              <div>
+                <div className="text-[12.5px] font-semibold text-fg">گام کندل</div>
+                <div className="text-[11px] leading-4 text-muted">اندازه هر قدم پخش</div>
+              </div>
+              <span dir="ltr" className="pt-0.5 text-[10px] font-medium text-muted">
+                Alt+4 / 5
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {TICKER_GROUPS.map((group) => (
+                <div key={group.label} className="flex items-center gap-2">
+                  <span className="w-9 shrink-0 text-[10.5px] font-medium text-muted">
+                    {group.label}
+                  </span>
+                  <div dir="ltr" className="grid flex-1 grid-cols-4 gap-1">
+                    {group.items.map((id) => {
+                      const active = id === value;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={active}
+                          onClick={() => {
+                            setSynced(false);
+                            setAnchor(null);
+                            c.setTickerValue(id);
+                          }}
+                          className={`h-7 rounded-md text-[12px] font-semibold tabular-nums transition-colors ${
+                            active
+                              ? 'bg-accent text-accent-fg shadow-xs'
+                              : 'bg-chart/80 text-muted hover:bg-hover hover:text-fg'
+                          }`}
+                        >
+                          {TIMEFRAMES[id].label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Popover>
+      ) : null}
     </div>
   );
 }

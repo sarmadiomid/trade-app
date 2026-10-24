@@ -24,10 +24,10 @@ export interface TradeLine {
 }
 
 export const TRADE_COLORS = {
-  buy: '#2962ff',
-  sell: '#f23645',
+  buy: '#3b78ff',
+  sell: '#ff6b81',
   sl: '#ff9800',
-  tp: '#22ab94',
+  tp: '#3dcea0',
 } as const;
 
 /** A level being dragged: overrides the stored price while the gesture lasts. */

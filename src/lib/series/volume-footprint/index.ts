@@ -11,7 +11,7 @@ import { clipPricePane, cssTransform } from '../shared/draw';
 import { autoRowSize, barFootprint, valueArea } from '../shared/profile';
 
 const IMBALANCE_RATIO = 3;
-const VOLUME_COLOR = '#2962ff';
+const VOLUME_COLOR = '#3b78ff';
 /** Below this bar width (css px) the footprint cannot show rows and plain candles are drawn. */
 const MIN_FOOTPRINT_WIDTH = 10;
 

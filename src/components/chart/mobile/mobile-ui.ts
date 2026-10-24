@@ -19,17 +19,6 @@ export const useDesktopMode = create<DesktopMode>((set) => ({
   },
 }));
 
-interface VolumeChip {
-  /** The Volume pill stays until the user dismisses it. */
-  readonly open: boolean;
-  setOpen(open: boolean): void;
-}
-
-export const useVolumeChip = create<VolumeChip>((set) => ({
-  open: true,
-  setOpen: (open) => set({ open }),
-}));
-
 const QUERY = '(max-width: 1023px)';
 
 function subscribe(onChange: () => void): () => void {

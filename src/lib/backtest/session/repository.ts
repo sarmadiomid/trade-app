@@ -1,5 +1,10 @@
 import type { StorageAdapter } from '@/lib/core';
-import { summarize, type BacktestSession, type SessionSummary } from './model';
+import {
+  summarize,
+  type BacktestSession,
+  type LoggedAction,
+  type SessionSummary,
+} from './model';
 import { parseSession } from './schema';
 
 /**
@@ -10,6 +15,11 @@ export interface BacktestRepository {
   list(): Promise<SessionSummary[]>;
   load(id: string): Promise<BacktestSession | null>;
   save(session: BacktestSession): Promise<void>;
+  /**
+   * Asks the server to store one trade before the chart shows it. Absent on local
+   * repositories (tests); the browser repository waits for the database.
+   */
+  confirmAction?(id: string, action: LoggedAction): Promise<void>;
   remove(id: string): Promise<void>;
   /** Stores an image (data URL) and returns its id. */
   saveScreenshot(id: string, dataUrl: string): Promise<void>;
