@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SessionJournal } from '@/components/home/SessionJournal';
 import { requireUser } from '@/server/guard';
 
-export const metadata: Metadata = { title: 'دفتر معاملات | چارتیکس' };
+export const metadata: Metadata = { title: 'دفتر معاملات | Candelo' };
 
 /** Session journal inside the home shell (sidebar and top bar stay). */
 export default async function HomeJournalPage({ params }: { params: Promise<{ id: string }> }) {

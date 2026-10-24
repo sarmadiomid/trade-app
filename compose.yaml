@@ -23,8 +23,8 @@ services:
       MONGODB_DB: ${MONGODB_DB:-tradingchart}
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
       BINANCE_BASE_URL: ${BINANCE_BASE_URL:-}
-      KAVENEGAR_API_KEY: ${KAVENEGAR_API_KEY:-}
-      KAVENEGAR_TEMPLATE: ${KAVENEGAR_TEMPLATE:-}
+      MEDIANA_API_KEY: ${MEDIANA_API_KEY:-}
+      MEDIANA_PATTERN_CODE: ${MEDIANA_PATTERN_CODE:-}
     networks:
       - infra
     restart: unless-stopped

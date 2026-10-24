@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { formatIranianMobile } from '@/auth/phone';
-import { LogoMark } from '../marketing/Logo';
+import { BRAND_EN, BrandName, LogoMark } from '../marketing/Logo';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
 import { Popover } from '../ui/Popover';
@@ -56,10 +56,10 @@ export function AppHeader({
         <Link
           href="/home"
           className="me-2 flex shrink-0 items-center gap-2"
-          aria-label={fa ? 'خانه چارتیکس' : 'Chartix home'}
+          aria-label={fa ? `خانه ${BRAND_EN}` : `${BRAND_EN} home`}
         >
           <LogoMark size={28} />
-          <span className="hidden text-[15px] font-bold sm:inline">{fa ? 'چارتیکس' : 'Chartix'}</span>
+          <BrandName className="hidden text-[15px] font-bold sm:inline" />
         </Link>
         <nav aria-label={fa ? 'بخش‌ها' : 'Sections'} className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
           {(fa ? NAV_FA : NAV).map((n) => {
@@ -136,7 +136,15 @@ function UserMenu({ me, fa }: { readonly me: Me; readonly fa: boolean }) {
               </Link>
               <Link href="/" className={ITEM} onClick={() => setOpen(false)}>
                 <Icon name="chevronLeft" size={15} className="rtl:-scale-x-100" />
-                {fa ? 'وب‌سایت چارتیکس' : 'Chartix website'}
+                {fa ? (
+                  <>
+                    وب‌سایت <BrandName />
+                  </>
+                ) : (
+                  <>
+                    <BrandName /> website
+                  </>
+                )}
               </Link>
               <button type="button" className={ITEM} disabled={leaving} onClick={logout}>
                 <Icon name="logout" size={15} />

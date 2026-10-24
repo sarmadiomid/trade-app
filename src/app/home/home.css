@@ -71,3 +71,66 @@
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 96%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 42%, transparent 96%);
 }
+
+/* Battles nav item: a neon arc orbits the edge. The other half of the border stays clear. */
+.nav-battle-ring {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 2px;
+}
+
+.nav-battle-ring::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24rem;
+  height: 24rem;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 180deg,
+    color-mix(in srgb, var(--h-accent) 18%, transparent) 210deg,
+    var(--h-accent) 255deg,
+    color-mix(in srgb, var(--h-accent) 62%, white) 300deg,
+    var(--h-accent) 330deg,
+    color-mix(in srgb, var(--h-accent) 22%, transparent) 350deg,
+    transparent 360deg
+  );
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--h-accent) 80%, transparent));
+  animation: nav-battle-spin 2.6s linear infinite;
+}
+
+.nav-battle-ring > span {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes nav-battle-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-battle-ring::before {
+    animation: none;
+    inset: 0;
+    width: auto;
+    height: auto;
+    transform: none;
+    filter: none;
+    background: conic-gradient(
+      from 220deg,
+      transparent 0deg 180deg,
+      var(--h-accent) 230deg,
+      color-mix(in srgb, var(--h-accent) 62%, white) 300deg,
+      transparent 360deg
+    );
+  }
+}

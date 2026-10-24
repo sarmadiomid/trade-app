@@ -9,7 +9,7 @@ import {
   normalizeIranianMobile,
   toAsciiDigits,
 } from '@/auth/phone';
-import { BRAND_FA, Logo } from './Logo';
+import { BRAND_EN, BrandName, Logo } from './Logo';
 
 type Step = 'phone' | 'code';
 
@@ -188,7 +188,7 @@ export function LoginView({ next }: { next: string }) {
       <div className="relative flex w-full flex-col px-6 py-8 sm:px-10 lg:w-[52%] lg:px-16 xl:px-24">
         <div className="mk-glow pointer-events-none absolute inset-0 opacity-50 lg:hidden" />
         <div className="relative flex items-center justify-between">
-          <Link href="/" aria-label={BRAND_FA}>
+          <Link href="/" aria-label={BRAND_EN}>
             <Logo />
           </Link>
           <Link href="/" className="text-sm text-[var(--mk-muted)] transition hover:text-white">
@@ -243,7 +243,7 @@ export function LoginView({ next }: { next: string }) {
                 {busy ? <Spinner /> : 'دریافت کد تایید'}
               </button>
               <p className="mt-6 text-center text-xs leading-6 text-[var(--mk-muted)]">
-                با ورود به {BRAND_FA}، کد تایید یک‌بار مصرف به شماره شما پیامک می‌شود.
+                با ورود به <BrandName />، کد تایید یک‌بار مصرف به شماره شما پیامک می‌شود.
               </p>
             </form>
           ) : (

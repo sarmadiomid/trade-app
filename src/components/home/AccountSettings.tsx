@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { formatIranianMobile } from '@/auth/phone';
 import { faNum } from '@/lib/locale/jalali';
+import { BrandName } from '../marketing/Logo';
 import { ApiError, api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
@@ -192,7 +193,7 @@ export function AccountSettings({ user }: { readonly user: Me }) {
   const [tzMsg, setTzMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [avatarMsg, setAvatarMsg] = useState<string | null>(null);
-  const [pwMsg, setPwMsg] = useState<{ tone: Tone; text: string } | null>(null);
+  const [pwMsg, setPwMsg] = useState<{ tone: Tone; text: ReactNode } | null>(null);
   const [savingTz, setSavingTz] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -308,7 +309,11 @@ export function AccountSettings({ user }: { readonly user: Me }) {
     }
     setPwMsg({
       tone: 'err',
-      text: 'ورود چارتیکس با کد یک‌بارمصرف پیامک است و رمز عبور جداگانه‌ای ذخیره نمی‌شود.',
+      text: (
+        <>
+          ورود <BrandName /> با کد یک‌بارمصرف پیامک است و رمز عبور جداگانه‌ای ذخیره نمی‌شود.
+        </>
+      ),
     });
   };
 
@@ -406,7 +411,7 @@ export function AccountSettings({ user }: { readonly user: Me }) {
                   </button>
                 </h2>
                 <p className="mt-1 text-[13.5px] leading-7 text-[var(--h-muted)]">
-                  این منطقه زمانی در همه بخش‌های چارتیکس به کار می‌رود.
+                  این منطقه زمانی در همه بخش‌های <BrandName /> به کار می‌رود.
                 </p>
                 <label
                   htmlFor="account-tz"
@@ -448,7 +453,7 @@ export function AccountSettings({ user }: { readonly user: Me }) {
               >
                 <h2 className="text-[15px] font-semibold">پروفایل شما</h2>
                 <p className="mt-1 text-[13.5px] leading-7 text-[var(--h-muted)]">
-                  نحوه نمایش شما در چارتیکس را از اینجا عوض کنید.
+                  نحوه نمایش شما در <BrandName /> را از اینجا عوض کنید.
                 </p>
                 <div className="relative mx-auto mt-6 h-[92px] w-[92px]">
                   <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-[var(--h-line)] bg-white text-[#1c2434]">
@@ -543,7 +548,7 @@ export function AccountSettings({ user }: { readonly user: Me }) {
               <form onSubmit={onPassword} className="border-b border-[var(--h-line)] py-8">
                 <h2 className="text-[15px] font-semibold">رمز عبور و امنیت</h2>
                 <p className="mt-1 text-[13.5px] leading-7 text-[var(--h-muted)]">
-                  ورود چارتیکس با کد یک‌بارمصرف پیامک است. رمز عبور جداگانه‌ای برای این حساب تنظیم
+                  ورود <BrandName /> با کد یک‌بارمصرف پیامک است. رمز عبور جداگانه‌ای برای این حساب تنظیم
                   نمی‌شود.
                 </p>
                 <div className="mt-5 flex flex-col gap-4">
@@ -747,7 +752,7 @@ function DevicesPane() {
         </span>
       </h2>
       <p className="mt-1 text-[13.5px] leading-7 text-[var(--h-muted)]">
-        چارتیکس را حداکثر روی {faNum(DEVICE_MAX)} دستگاه می‌توانید فعال کنید.{' '}
+        <BrandName /> را حداکثر روی {faNum(DEVICE_MAX)} دستگاه می‌توانید فعال کنید.{' '}
         {faNum(free)} جایگاه خالی دارید.
       </p>
       <article className="mt-5 w-full max-w-[280px] rounded-xl border border-[var(--h-line)] p-4">
@@ -890,7 +895,7 @@ function OutlineButton({
   );
 }
 
-function Note({ tone, children }: { readonly tone: Tone; readonly children: string }) {
+function Note({ tone, children }: { readonly tone: Tone; readonly children: ReactNode }) {
   return (
     <p className={`mt-3 text-[13px] ${tone === 'ok' ? 'text-[#3dcea0]' : 'text-[#ff8b9a]'}`}>
       {children}

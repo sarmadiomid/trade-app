@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   createContext,
   useContext,
@@ -16,7 +16,7 @@ import type { Theme } from '@/lib/core';
 import { faDigits } from '@/lib/locale/jalali';
 import { LocalStorageStorage, VersionedStore } from '@/lib/storage';
 import { darkTheme, parseTheme, themeRegistry } from '@/lib/themes';
-import { LogoMark } from '../marketing/Logo';
+import { BRAND_EN, BrandName, LogoMark } from '../marketing/Logo';
 import { useThemeCssVars } from '../hooks/useThemeCssVars';
 import { useUiStore } from '../state/ui-store';
 import { initials } from '../platform/AppHeader';
@@ -38,7 +38,7 @@ export const HOME_ICONS = {
 } as const;
 
 type Scheme = 'dark' | 'light';
-type Menu = 'lang' | 'bell';
+type Menu = 'lang' | 'bell' | 'profile';
 
 const NAV: ReadonlyArray<{
   href: string;
@@ -101,6 +101,7 @@ interface ShellContextValue {
   readonly openMenu: (id: Menu) => void;
   readonly notices: number;
   readonly noticeMenu: ReactNode;
+  readonly user: Me;
 }
 
 const ShellContext = createContext<ShellContextValue | null>(null);
@@ -192,6 +193,7 @@ export function HomeShell({
         openMenu,
         notices,
         noticeMenu,
+        user,
       }}
     >
       <div
@@ -229,12 +231,12 @@ export function HomeShell({
             </button>
             <Link
               href="/home"
-              aria-label="خانه چارتیکس"
+              aria-label={`خانه ${BRAND_EN}`}
               className={`flex min-w-0 items-center gap-2 ${collapsed ? 'lg:hidden' : ''}`}
               onClick={() => setDrawer(false)}
             >
               <LogoMark size={26} />
-              <span className="truncate text-[16px] font-extrabold tracking-tight">چارتیکس</span>
+              <BrandName className="truncate text-[16px] font-bold tracking-tight" />
             </Link>
           </div>
 
@@ -278,25 +280,9 @@ export function HomeShell({
                     pathname.startsWith('/home/stats') ||
                     pathname.startsWith('/home/journal')
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={activeNav ? 'page' : undefined}
-                  title={
-                    collapsed
-                      ? item.badge
-                        ? `${item.label}، ${item.badge}`
-                        : item.label
-                      : undefined
-                  }
-                  onClick={() => setDrawer(false)}
-                  className={`flex h-11 items-center gap-3 rounded-xl px-3 text-[14px] font-medium transition ${
-                    activeNav
-                      ? 'bg-[var(--h-soft)] text-[var(--h-text)]'
-                      : 'text-[var(--h-muted)] hover:bg-[var(--h-chip)] hover:text-[var(--h-text)]'
-                  } ${collapsed ? 'lg:justify-center lg:px-0' : ''}`}
-                >
+              const orbit = item.href === '/battle';
+              const body = (
+                <>
                   {item.path ? (
                     <Icon path={item.path} size={18} className="shrink-0" />
                   ) : (
@@ -311,6 +297,47 @@ export function HomeShell({
                       {item.badge}
                     </NavBadge>
                   ) : null}
+                </>
+              );
+              const row = `flex items-center gap-3 px-3 text-[14px] font-medium transition ${
+                collapsed ? 'lg:justify-center lg:px-0' : ''
+              } ${
+                activeNav
+                  ? 'bg-[var(--h-soft)] text-[var(--h-text)]'
+                  : 'text-[var(--h-muted)] hover:text-[var(--h-text)]'
+              }`;
+              const linkProps = {
+                href: item.href,
+                'aria-current': activeNav ? ('page' as const) : undefined,
+                title: collapsed
+                  ? item.badge
+                    ? `${item.label}، ${item.badge}`
+                    : item.label
+                  : undefined,
+                onClick: () => setDrawer(false),
+              };
+              if (orbit) {
+                return (
+                  <Link key={item.href} {...linkProps} className="nav-battle-ring">
+                    <span
+                      className={`${row} h-10 rounded-[10px] ${
+                        activeNav
+                          ? ''
+                          : 'bg-[var(--h-side)] hover:bg-[color-mix(in_srgb,var(--h-text)_8%,var(--h-side))]'
+                      }`}
+                    >
+                      {body}
+                    </span>
+                  </Link>
+                );
+              }
+              return (
+                <Link
+                  key={item.href}
+                  {...linkProps}
+                  className={`${row} h-11 rounded-xl ${activeNav ? '' : 'hover:bg-[var(--h-chip)]'}`}
+                >
+                  {body}
                 </Link>
               );
             })}
@@ -369,7 +396,7 @@ export function ShellMenuButton() {
   );
 }
 
-/** Pro, language, theme, help and notices. Sits in each page's own header. */
+/** Pro, language, theme, help, notices and the account menu. Sits in each page's own header. */
 export function ShellTools() {
   const { scheme, palette, toggleScheme, menu, openMenu, notices, noticeMenu } = useShell();
   return (
@@ -402,7 +429,7 @@ export function ShellTools() {
               فارسی
             </p>
             <p className="px-2 pb-1 text-[12px] leading-6 text-[var(--h-muted)]">
-              رابط چارتیکس به فارسی است.
+              رابط <BrandName /> به فارسی است.
             </p>
           </div>
         ) : null}
@@ -442,6 +469,73 @@ export function ShellTools() {
           </div>
         ) : null}
       </div>
+      <ProfileMenu />
+    </div>
+  );
+}
+
+function ProfileMenu() {
+  const { user, menu, openMenu } = useShell();
+  const router = useRouter();
+  const [leaving, setLeaving] = useState(false);
+  const open = menu === 'profile';
+
+  const logout = async () => {
+    setLeaving(true);
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    router.replace('/');
+    router.refresh();
+  };
+
+  return (
+    <div className="relative" data-home-menu="">
+      <button
+        type="button"
+        aria-label="حساب کاربری"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => openMenu('profile')}
+        className="inline-flex h-9 items-center gap-1.5 rounded-full py-1 pe-1.5 ps-1 text-[13px] font-semibold transition hover:bg-[var(--h-chip)]"
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--h-accent)] text-[11px] font-bold text-white">
+          {initials(user.name)}
+        </span>
+        <span className="hidden max-w-28 truncate sm:inline">{user.name}</span>
+        <Icon name="chevronDown" size={14} className="text-[var(--h-muted)]" />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute end-0 top-full z-20 mt-2 w-60 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-2 shadow-2xl"
+        >
+          <div className="px-2 pb-2 pt-1">
+            <p className="truncate text-[13px] font-semibold">{user.name}</p>
+            <p dir="ltr" className="mt-0.5 text-end font-mono text-[12px] text-[var(--h-muted)]">
+              {formatIranianMobile(user.phone)}
+            </p>
+          </div>
+          <div className="border-t border-[var(--h-line)] pt-1">
+            <Link
+              href="/home/settings"
+              role="menuitem"
+              className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-[13px] font-medium transition hover:bg-[var(--h-chip)]"
+            >
+              <Icon name="settings" size={15} />
+              تنظیمات حساب
+            </Link>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={leaving}
+              onClick={() => void logout()}
+              className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-[13px] font-medium text-[#ff6b81] transition hover:bg-[var(--h-chip)] disabled:opacity-50"
+            >
+              <Icon name="logout" size={15} />
+              {leaving ? 'در حال خروج…' : 'خروج'}
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

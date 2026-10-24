@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { SessionAnalytics } from '@/components/home/SessionAnalytics';
 import { requireUser } from '@/server/guard';
 
-export const metadata: Metadata = { title: 'آمار جلسه | چارتیکس' };
+export const metadata: Metadata = { title: 'آمار جلسه | Candelo' };
 
 /** Session analytics inside the home shell (sidebar and top bar stay). */
 export default async function HomeSessionStatsPage({

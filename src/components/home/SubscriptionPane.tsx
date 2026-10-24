@@ -2,42 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { faNum } from '@/lib/locale/jalali';
+import { SUBSCRIPTION_PLANS, subscriptionAmount, type BillingCycle } from '../billing/plans';
 import { Icon } from '../ui/Icon';
 
-const MID_TOMAN = 199_000;
-const PRO_TOMAN = 399_000;
-
-type Cycle = 'month' | 'year';
 type Cell = 'yes' | 'no' | string;
-
-const PLANS = [
-  {
-    id: 'beginner',
-    name: 'مبتدی',
-    blurb: 'تمرین را از همین‌جا شروع کنید',
-    points: ['۲ جلسه بک‌تست', 'بازپخش روی طلا', 'دفتر معاملات'],
-    unlimited: false,
-  },
-  {
-    id: 'mid',
-    name: 'متوسط',
-    blurb: 'تمرین را دقیق‌تر و منظم‌تر کنید',
-    points: ['۱۰ جلسه بک‌تست', 'جلسه پراپ و آمار کامل', 'نبرد رتبه‌ای', 'ابزار ترسیم'],
-    unlimited: false,
-  },
-  {
-    id: 'pro',
-    name: 'حرفه‌ای',
-    blurb: 'هرچه برای تمرین جدی لازم است',
-    points: [
-      'جلسه بک‌تست نامحدود',
-      'همه نمادها و انواع نمودار',
-      'آمار و شبیه‌ساز ریسک به ریوارد',
-      'نبرد نامحدود',
-    ],
-    unlimited: true,
-  },
-] as const;
 
 const GROUPS: ReadonlyArray<{
   id: string;
@@ -134,13 +102,9 @@ const PLAN_FR = 1;
 const TOTAL_FR = LABEL_FR + PLAN_FR * 3;
 const GRID = `${LABEL_FR}fr repeat(3, ${PLAN_FR}fr)`;
 
-function amount(base: number, cycle: Cycle): number {
-  return cycle === 'year' ? base * 12 : base;
-}
-
 /** Subscription tab: plan cards and comparison, display only. */
 export function SubscriptionPane() {
-  const [cycle, setCycle] = useState<Cycle>('month');
+  const [cycle, setCycle] = useState<BillingCycle>('month');
   const [menu, setMenu] = useState(false);
   const [closed, setClosed] = useState<Readonly<Record<string, boolean>>>({});
   const menuRef = useRef<HTMLDivElement>(null);
@@ -163,7 +127,9 @@ export function SubscriptionPane() {
 
   const seePlans = () => {
     setMenu(false);
-    document.getElementById('subscription-plans')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById('subscription-plans')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
@@ -174,7 +140,9 @@ export function SubscriptionPane() {
             <span className="text-[18px] font-semibold">مبتدی</span>
             <span className="text-[18px] font-bold">رایگان</span>
           </div>
-          <p className="mt-1 text-[13px] text-[var(--h-muted)]">مهارت معامله‌گری‌تان را بهتر کنید</p>
+          <p className="mt-1 text-[13px] text-[var(--h-muted)]">
+            مهارت معامله‌گری‌تان را بهتر کنید
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex h-9 items-center rounded-full bg-[var(--h-accent)] px-3.5 text-[12.5px] font-semibold text-white">
@@ -247,7 +215,7 @@ export function SubscriptionPane() {
       </div>
 
       <div id="subscription-plans" className="mt-6 grid scroll-mt-6 gap-4 lg:grid-cols-3">
-        {PLANS.map((plan) => (
+        {SUBSCRIPTION_PLANS.map((plan) => (
           <article
             key={plan.id}
             className="relative flex flex-col overflow-hidden rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] p-6"
@@ -264,7 +232,7 @@ export function SubscriptionPane() {
             ) : (
               <div className="relative mt-4 flex items-start gap-1.5">
                 <span className="text-[40px] font-bold leading-none tracking-tight tabular-nums">
-                  {faNum(amount(plan.id === 'mid' ? MID_TOMAN : PRO_TOMAN, cycle))}
+                  {faNum(subscriptionAmount(plan.id === 'mid' ? 'mid' : 'pro', cycle))}
                 </span>
                 <span className="mt-1.5 text-[13px] text-[var(--h-muted)]">تومان</span>
               </div>
@@ -276,7 +244,9 @@ export function SubscriptionPane() {
                 {cycle === 'month' ? 'ماهانه' : 'سالانه'}
               </p>
             )}
-            <p className="relative mt-3 text-[13.5px] leading-6 text-[var(--h-muted)]">{plan.blurb}</p>
+            <p className="relative mt-3 text-[13.5px] leading-6 text-[var(--h-muted)]">
+              {plan.blurb}
+            </p>
             <ul className="relative mt-5 flex flex-col gap-2.5">
               {plan.points.map((point) => (
                 <li key={point} className="flex items-center gap-2.5 text-[13.5px]">

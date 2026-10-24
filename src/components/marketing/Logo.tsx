@@ -1,5 +1,5 @@
-export const BRAND_FA = 'چارتیکس';
-export const BRAND_EN = 'Chartix';
+export const BRAND_FA = 'کندلو';
+export const BRAND_EN = 'Candelo';
 
 export function LogoMark({ size = 34 }: { size?: number }) {
   return (
@@ -21,14 +21,22 @@ export function LogoMark({ size = 34 }: { size?: number }) {
   );
 }
 
+export function BrandName({ className = '' }: { readonly className?: string }) {
+  return (
+    <span dir="ltr" className={className ? `font-candelo ${className}` : 'font-candelo'}>
+      {BRAND_EN}
+    </span>
+  );
+}
+
 export function Logo() {
   return (
     <span className="flex items-center gap-2.5">
       <LogoMark />
       <span className="flex flex-col leading-none">
-        <span className="text-[19px] font-extrabold tracking-tight">{BRAND_FA}</span>
-        <span className="mt-1 hidden text-[10px] font-medium tracking-[0.28em] text-[var(--mk-muted)] sm:block" dir="ltr">
-          {BRAND_EN.toUpperCase()}
+        <BrandName className="text-[19px] font-bold tracking-tight" />
+        <span className="mt-1 hidden text-[11px] font-medium text-[var(--mk-muted)] sm:block">
+          {BRAND_FA}
         </span>
       </span>
     </span>

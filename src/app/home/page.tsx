@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { HomeDashboard } from '@/components/home/HomeDashboard';
 import { requireUser } from '@/server/guard';
 
-export const metadata: Metadata = { title: 'تمرین | چارتیکس' };
+export const metadata: Metadata = { title: 'تمرین | Candelo' };
 
 const TABS = ['sessions', 'trades', 'stats'] as const;
 

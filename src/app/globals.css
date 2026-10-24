@@ -59,6 +59,12 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Latin wordmark. Poppins: https://fonts.google.com/specimen/Poppins */
+.font-candelo {
+  font-family: Poppins, sans-serif;
+  font-feature-settings: normal;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--tc-border) transparent;

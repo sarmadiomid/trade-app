@@ -1,10 +1,11 @@
 ﻿import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { MID_TOMAN, PRO_TOMAN } from '../billing/plans';
 import { HeroChart } from './HeroChart';
 import { LandingChart } from './LandingChart';
-import { BRAND_FA, Logo, LogoMark } from './Logo';
+import { LandingPricing } from './LandingPricing';
+import { BRAND_EN, BrandName, Logo } from './Logo';
 
-export const PRICE_TOMAN = 199_000;
 const faNumber = (n: number) => n.toLocaleString('fa-IR');
 
 /* ───────────────────────── design tokens ───────────────────────── */
@@ -235,7 +236,7 @@ function Header({ signedIn }: { signedIn: boolean }) {
   return (
     <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#04070f]/80 backdrop-blur-xl">
       <div className={`${WRAP} flex h-16 items-center gap-8`}>
-        <Link href="/" aria-label={BRAND_FA} className="min-w-0 shrink-0">
+        <Link href="/" aria-label={BRAND_EN} className="min-w-0 shrink-0">
           <Logo />
         </Link>
         <nav className="hidden items-center gap-1 md:flex" aria-label="ناوبری اصلی">
@@ -1344,67 +1345,16 @@ function TradeTable() {
 /* ───────────────────────── pricing ───────────────────────── */
 
 function Pricing({ signedIn }: { signedIn: boolean }) {
-  const features = [
-    'جلسات بک‌تست نامحدود',
-    'معامله با حساب مجازی، اسپرد و حجم',
-    'ژورنال معاملات و آمار عملکرد',
-    'بازپخش کندل‌به‌کندل روی طلا، فارکس و شاخص',
-    'ابزار ترسیم و انواع نمودار',
-    'مسابقه و نبرد رتبه‌ای با معامله‌گران دیگر',
-    'ورود با شماره موبایل، از هر دستگاه',
-  ];
   return (
     <section id="pricing" className="relative scroll-mt-20 overflow-hidden py-20 lg:py-28">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(45%_45%_at_50%_55%,rgba(47,123,255,0.14),transparent_70%)]" />
       <div className={`${WRAP} relative`}>
         <SectionHead
           eyebrow="قیمت"
-          title="یک اشتراک، همه امکانات"
-          desc="بدون پلن‌های تو در تو. از اولین جلسه، بک‌تست، ژورنال، آمار و مسابقه و نبرد در اختیار شماست."
+          title="سه طرح، از رایگان تا حرفه‌ای"
+          desc="همان طرح‌های تنظیمات حساب. مبتدی برای شروع، متوسط برای تمرین منظم، و حرفه‌ای برای جلسه و نبرد نامحدود."
         />
-        <div className="relative mx-auto mt-12 max-w-[520px]">
-          <div className="absolute -inset-px rounded-[26px] bg-gradient-to-b from-[#5aa2ff]/60 via-white/10 to-transparent" />
-          <div className="relative overflow-hidden rounded-[25px] bg-[#070c1a] p-8 sm:p-10">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(60%_100%_at_50%_0%,rgba(47,123,255,0.25),transparent_70%)]" />
-            <div className="relative">
-              <div className="flex items-center gap-3">
-                <LogoMark size={40} />
-                <div>
-                  <div className="text-lg font-extrabold text-white">اشتراک کامل</div>
-                  <div className="text-xs text-[#7d8bac]">دسترسی به {BRAND_FA}</div>
-                </div>
-              </div>
-              <div className="mt-8 flex items-end gap-2">
-                <span className="text-[56px] font-black leading-none tracking-tight text-white">
-                  {faNumber(PRICE_TOMAN)}
-                </span>
-                <span className="mb-1.5 text-lg font-bold text-[#7d8bac]">تومان</span>
-              </div>
-              <div className="my-8 h-px bg-gradient-to-l from-transparent via-[#5aa2ff]/40 to-transparent" />
-              <ul className="space-y-3.5">
-                {features.map((f) => (
-                  <li key={f} className="flex items-center gap-3 text-[14.5px] text-[#dbe4f8]">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#38d3ff]/[0.12] text-[#38d3ff]">
-                      <Svg d={I.check} className="h-3.5 w-3.5" />
-                    </span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href={signedIn ? '/home' : '/login'}
-                className={`${BTN_PRIMARY} mt-10 h-12 w-full text-[15px]`}
-              >
-                {signedIn ? 'ورود به داشبورد' : 'شروع کنید'}
-                <Svg d={I.arrow} className="h-4 w-4" />
-              </Link>
-              <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-[#7d8bac]">
-                <Svg d={I.shield} className="h-4 w-4" />
-                ورود با کد یک‌بار مصرف پیامکی
-              </p>
-            </div>
-          </div>
-        </div>
+        <LandingPricing signedIn={signedIn} />
       </div>
     </section>
   );
@@ -1413,10 +1363,14 @@ function Pricing({ signedIn }: { signedIn: boolean }) {
 /* ───────────────────────── faq ───────────────────────── */
 
 function Faq() {
-  const items = [
+  const items: ReadonlyArray<readonly [string, ReactNode]> = [
     [
       'این پلتفرم چیست؟',
-      `${BRAND_FA} محیط تمرین معامله است: بازارهای تاریخی را کندل‌به‌کندل بازپخش می‌کنید، با حساب مجازی معامله می‌کنید و نتیجه را در آمار و ژورنال می‌بینید. قیمت لحظه‌ای بازار زنده موضوع این محصول نیست.`,
+      <>
+        <BrandName /> محیط تمرین معامله است: بازارهای تاریخی را کندل‌به‌کندل بازپخش می‌کنید، با حساب
+        مجازی معامله می‌کنید و نتیجه را در آمار و ژورنال می‌بینید. قیمت لحظه‌ای بازار زنده موضوع این
+        محصول نیست.
+      </>,
     ],
     [
       'آیا با سرمایه واقعی معامله می‌شود؟',
@@ -1440,7 +1394,7 @@ function Faq() {
     ],
     [
       'هزینه اشتراک چقدر است؟',
-      `قیمت اشتراک ${faNumber(PRICE_TOMAN)} تومان است و بک‌تست، ژورنال، آمار و مسابقه و نبرد را شامل می‌شود.`,
+      `طرح مبتدی رایگان است. طرح متوسط ${faNumber(MID_TOMAN)} تومان و طرح حرفه‌ای ${faNumber(PRO_TOMAN)} تومان در ماه است. پرداخت سالانه برابر همان مبلغ برای دوازده ماه است.`,
     ],
   ];
   return (
@@ -1546,7 +1500,9 @@ function Footer({ signedIn }: { signedIn: boolean }) {
         <div
           className={`${WRAP} flex flex-col items-center justify-between gap-2 py-6 sm:flex-row`}
         >
-          <p className="text-xs text-[#6c7a9c]">© ۱۴۰۵ {BRAND_FA}. تمامی حقوق محفوظ است.</p>
+          <p className="text-xs text-[#6c7a9c]">
+            © ۱۴۰۵ <BrandName />. تمامی حقوق محفوظ است.
+          </p>
           <p className="text-xs text-[#6c7a9c]">
             این پلتفرم برای آموزش و تمرین است و توصیه سرمایه‌گذاری نیست.
           </p>
