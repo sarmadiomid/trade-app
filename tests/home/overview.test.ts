@@ -13,6 +13,7 @@ import {
   bucketHours,
   monthOfInstant,
   niceMax,
+  recentPracticeDays,
   remainingDays,
   replayedMs,
   selectSessions,
@@ -20,6 +21,7 @@ import {
   symbolCounts,
   tehranDayKey,
   winRateByActivityMonth,
+  winRateMonthSpan,
 } from '@/components/home/overview';
 
 function session(partial: Partial<SessionSummary> = {}): SessionSummary {
@@ -73,10 +75,16 @@ describe('practice overview', () => {
     const day = tehranDayKey(now);
     const spent = bucketHours({ [day]: 48 * 60_000 }, 'all', now);
     expect(spent.totalMs).toBe(48 * 60_000);
+    expect(spent.activeDays).toBe(1);
     expect(spent.months).toHaveLength(1);
     expect(spent.months[0]?.value).toBeCloseTo(0.8);
     expect(spent.months[0]?.key).toBe(monthOfInstant(now).key);
     expect(bucketHours({ [day]: 60_000 }, '30d', now + 40 * DAY_MS).totalMs).toBe(0);
+    const series = recentPracticeDays({ [day]: 3_600_000 }, now, 14);
+    expect(series).toHaveLength(14);
+    expect(series[13]?.key).toBe(day);
+    expect(series[13]?.ms).toBe(3_600_000);
+    expect(series[0]?.ms).toBe(0);
   });
 
   it('reports win rate for the month the session was worked on', () => {
@@ -88,6 +96,23 @@ describe('practice overview', () => {
     expect(rows).toHaveLength(2);
     expect(rows[1]?.value).toBeCloseTo((1 / 3) * 100);
     expect(rows[0]?.value).toBe(100);
+  });
+
+  it('shows three months before and four after the current month', () => {
+    const current = monthOfInstant(now);
+    const span = winRateMonthSpan([{ key: current.key, label: current.label, value: 50 }], now);
+    expect(span).toHaveLength(8);
+    expect(span[3]).toMatchObject({ key: current.key, value: 50, current: true });
+    expect(span[0]?.value).toBeNull();
+    expect(span[7]?.value).toBeNull();
+    expect(span[2]?.key < current.key).toBe(true);
+    expect(span[4]?.key > current.key).toBe(true);
+
+    const older = monthOfInstant(now - 200 * DAY_MS);
+    const fixed = winRateMonthSpan([{ key: older.key, label: older.label, value: 10 }], now);
+    expect(fixed).toHaveLength(8);
+    expect(fixed.some((slot) => slot.key === older.key)).toBe(false);
+    expect(fixed[3]?.current).toBe(true);
   });
 
   it('renders the activity summary once a session exists', () => {

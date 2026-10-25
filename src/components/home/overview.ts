@@ -113,9 +113,10 @@ export function bucketHours(
   days: Readonly<Record<string, number>>,
   range: RangeFilter,
   now: number,
-): { totalMs: number; months: MonthPoint[] } {
+): { totalMs: number; months: MonthPoint[]; activeDays: number } {
   const totals = new Map<string, MonthPoint>();
   let totalMs = 0;
+  let activeDays = 0;
   for (const [day, ms] of Object.entries(days)) {
     if (!(ms > 0)) continue;
     const start = tehranMidnight(day);
@@ -123,6 +124,7 @@ export function bucketHours(
     const month = monthOfDayKey(day);
     if (!month) continue;
     totalMs += ms;
+    activeDays += 1;
     const prev = totals.get(month.key);
     totals.set(month.key, {
       key: month.key,
@@ -132,8 +134,28 @@ export function bucketHours(
   }
   return {
     totalMs,
+    activeDays,
     months: [...totals.values()].sort((a, b) => (a.key < b.key ? -1 : 1)),
   };
+}
+
+export interface DayPoint {
+  readonly key: string;
+  readonly ms: number;
+}
+
+/** Oldest first. Missing days are zero so the strip stays a fixed width. */
+export function recentPracticeDays(
+  days: Readonly<Record<string, number>>,
+  now: number,
+  count = 14,
+): DayPoint[] {
+  const points: DayPoint[] = [];
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const key = tehranDayKey(now - i * DAY_MS);
+    points.push({ key, ms: Math.max(0, days[key] ?? 0) });
+  }
+  return points;
 }
 
 /**
@@ -161,6 +183,63 @@ export function winRateByActivityMonth(
       label: g.label,
       value: (g.wins / g.trades) * 100,
     }));
+}
+
+export interface MonthSlot {
+  readonly key: string;
+  readonly label: string;
+  readonly name: string;
+  /** Null when the month has no closed trades. */
+  readonly value: number | null;
+  readonly current: boolean;
+}
+
+function monthIndex(key: string): number | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(key);
+  if (!match) return null;
+  return Number(match[1]) * 12 + (Number(match[2]) - 1);
+}
+
+function monthFromIndex(index: number): { key: string; label: string; name: string } {
+  const jy = Math.floor(index / 12);
+  const jm = (index % 12) + 1;
+  const name = JALALI_MONTHS[jm - 1] ?? '';
+  return {
+    key: `${jy}-${pad(jm)}`,
+    name,
+    label: `${name} ${faDigits(jy)}`,
+  };
+}
+
+/**
+ * A fixed window of Jalali months: `before` months, the current month, then
+ * `after` months. Months without trades stay in the list with a null value.
+ */
+export function winRateMonthSpan(
+  active: readonly MonthPoint[],
+  now: number,
+  before = 3,
+  after = 4,
+): MonthSlot[] {
+  const currentKey = monthOfInstant(now).key;
+  const current = monthIndex(currentKey);
+  if (current === null) return [];
+  const start = current - before;
+  const end = current + after;
+  const byKey = new Map(active.map((point) => [point.key, point.value]));
+  const slots: MonthSlot[] = [];
+  for (let index = start; index <= end; index += 1) {
+    const month = monthFromIndex(index);
+    const value = byKey.get(month.key);
+    slots.push({
+      key: month.key,
+      label: month.label,
+      name: month.name,
+      value: value ?? null,
+      current: month.key === currentKey,
+    });
+  }
+  return slots;
 }
 
 export function symbolCounts(

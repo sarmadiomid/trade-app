@@ -104,3 +104,20 @@ export function instrumentSpec(symbol: string): InstrumentSpec | null {
   const upper = symbol.trim().toUpperCase();
   return INSTRUMENTS.find((i) => i.symbol === upper) ?? null;
 }
+
+/** Market bucket used by the session symbol picker. */
+export type AssetClass = 'metals' | 'forex' | 'indices' | 'crypto';
+
+const METAL = /^(XAU|XAG|XPT|XPD)/;
+const CRYPTO = /(USDT|USDC|BUSD)$/;
+const INDEX = /^(NAS|US|SPX|DJI|GER|UK|JP|FRA|HK|AUS|DAX|NDX)\d+/;
+
+/** Classify a symbol so the picker can filter metals, forex, indices, and crypto. */
+export function assetClassOf(symbol: string): AssetClass {
+  const s = symbol.trim().toUpperCase();
+  if (METAL.test(s)) return 'metals';
+  if (CRYPTO.test(s)) return 'crypto';
+  if (INDEX.test(s)) return 'indices';
+  if (/^[A-Z]{6}$/.test(s)) return 'forex';
+  return /\d/.test(s) ? 'indices' : 'forex';
+}

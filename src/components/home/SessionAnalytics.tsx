@@ -133,16 +133,19 @@ export function SessionAnalytics({
       }
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-start justify-between gap-4 px-4 pb-2 pt-5 sm:px-8">
+        <header className="px-4 pb-2 pt-4 sm:px-8 sm:pt-5">
           <div className="flex items-center gap-2">
-            <ShellMenuButton />
-            <h1 className="text-[26px] font-bold sm:text-[30px]">تمرین</h1>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <ShellMenuButton />
+              <h1 className="text-[22px] font-bold leading-none sm:text-[30px]">تمرین</h1>
+            </div>
+            <div className="ms-auto min-w-0">
+              <ShellTools />
+            </div>
           </div>
-
-          <div className="flex flex-col items-end gap-3">
-            <ShellTools />
-            <div className="inline-flex items-center gap-2 rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] px-4 py-2.5 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.8)]">
-              <span className="text-[14px] font-semibold">
+          <div className="mt-3 flex justify-end">
+            <div className="inline-flex items-center gap-2 rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] px-3 py-2 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.8)] sm:px-4 sm:py-2.5">
+              <span className="text-[13px] font-semibold sm:text-[14px]">
                 {sessions === null ? '…' : faNum(streak)} روز پیاپی
               </span>
               <Icon path={HOME_ICONS.flame} size={18} className="text-[#ff8a3d]" />

@@ -188,7 +188,7 @@ export function DrawingToolbar() {
     <nav
       ref={navRef}
       aria-label="Drawing tools"
-      className="flex w-12 shrink-0 flex-col items-center gap-0.5 overflow-y-auto border-r border-line bg-panel py-1.5 [scrollbar-width:none]"
+      className="flex h-full max-h-full min-h-0 w-12 shrink-0 flex-col items-center gap-0.5 overflow-x-clip overflow-y-auto border-r border-line bg-panel py-1.5 [scrollbar-width:none]"
     >
       <div className="relative flex">
         <IconButton

@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation';
 import {
   useEffect,
-  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -187,13 +186,9 @@ export function AccountSettings({ user }: { readonly user: Me }) {
   const [username, setUsername] = useState<string | null>(null);
   const zone = timezone ?? savedTz;
   const handleValue = username ?? savedUsername;
-  const [oldPw, setOldPw] = useState('');
-  const [newPw, setNewPw] = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
   const [tzMsg, setTzMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [avatarMsg, setAvatarMsg] = useState<string | null>(null);
-  const [pwMsg, setPwMsg] = useState<{ tone: Tone; text: ReactNode } | null>(null);
   const [savingTz, setSavingTz] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -293,30 +288,6 @@ export function AccountSettings({ user }: { readonly user: Me }) {
     }
   };
 
-  const onPassword = (e: FormEvent) => {
-    e.preventDefault();
-    if (!oldPw || !newPw || !confirmPw) {
-      setPwMsg({ tone: 'err', text: 'هر سه فیلد رمز را پر کنید.' });
-      return;
-    }
-    if (newPw.length < 8) {
-      setPwMsg({ tone: 'err', text: 'رمز جدید باید حداقل ۸ نویسه باشد.' });
-      return;
-    }
-    if (newPw !== confirmPw) {
-      setPwMsg({ tone: 'err', text: 'رمز جدید و تکرار آن یکی نیست.' });
-      return;
-    }
-    setPwMsg({
-      tone: 'err',
-      text: (
-        <>
-          ورود <BrandName /> با کد یک‌بارمصرف پیامک است و رمز عبور جداگانه‌ای ذخیره نمی‌شود.
-        </>
-      ),
-    });
-  };
-
   const logout = async () => {
     setLeaving(true);
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
@@ -353,10 +324,10 @@ export function AccountSettings({ user }: { readonly user: Me }) {
   return (
     <HomeShell user={user} notices={0} noticeMenu={null}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-center justify-between gap-3 px-4 pt-5 sm:px-8">
+        <header className="flex items-center justify-between gap-2 px-4 pt-4 sm:px-8 sm:pt-5">
           <div className="flex min-w-0 items-center gap-2">
             <ShellMenuButton />
-            <h1 className="text-[22px] font-bold sm:text-[26px]">تنظیمات حساب</h1>
+            <h1 className="truncate text-[20px] font-bold leading-none sm:text-[26px]">تنظیمات حساب</h1>
             <span dir="ltr" className="truncate text-[13px] text-[var(--h-muted)] sm:text-[14px]">
               {formatIranianMobile(user.phone)}
             </span>
@@ -544,49 +515,6 @@ export function AccountSettings({ user }: { readonly user: Me }) {
                   </OutlineButton>
                 </div>
               </section>
-
-              <form onSubmit={onPassword} className="border-b border-[var(--h-line)] py-8">
-                <h2 className="text-[15px] font-semibold">رمز عبور و امنیت</h2>
-                <p className="mt-1 text-[13.5px] leading-7 text-[var(--h-muted)]">
-                  ورود <BrandName /> با کد یک‌بارمصرف پیامک است. رمز عبور جداگانه‌ای برای این حساب تنظیم
-                  نمی‌شود.
-                </p>
-                <div className="mt-5 flex flex-col gap-4">
-                  <PasswordField
-                    label="رمز فعلی"
-                    value={oldPw}
-                    autoComplete="current-password"
-                    onChange={(v) => {
-                      setOldPw(v);
-                      setPwMsg(null);
-                    }}
-                  />
-                  <PasswordField
-                    label="رمز جدید"
-                    value={newPw}
-                    autoComplete="new-password"
-                    onChange={(v) => {
-                      setNewPw(v);
-                      setPwMsg(null);
-                    }}
-                  />
-                  <PasswordField
-                    label="تکرار رمز"
-                    value={confirmPw}
-                    autoComplete="new-password"
-                    onChange={(v) => {
-                      setConfirmPw(v);
-                      setPwMsg(null);
-                    }}
-                  />
-                </div>
-                <div className="mt-4">
-                  <OutlineButton icon="lock" type="submit">
-                    تغییر رمز عبور
-                  </OutlineButton>
-                </div>
-                {pwMsg ? <Note tone={pwMsg.tone}>{pwMsg.text}</Note> : null}
-              </form>
 
               <div className="py-8">
                 <div className="flex items-start gap-3">
@@ -800,48 +728,6 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         className={`${FIELD} ${dir === 'ltr' ? 'text-start' : ''}`}
       />
-    </div>
-  );
-}
-
-function PasswordField({
-  label,
-  value,
-  onChange,
-  autoComplete,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly autoComplete: string;
-}) {
-  const id = useId();
-  const [show, setShow] = useState(false);
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1.5 block text-[13px] text-[var(--h-muted)]">
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          id={id}
-          type={show ? 'text' : 'password'}
-          value={value}
-          autoComplete={autoComplete}
-          dir="rtl"
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={label}
-          className={`${FIELD} pe-10 text-right placeholder:text-right`}
-        />
-        <button
-          type="button"
-          aria-label={show ? 'پنهان کردن رمز' : 'نمایش رمز'}
-          onClick={() => setShow((v) => !v)}
-          className="absolute end-2 top-1/2 -translate-y-1/2 text-[var(--h-muted)] hover:text-[var(--h-text)]"
-        >
-          <Icon name={show ? 'eyeOff' : 'eye'} size={16} />
-        </button>
-      </div>
     </div>
   );
 }

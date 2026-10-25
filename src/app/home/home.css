@@ -117,6 +117,36 @@
   }
 }
 
+.neon-blink {
+  border-color: #7aa2ff;
+  animation: neon-blink 1.5s ease-in-out infinite;
+}
+
+@keyframes neon-blink {
+  0%,
+  100% {
+    border-color: rgba(59, 120, 255, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(59, 120, 255, 0.25),
+      0 0 10px rgba(59, 120, 255, 0.2);
+  }
+  50% {
+    border-color: #d6e4ff;
+    box-shadow:
+      0 0 0 1px rgba(142, 182, 255, 0.95),
+      0 0 16px rgba(59, 120, 255, 0.85),
+      0 0 28px rgba(59, 120, 255, 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neon-blink {
+    animation: none;
+    border-color: #7aa2ff;
+    box-shadow: 0 0 12px rgba(59, 120, 255, 0.45);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nav-battle-ring::before {
     animation: none;

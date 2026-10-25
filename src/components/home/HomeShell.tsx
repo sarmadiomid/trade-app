@@ -400,13 +400,14 @@ export function ShellMenuButton() {
 export function ShellTools() {
   const { scheme, palette, toggleScheme, menu, openMenu, notices, noticeMenu } = useShell();
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-nowrap items-center justify-end gap-0.5 sm:gap-1.5">
       <Link
         href="/#pricing"
-        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--h-line)] bg-[var(--h-chip)] px-3 text-[13px] font-semibold transition hover:border-[var(--h-accent)]"
+        aria-label="اشتراک پرو"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[var(--h-line)] bg-[var(--h-chip)] px-2 text-[12px] font-semibold transition hover:border-[var(--h-accent)] sm:h-9 sm:px-3 sm:text-[13px]"
       >
         <Icon name="crown" size={14} />
-        پرو
+        <span className="max-[380px]:sr-only">پرو</span>
       </Link>
       <div className="relative" data-home-menu="">
         <button
@@ -414,10 +415,10 @@ export function ShellTools() {
           aria-haspopup="menu"
           aria-expanded={menu === 'lang'}
           onClick={() => openMenu('lang')}
-          className="inline-flex h-9 items-center gap-1 rounded-full px-2.5 text-[13px] font-semibold text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)]"
+          className="inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full px-1.5 text-[12px] font-semibold text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)] sm:h-9 sm:gap-1 sm:px-2.5 sm:text-[13px]"
         >
           فا
-          <Icon name="chevronDown" size={14} />
+          <Icon name="chevronDown" size={14} className="max-sm:hidden" />
         </button>
         {menu === 'lang' ? (
           <div
@@ -442,7 +443,7 @@ export function ShellTools() {
       <Link
         href="/#faq"
         aria-label="راهنما"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)]"
+        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)] sm:h-9 sm:w-9"
       >
         <Icon name="info" size={16} />
       </Link>
@@ -495,13 +496,13 @@ function ProfileMenu() {
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => openMenu('profile')}
-        className="inline-flex h-9 items-center gap-1.5 rounded-full py-1 pe-1.5 ps-1 text-[13px] font-semibold transition hover:bg-[var(--h-chip)]"
+        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full py-1 pe-1 ps-1 text-[13px] font-semibold transition hover:bg-[var(--h-chip)] sm:h-9 sm:pe-1.5"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--h-accent)] text-[11px] font-bold text-white">
           {initials(user.name)}
         </span>
         <span className="hidden max-w-28 truncate sm:inline">{user.name}</span>
-        <Icon name="chevronDown" size={14} className="text-[var(--h-muted)]" />
+        <Icon name="chevronDown" size={14} className="hidden text-[var(--h-muted)] sm:block" />
       </button>
       {open ? (
         <div
@@ -557,7 +558,7 @@ function IconButton({
       aria-label={label}
       aria-pressed={pressed}
       onClick={onClick}
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)]"
+      className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)] sm:h-9 sm:w-9"
     >
       {children}
     </button>

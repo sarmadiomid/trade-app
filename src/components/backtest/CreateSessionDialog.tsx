@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
 import type { BacktestServices } from '@/lib/app';
 import { DAY_MS } from '@/lib/core';
+import { assetClassOf, type AssetClass } from '@/lib/data';
 import {
   DEFAULT_PROP_RULES,
   validateSettings,
@@ -30,7 +31,13 @@ const BALANCE_PRESETS = [
   { value: 250_000, label: '$250K' },
 ] as const;
 
-const STRATEGY_SUGGESTIONS = ['پرایس اکشن', 'اسمارت مانی (ICT)', 'شکست ساختار', 'عرضه و تقاضا', 'اسکالپ سشن لندن'] as const;
+const STRATEGY_SUGGESTIONS = [
+  'پرایس اکشن',
+  'اسمارت مانی (ICT)',
+  'شکست ساختار',
+  'عرضه و تقاضا',
+  'اسکالپ سشن لندن',
+] as const;
 
 type Section = 'basics' | 'more';
 
@@ -176,9 +183,7 @@ export function CreateSessionDialog({
               aria-selected={type === 'prop'}
               onClick={() => setType('prop')}
               className={`inline-flex h-8 items-center gap-1.5 rounded-full ps-3.5 pe-2 text-[13px] font-semibold transition ${
-                type === 'prop'
-                  ? 'bg-[#1c1d22] text-white'
-                  : 'text-[#7c808d] hover:text-white'
+                type === 'prop' ? 'bg-[#1c1d22] text-white' : 'text-[#7c808d] hover:text-white'
               }`}
             >
               <span>پراپ</span>
@@ -294,7 +299,9 @@ export function CreateSessionDialog({
                   maxLength={60}
                   onChange={(e) => setName(e.target.value)}
                 />
-                {nameMissing ? <p className="text-[12px] text-[#ff6b81]">این فیلد لازم است</p> : null}
+                {nameMissing ? (
+                  <p className="text-[12px] text-[#ff6b81]">این فیلد لازم است</p>
+                ) : null}
               </label>
 
               <div className="space-y-2">
@@ -351,11 +358,7 @@ export function CreateSessionDialog({
 
               <div className="space-y-2">
                 <FieldLabel>استراتژی</FieldLabel>
-                <StrategyField
-                  inputRef={strategyInputRef}
-                  value={tag}
-                  onChange={setTag}
-                />
+                <StrategyField inputRef={strategyInputRef} value={tag} onChange={setTag} />
                 <button
                   type="button"
                   onClick={() => strategyInputRef.current?.focus()}
@@ -528,7 +531,9 @@ function StrategyField({
                   setOpen(false);
                 }}
                 className={`flex w-full items-center justify-between px-3.5 py-2 text-start text-[13px] transition ${
-                  item === value ? 'bg-[#1c1e26] text-white' : 'text-[#9aa3b5] hover:bg-[#181a20] hover:text-white'
+                  item === value
+                    ? 'bg-[#1c1e26] text-white'
+                    : 'text-[#9aa3b5] hover:bg-[#181a20] hover:text-white'
                 }`}
               >
                 <span>{item}</span>
@@ -546,6 +551,40 @@ function symbolLabel(symbol: string, description: string): string {
   return `${symbol} · ${ASSET_FA[symbol] ?? description}`;
 }
 
+const FAVORITE_SYMBOLS_KEY = 'chartix.favoriteSymbols.v1';
+
+type SymbolCategory = 'all' | AssetClass | 'favorites';
+
+const SYMBOL_CATEGORIES: ReadonlyArray<{ id: SymbolCategory; label: string }> = [
+  { id: 'all', label: 'همه' },
+  { id: 'metals', label: 'فلزات' },
+  { id: 'forex', label: 'فارکس' },
+  { id: 'indices', label: 'شاخص‌ها' },
+  { id: 'crypto', label: 'کریپتو' },
+  { id: 'favorites', label: 'علاقه‌مندی‌ها' },
+];
+
+function readFavoriteSymbols(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(FAVORITE_SYMBOLS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+function writeFavoriteSymbols(list: readonly string[]): void {
+  try {
+    window.localStorage.setItem(FAVORITE_SYMBOLS_KEY, JSON.stringify(list));
+  } catch {
+    // Ignore quota and private-mode failures; the stars still work for this visit.
+  }
+}
+
 function SymbolField({
   instruments,
   symbol,
@@ -558,13 +597,19 @@ function SymbolField({
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
+  const [category, setCategory] = useState<SymbolCategory>('all');
+  const [favorites, setFavorites] = useState<string[]>(readFavoriteSymbols);
   const selected = instruments.find((item) => item.symbol === symbol);
   const label = selected ? symbolLabel(selected.symbol, selected.description) : symbol;
   const q = query.trim().toLowerCase();
+  const raw = query.trim();
   const items = instruments.filter((item) => {
+    if (category === 'favorites' && !favorites.includes(item.symbol)) return false;
+    if (category !== 'all' && category !== 'favorites' && assetClassOf(item.symbol) !== category) {
+      return false;
+    }
     if (!q) return true;
     const fa = ASSET_FA[item.symbol] ?? '';
-    const raw = query.trim();
     return (
       item.symbol.toLowerCase().includes(q) ||
       item.description.toLowerCase().includes(q) ||
@@ -573,6 +618,12 @@ function SymbolField({
     );
   });
   const active = items.length === 0 ? 0 : Math.min(cursor, items.length - 1);
+  const empty =
+    q.length > 0
+      ? 'نمادی پیدا نشد'
+      : category === 'favorites'
+        ? 'هنوز نمادی علامت نخورده'
+        : 'در این دسته نمادی نیست';
 
   const pick = (next: string) => {
     onChange(next);
@@ -580,8 +631,29 @@ function SymbolField({
     setQuery('');
   };
 
+  const toggleFavorite = (next: string) => {
+    setFavorites((prev) => {
+      const list = prev.includes(next) ? prev.filter((item) => item !== next) : [...prev, next];
+      writeFavoriteSymbols(list);
+      return list;
+    });
+  };
+
+  const chooseCategory = (next: SymbolCategory) => {
+    setCategory(next);
+    setCursor(0);
+  };
+
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) {
+          setOpen(false);
+          setQuery('');
+        }
+      }}
+    >
       <input
         role="combobox"
         aria-label="نماد"
@@ -594,14 +666,13 @@ function SymbolField({
         onFocus={() => {
           setOpen(true);
           setQuery('');
-          setCursor(Math.max(0, instruments.findIndex((item) => item.symbol === symbol)));
+          setCursor(0);
         }}
         onChange={(e) => {
           setQuery(e.target.value);
           setOpen(true);
           setCursor(0);
         }}
-        onBlur={() => setOpen(false)}
         onKeyDown={(e) => {
           if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) {
             setOpen(true);
@@ -629,35 +700,86 @@ function SymbolField({
         className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-[#7c808d]"
       />
       {open ? (
-        <ul
-          id="session-symbols"
-          role="listbox"
-          aria-label="نمادها"
-          className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-xl border border-[#23252c] bg-[#141519] py-1 shadow-2xl"
-        >
-          {items.length === 0 ? (
-            <li className="px-3.5 py-2 text-[12.5px] text-[#7c808d]">نمادی پیدا نشد</li>
-          ) : (
-            items.map((item, i) => (
-              <li key={item.symbol} role="option" aria-selected={i === active}>
+        <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-[#23252c] bg-[#141519] shadow-2xl">
+          <div
+            role="radiogroup"
+            aria-label="دسته نماد"
+            className="flex gap-1 overflow-x-auto border-b border-[#23252c] px-2 py-2"
+          >
+            {SYMBOL_CATEGORIES.map((item) => {
+              const on = category === item.id;
+              return (
                 <button
+                  key={item.id}
                   type="button"
+                  role="radio"
+                  aria-checked={on}
                   onMouseDown={(e) => e.preventDefault()}
-                  onMouseEnter={() => setCursor(i)}
-                  onClick={() => pick(item.symbol)}
-                  className={`flex w-full items-center gap-2 px-3.5 py-2 text-start text-[13px] ${
-                    i === active ? 'bg-[#1c1e26] text-white' : 'text-[#9aa3b5]'
+                  onClick={() => chooseCategory(item.id)}
+                  className={`h-7 shrink-0 rounded-full px-2.5 text-[12px] font-medium transition ${
+                    on ? 'bg-[#1d5eff] text-white' : 'bg-[#17181c] text-[#9aa3b5] hover:text-white'
                   }`}
                 >
-                  <span dir="ltr" className="w-20 shrink-0 font-semibold text-white">
-                    {item.symbol}
-                  </span>
-                  <span className="truncate">{ASSET_FA[item.symbol] ?? item.description}</span>
+                  {item.label}
                 </button>
-              </li>
-            ))
-          )}
-        </ul>
+              );
+            })}
+          </div>
+          <ul
+            id="session-symbols"
+            role="listbox"
+            aria-label="نمادها"
+            className="max-h-52 overflow-auto py-1"
+          >
+            {items.length === 0 ? (
+              <li className="px-3.5 py-2 text-[12.5px] text-[#7c808d]">{empty}</li>
+            ) : (
+              items.map((item, i) => {
+                const fav = favorites.includes(item.symbol);
+                return (
+                  <li key={item.symbol} role="option" aria-selected={i === active}>
+                    <div
+                      onMouseEnter={() => setCursor(i)}
+                      className={`flex items-center gap-1 pe-1.5 ${
+                        i === active ? 'bg-[#1c1e26] text-white' : 'text-[#9aa3b5]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pick(item.symbol)}
+                        className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-2 text-start text-[13px]"
+                      >
+                        <span dir="ltr" className="w-20 shrink-0 font-semibold text-white">
+                          {item.symbol}
+                        </span>
+                        <span className="truncate">
+                          {ASSET_FA[item.symbol] ?? item.description}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={fav}
+                        aria-label={
+                          fav
+                            ? `حذف ${item.symbol} از علاقه‌مندی‌ها`
+                            : `افزودن ${item.symbol} به علاقه‌مندی‌ها`
+                        }
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => toggleFavorite(item.symbol)}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${
+                          fav ? 'text-[#f5c451]' : 'text-[#5c6270] hover:text-[#d1d5db]'
+                        }`}
+                      >
+                        <Icon name="star" size={14} className={fav ? 'fill-current' : ''} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
       ) : null}
     </div>
   );

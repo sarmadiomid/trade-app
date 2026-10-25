@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { browserBacktestServices } from '@/lib/app';
 import { outcomeOf, type SessionSummary, type SessionType } from '@/lib/backtest';
-import { faDigits, utcToJalali } from '@/lib/locale/jalali';
+import { faDigits, gregorianToJalali, JALALI_MONTHS, utcToJalali } from '@/lib/locale/jalali';
 import { dropPracticeTime, loadPracticeTime, type PracticeStore } from '../backtest/practice-time';
 import { faNum, money } from '../backtest/format';
 import { journalHref } from './journal-href';
@@ -14,18 +14,17 @@ import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
 import {
-  axisTicks,
   bucketHours,
-  monthOfInstant,
-  niceMax,
+  DAY_MS,
+  recentPracticeDays,
   remainingDays,
   replayedMs,
   selectSessions,
   sessionSpanDays,
   symbolCounts,
   winRateByActivityMonth,
+  winRateMonthSpan,
   type KindFilter,
-  type MonthPoint,
   type RangeFilter,
   type TradePoint,
 } from './overview';
@@ -84,6 +83,7 @@ export function PracticeOverview({
   const [range, setRange] = useState<RangeFilter>('all');
   const [trades, setTrades] = useState<readonly TradePoint[] | null>(null);
   const [practice, setPractice] = useState<PracticeStore>({});
+  const [practiceReady, setPracticeReady] = useState(false);
   const [now, setNow] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortId>('new');
@@ -124,6 +124,7 @@ export function PracticeOverview({
         if (cancel) return;
         setPractice(store);
         setNow(Date.now());
+        setPracticeReady(true);
       });
     };
     read();
@@ -138,7 +139,6 @@ export function PracticeOverview({
 
   const clock = now ?? 0;
   const activeRange: RangeFilter = now === null ? 'all' : range;
-  const monthLabel = now === null ? '' : monthOfInstant(now).label;
   const picked = useMemo(
     () => selectSessions(sessions, kind, activeRange, clock),
     [sessions, kind, activeRange, clock],
@@ -161,6 +161,7 @@ export function PracticeOverview({
 
   const invested = useMemo(() => bucketHours(days, activeRange, clock), [days, activeRange, clock]);
   const replayed = picked.reduce((n, s) => n + replayedMs(s), 0);
+  const windowMs = picked.reduce((n, s) => n + Math.max(0, s.endDate + DAY_MS - s.startDate), 0);
   const tradeCount = pickedTrades ? pickedTrades.length : picked.reduce((n, s) => n + s.trades, 0);
   const buys = pickedTrades?.filter((t) => t.side === 'buy').length ?? 0;
   const wins = pickedTrades?.filter((t) => t.win).length ?? 0;
@@ -220,9 +221,10 @@ export function PracticeOverview({
 
   return (
     <div data-testid="practice-overview" className="px-4 py-5 sm:px-8">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <ActionTile
           testId="start-backtest"
+          neon
           icon="plus"
           title="جلسه بک‌تست"
           text="شروع جلسه"
@@ -256,85 +258,34 @@ export function PracticeOverview({
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-        <Metric
-          className="order-1 min-h-[158px] lg:order-0"
-          iconPath={BARS}
-          label="زمان صرف‌شده"
-          hint="مدتی که صفحهٔ بازپخش باز و جلوی چشم بوده است."
-        >
-          <Duration ms={invested.totalMs} small="دقیقه" />
-        </Metric>
-        <Metric
-          className="order-2 min-h-[158px] lg:order-0"
-          icon="clock"
-          label="زمان تاریخی بازپخش"
-          hint="مقدار بازار که نشانگر بازپخش از ابتدای جلسه جلو رفته است."
-        >
-          <Duration ms={replayed} small="دقیقه" coarse />
-        </Metric>
-        <ColumnChart
-          className="order-5 min-h-[250px] lg:order-0 lg:col-span-2 lg:row-span-2"
-          title="زمان صرف‌شده"
-          hint="جمع زمان حضور در هر ماه."
-          bars={
-            invested.months.length > 0
-              ? invested.months
-              : [{ key: 'current', label: monthLabel, value: 0 }]
-          }
-          max={niceMax(Math.max(0, ...invested.months.map((m) => m.value)))}
-          gradient={['#ffe08a', '#e8941a']}
-          gradientId="ov-gold"
-          formatTick={(v) => `${faNum(v, v >= 10 ? 0 : 1)} س`}
-          formatBar={(v) => `${faNum(v, v >= 10 ? 1 : 2)} ساعت`}
-          empty="وقتی بازپخش باز باشد، زمان حضور اینجا جمع می‌شود."
+        <ReplayCard
+          className="order-2 lg:order-0"
+          ms={replayed}
+          sessions={picked.length}
+          coverage={windowMs > 0 ? Math.min(1, replayed / windowMs) : 0}
         />
-        <Metric
-          className="order-3 min-h-[158px] lg:order-0"
-          icon="journal"
-          label="معاملات انجام‌شده"
-          hint="معاملات بسته‌شده در جلسه‌های این نما."
-        >
-          <span>{faNum(tradeCount)}</span>
-          {pickedTrades && tradeCount > 0 ? (
-            <SplitBar leftPct={(buys / tradeCount) * 100} leftLabel="خرید" rightLabel="فروش" />
-          ) : (
-            <p className="mt-3 text-[12px] font-medium text-[var(--h-muted)]">
-              {pickedTrades ? 'هنوز معامله‌ای بسته نشده' : '…'}
-            </p>
-          )}
-        </Metric>
-        <Metric
-          className="order-4 min-h-[158px] lg:order-0"
-          icon="target"
-          label="نرخ برد کلی"
-          hint="سهم معاملات بسته‌شده‌ای که سود خالص داشته‌اند."
-        >
-          <span>
-            {pickedTrades
-              ? tradeCount > 0
-                ? `${faNum((wins / tradeCount) * 100, 2)}٪`
-                : '—'
-              : '…'}
-          </span>
-        </Metric>
-        <ColumnChart
-          className="order-6 min-h-[250px] lg:order-0 lg:col-span-2"
-          title="نرخ برد"
-          hint="نرخ برد معاملات هر ماه، بر اساس آخرین کار روی جلسه."
-          bars={
-            winMonths && winMonths.length > 0
-              ? winMonths
-              : [{ key: 'current', label: monthLabel, value: 0 }]
-          }
-          max={100}
-          gradient={['#8eb6ff', '#1d4ed8']}
-          gradientId="ov-blue"
-          formatTick={(v) => `${faNum(Math.round(v))}٪`}
-          formatBar={(v) => `${faNum(v, 1)}٪`}
-          empty={pickedTrades ? 'با بستن معامله، نرخ برد هر ماه اینجا می‌آید.' : '…'}
-          loading={winMonths === null}
+        <TradesCard
+          className="order-3 lg:order-0"
+          count={tradeCount}
+          buys={buys}
+          ready={pickedTrades !== null}
         />
-        <SymbolChart className="order-7 lg:order-0 lg:col-span-2" rows={symbols} />
+        <SpentTimeCard
+          className="order-1 min-h-[320px] lg:order-0 lg:col-span-2 lg:row-span-2"
+          totalMs={invested.totalMs}
+          activeDays={invested.activeDays}
+          days={days}
+          now={now}
+          ready={practiceReady}
+        />
+        <WinRateCard
+          className="order-4 lg:order-0 lg:col-span-2"
+          wins={wins}
+          trades={tradeCount}
+          ready={pickedTrades !== null}
+        />
+        <WinMonthCard className="order-5 lg:order-0 lg:col-span-2" months={winMonths} now={now} />
+        <SymbolChart className="order-6 min-h-[250px] lg:order-0 lg:col-span-2" rows={symbols} />
       </div>
 
       <section className="mt-8">
@@ -438,20 +389,19 @@ export function PracticeOverview({
 export function PracticeSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-3 px-4 py-6 sm:px-8 lg:grid-cols-4">
-      {Array.from({ length: 7 }, (_, i) => (
-        <div
-          key={i}
-          className={`h-36 animate-pulse rounded-2xl bg-[var(--h-chip)] ${
-            i === 2 ? 'lg:col-span-2 lg:row-span-2 lg:h-auto lg:min-h-72' : ''
-          } ${i > 4 ? 'lg:col-span-2' : ''}`}
-        />
-      ))}
+      <div className="h-36 animate-pulse rounded-2xl bg-[var(--h-chip)] motion-reduce:animate-none" />
+      <div className="h-36 animate-pulse rounded-2xl bg-[var(--h-chip)] motion-reduce:animate-none" />
+      <div className="h-72 animate-pulse rounded-2xl bg-[var(--h-chip)] motion-reduce:animate-none lg:col-span-2 lg:row-span-2" />
+      <div className="h-36 animate-pulse rounded-2xl bg-[var(--h-chip)] motion-reduce:animate-none lg:col-span-2" />
+      <div className="h-64 animate-pulse rounded-2xl bg-[var(--h-chip)] motion-reduce:animate-none lg:col-span-2" />
+      <div className="h-64 animate-pulse rounded-2xl bg-[var(--h-chip)] motion-reduce:animate-none lg:col-span-2" />
     </div>
   );
 }
 
 function ActionTile({
   testId,
+  neon = false,
   icon,
   path,
   title,
@@ -461,6 +411,7 @@ function ActionTile({
   onClick,
 }: {
   readonly testId?: string;
+  readonly neon?: boolean;
   readonly icon: IconName | null;
   readonly path?: string;
   readonly title: string;
@@ -469,20 +420,22 @@ function ActionTile({
   readonly href?: string;
   readonly onClick?: () => void;
 }) {
-  const className = `${card} flex items-center gap-3 px-4 py-3 text-start transition hover:border-[var(--h-accent)]/45`;
+  const className = `${card} flex flex-col items-center gap-1.5 px-2 py-2.5 text-center transition hover:border-[var(--h-accent)]/45 sm:flex-row sm:gap-3 sm:px-4 sm:py-3 sm:text-start ${
+    neon ? 'neon-blink' : ''
+  }`;
   const body = (
     <>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--h-line)] text-[var(--h-muted)]">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--h-line)] text-[var(--h-muted)] sm:h-9 sm:w-9">
         {path ? <Icon path={path} size={16} /> : <Icon name={icon ?? 'plus'} size={16} />}
       </span>
       <span className="min-w-0">
-        <span className="flex items-center gap-1.5 text-[14px] font-semibold">
+        <span className="flex flex-wrap items-center justify-center gap-1 text-[12px] font-semibold leading-5 sm:justify-start sm:text-[14px]">
           {title}
           <span title={hint} className="text-[var(--h-muted)]">
             <Icon name="info" size={13} />
           </span>
         </span>
-        <span className="mt-0.5 block text-[12px] text-[var(--h-muted)]">{text}</span>
+        <span className="mt-0.5 block text-[11px] text-[var(--h-muted)] sm:text-[12px]">{text}</span>
       </span>
     </>
   );
@@ -500,254 +453,514 @@ function ActionTile({
   );
 }
 
-function Metric({
+const SPENT_HINT = 'مدتی که صفحهٔ بازپخش باز و جلوی چشم بوده است.';
+
+function SpentTimeCard({
   className = '',
-  icon,
-  iconPath,
-  label,
-  hint,
-  children,
+  totalMs,
+  activeDays,
+  days,
+  now,
+  ready,
 }: {
   readonly className?: string;
-  readonly icon?: IconName;
-  readonly iconPath?: string;
+  readonly totalMs: number;
+  readonly activeDays: number;
+  readonly days: Readonly<Record<string, number>>;
+  readonly now: number | null;
+  readonly ready: boolean;
+}) {
+  const recent = useMemo(
+    () => (now === null ? [] : recentPracticeDays(days, now, 14)),
+    [days, now],
+  );
+  const peak = Math.max(1, ...recent.map((day) => day.ms));
+  const recentActive = recent.filter((day) => day.ms > 0).length;
+  const loading = !ready || now === null;
+
+  return (
+    <StatShell
+      label="زمان صرف‌شده"
+      hint={SPENT_HINT}
+      tone="#e8941a"
+      rail="linear-gradient(to bottom, #ffe08a, #e8941a)"
+      iconPath={BARS}
+      className={className}
+      busy={loading}
+    >
+      {loading ? (
+        <div className="mt-4 flex flex-1 flex-col justify-between gap-3">
+          <span className="sr-only">در حال محاسبه زمان حضور</span>
+          <span className="h-10 w-36 animate-pulse rounded-lg bg-[var(--h-chip)] motion-reduce:animate-none" />
+          <span className="min-h-[148px] flex-1 animate-pulse rounded-lg bg-[var(--h-chip)] motion-reduce:animate-none" />
+        </div>
+      ) : (
+        <>
+          <TimeFigures ms={totalMs} size="lg" />
+          <div className="relative mt-4 min-h-[148px] flex-1" dir="ltr">
+            <div
+              className="absolute inset-0 flex items-end gap-[3px]"
+              role="img"
+              aria-label={`۱۴ روز اخیر، ${faNum(recentActive)} روز با حضور`}
+            >
+              {recent.map((day) => (
+                <span
+                  key={day.key}
+                  title={`${practiceDayCaption(day.key)}: ${spentPhrase(day.ms)}`}
+                  className="flex h-full min-w-0 flex-1 items-end"
+                >
+                  <span
+                    className="block w-full rounded-md"
+                    style={{
+                      height: day.ms > 0 ? `${Math.max(8, (day.ms / peak) * 100)}%` : '4px',
+                      background:
+                        day.ms > 0
+                          ? 'linear-gradient(to bottom, #ffe08a, #e8941a)'
+                          : 'var(--h-line)',
+                    }}
+                  />
+                </span>
+              ))}
+            </div>
+          </div>
+          <div
+            aria-hidden="true"
+            className="mt-1.5 flex justify-between text-[11px] leading-none text-[var(--h-muted)]"
+            dir="ltr"
+          >
+            <span>{recent[0] ? practiceDayCaption(recent[0].key) : ''}</span>
+            <span>{recent.length > 0 ? practiceDayCaption(recent[recent.length - 1].key) : ''}</span>
+          </div>
+          {totalMs > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--h-line)] pt-2.5 text-[12px] text-[var(--h-muted)]">
+              <span className="whitespace-nowrap">
+                <span className="font-semibold text-[var(--h-text)] tabular-nums">
+                  {faNum(activeDays)}
+                </span>{' '}
+                روز فعال
+              </span>
+              <span className="whitespace-nowrap">
+                میانگین روز فعال{' '}
+                <span className="font-semibold text-[var(--h-text)] tabular-nums">
+                  {averageSpent(totalMs, activeDays)}
+                </span>
+              </span>
+            </div>
+          ) : (
+            <p className="mt-3 border-t border-[var(--h-line)] pt-2.5 text-[12px] leading-5 text-[var(--h-muted)]">
+              وقتی بازپخش باز باشد، زمان حضور اینجا جمع می‌شود.
+            </p>
+          )}
+        </>
+      )}
+    </StatShell>
+  );
+}
+
+function durationParts(ms: number): readonly { value: number; unit: string }[] {
+  if (!(ms >= 60_000)) {
+    const minutes = ms > 0 ? Math.max(1, Math.round(ms / 60_000)) : 0;
+    return [{ value: minutes, unit: 'دقیقه' }];
+  }
+  if (ms < 3_600_000) return [{ value: Math.round(ms / 60_000), unit: 'دقیقه' }];
+  const hours = Math.floor(ms / 3_600_000);
+  const wholeDays = Math.floor(hours / 24);
+  const restHours = hours % 24;
+  if (wholeDays > 0) {
+    const parts = [{ value: wholeDays, unit: 'روز' }];
+    if (restHours > 0) parts.push({ value: restHours, unit: 'ساعت' });
+    return parts;
+  }
+  const minutes = Math.round((ms - hours * 3_600_000) / 60_000);
+  const parts = [{ value: hours, unit: 'ساعت' }];
+  if (minutes > 0) parts.push({ value: minutes, unit: 'دقیقه' });
+  return parts;
+}
+
+function spentPhrase(ms: number): string {
+  if (!(ms > 0)) return 'بدون حضور';
+  if (ms < 3_600_000) return `${faNum(Math.max(1, Math.round(ms / 60_000)))} دقیقه`;
+  const hours = ms / 3_600_000;
+  const whole = Math.abs(hours - Math.round(hours)) < 0.05;
+  return `${faNum(whole ? Math.round(hours) : hours, whole ? 0 : 1)} ساعت`;
+}
+
+function averageSpent(totalMs: number, activeDays: number): string {
+  if (activeDays <= 0) return '—';
+  return spentPhrase(totalMs / activeDays);
+}
+
+function practiceDayCaption(key: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+  if (!match) return key;
+  const j = gregorianToJalali(Number(match[1]), Number(match[2]), Number(match[3]));
+  return `${faDigits(j.jd)} ${JALALI_MONTHS[j.jm - 1] ?? ''}`;
+}
+
+function TimeFigures({ ms, size = 'md' }: { readonly ms: number; readonly size?: 'md' | 'lg' }) {
+  const text = size === 'lg' ? 'text-[40px]' : 'text-[32px]';
+  return (
+    <div className="mt-3 flex flex-wrap items-end gap-x-4 gap-y-1">
+      {durationParts(ms).map((part) => (
+        <span key={part.unit} className="inline-flex items-baseline gap-1.5">
+          <span className={`${text} font-bold leading-none tracking-tight tabular-nums`}>
+            {faNum(part.value)}
+          </span>
+          <span className="text-[13px] font-semibold text-[var(--h-muted)]">{part.unit}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function StatShell({
+  label,
+  hint,
+  tone,
+  rail,
+  icon,
+  iconPath,
+  className = '',
+  busy = false,
+  children,
+}: {
   readonly label: string;
   readonly hint: string;
+  readonly tone: string;
+  readonly rail: string;
+  readonly icon?: IconName;
+  readonly iconPath?: string;
+  readonly className?: string;
+  readonly busy?: boolean;
   readonly children: ReactNode;
 }) {
   return (
     <section
       aria-label={label}
-      className={`${card} relative flex h-full flex-col p-4 ${className}`}
+      aria-busy={busy || undefined}
+      className={`${card} relative flex h-full flex-col overflow-hidden p-4 ps-5 ${className}`}
     >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-3.5 start-0 w-1 rounded-full"
+        style={{ background: rail }}
+      />
       <div className="flex items-center gap-2 pe-6 text-[13px] text-[var(--h-muted)]">
-        {iconPath ? <Icon path={iconPath} size={15} /> : <Icon name={icon ?? 'info'} size={15} />}
+        <span style={{ color: tone }}>
+          {iconPath ? <Icon path={iconPath} size={15} /> : <Icon name={icon ?? 'info'} size={15} />}
+        </span>
         <span>{label}</span>
       </div>
       <span title={hint} className="absolute end-3.5 top-3.5 text-[var(--h-muted)]">
         <Icon name="info" size={15} />
       </span>
-      <div className="mt-4 text-[30px] font-bold leading-none tracking-tight tabular-nums">
-        {children}
-      </div>
+      {children}
     </section>
   );
 }
 
-function Duration({
-  ms,
-  coarse = false,
-  small,
-}: {
-  readonly ms: number;
-  readonly coarse?: boolean;
-  readonly small: string;
-}) {
-  if (!(ms >= 60_000)) {
-    const min = ms > 0 ? Math.max(1, Math.round(ms / 60_000)) : 0;
-    return (
-      <span>
-        {faNum(min)}
-        <Unit>{small}</Unit>
-      </span>
-    );
-  }
-  if (!coarse && ms < 3_600_000) {
-    return (
-      <span>
-        {faNum(Math.round(ms / 60_000))}
-        <Unit>دقیقه</Unit>
-      </span>
-    );
-  }
-  const hours = Math.floor(ms / 3_600_000);
-  const days = Math.floor(hours / 24);
-  const h = hours % 24;
-  if (days > 0) {
-    return (
-      <span className="inline-flex flex-wrap items-baseline gap-x-4 gap-y-1">
-        <span>
-          {faNum(days)}
-          <Unit>روز</Unit>
-        </span>
-        <span>
-          {faNum(h)}
-          <Unit>ساعت</Unit>
-        </span>
-      </span>
-    );
-  }
-  const minutes = Math.round((ms - hours * 3_600_000) / 60_000);
-  return (
-    <span className="inline-flex flex-wrap items-baseline gap-x-4 gap-y-1">
-      <span>
-        {faNum(hours)}
-        <Unit>ساعت</Unit>
-      </span>
-      {minutes > 0 ? (
-        <span>
-          {faNum(minutes)}
-          <Unit>دقیقه</Unit>
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function Unit({ children }: { readonly children: string }) {
-  return <span className="ms-1.5 text-[15px] font-semibold text-[var(--h-muted)]">{children}</span>;
-}
-
-function SplitBar({
-  leftPct,
-  leftLabel,
-  rightLabel,
-}: {
-  readonly leftPct: number;
-  readonly leftLabel: string;
-  readonly rightLabel: string;
-}) {
-  const right = Math.max(0, 100 - leftPct);
-  return (
-    <div className="mt-4 text-[12px] font-semibold leading-none">
-      <div className="flex h-1.5 overflow-hidden rounded-full bg-[var(--h-line)]">
-        <span className="h-full bg-[#3dcea0]" style={{ width: `${leftPct}%` }} />
-        <span className="h-full bg-[#ff6b81]" style={{ width: `${right}%` }} />
-      </div>
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-[#3dcea0]">
-          {faNum(leftPct, 2)}٪ {leftLabel}
-        </span>
-        <span className="text-[#ff6b81]">
-          {faNum(right, 2)}٪ {rightLabel}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function ColumnChart({
+function ReplayCard({
   className = '',
-  title,
-  hint,
-  bars,
-  max,
-  gradient,
-  gradientId,
-  formatTick,
-  formatBar,
-  empty,
-  loading = false,
+  ms,
+  sessions,
+  coverage,
 }: {
   readonly className?: string;
-  readonly title: string;
-  readonly hint: string;
-  readonly bars: readonly MonthPoint[];
-  readonly max: number;
-  readonly gradient: readonly [string, string];
-  readonly gradientId: string;
-  readonly formatTick: (v: number) => string;
-  readonly formatBar: (v: number) => string;
-  readonly empty: string;
-  readonly loading?: boolean;
+  readonly ms: number;
+  readonly sessions: number;
+  readonly coverage: number;
 }) {
-  const ticks = axisTicks(max, 5);
-  const w = 640;
-  const h = 248;
-  const padL = 58;
-  const padR = 18;
-  const padT = 12;
-  const padB = 36;
-  const plotW = w - padL - padR;
-  const plotH = h - padT - padB;
-  const n = Math.max(bars.length, 1);
-  const slot = plotW / n;
-  const barW = bars.length <= 1 ? plotW * 0.74 : Math.min(slot * 0.58, 64);
-  const show = bars.some((b) => b.value > 0);
-
+  const pct = Math.max(0, Math.min(100, coverage * 100));
+  const whole = pct >= 10 || pct === 0;
   return (
-    <section
-      aria-label={show ? title : `${title}. ${empty}`}
-      className={`${card} relative flex h-full flex-col p-4 ${className}`}
+    <StatShell
+      label="زمان تاریخی بازپخش"
+      hint="مقدار بازار که نشانگر بازپخش از ابتدای جلسه جلو رفته است."
+      tone="#5b8cff"
+      rail="linear-gradient(to bottom, #c5d9ff, #2563eb)"
+      icon="clock"
+      className={`min-h-[158px] ${className}`}
     >
-      <div className="flex items-center gap-2 pe-6 text-[13px] text-[var(--h-muted)]">
-        <span>{title}</span>
-      </div>
-      <span title={hint} className="absolute end-3.5 top-3.5 text-[var(--h-muted)]">
-        <Icon name="info" size={15} />
-      </span>
-      {loading ? (
-        <p className="flex flex-1 items-center justify-center text-[13px] text-[var(--h-muted)]">
-          …
-        </p>
-      ) : (
-        <div className="relative mt-2 flex-1" dir="ltr">
-          <svg
-            viewBox={`0 0 ${w} ${h}`}
-            aria-hidden="true"
-            className="h-[220px] w-full text-[var(--h-muted)]"
-            style={{ fontFamily: 'inherit' }}
-          >
-            <defs>
-              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={gradient[0]} />
-                <stop offset="100%" stopColor={gradient[1]} />
-              </linearGradient>
-            </defs>
-            {ticks.map((t) => {
-              const y = padT + plotH - (max > 0 ? (t / max) * plotH : plotH);
-              return (
-                <g key={t}>
-                  <line
-                    x1={padL}
-                    x2={w - padR}
-                    y1={y}
-                    y2={y}
-                    stroke="currentColor"
-                    strokeOpacity="0.28"
-                    strokeDasharray="4 7"
-                  />
-                  <text x={padL - 8} y={y + 4} textAnchor="end" fill="currentColor" fontSize="13">
-                    {formatTick(t)}
-                  </text>
-                </g>
-              );
-            })}
-            {bars.map((b, i) => {
-              const bh = b.value > 0 ? Math.max(8, (b.value / max) * plotH) : 0;
-              const x = padL + slot * i + (slot - barW) / 2;
-              const y = padT + plotH - bh;
-              const label = bars.length > 4 ? (b.label.split(' ')[0] ?? b.label) : b.label;
-              return (
-                <g key={b.key}>
-                  {b.value > 0 ? <title>{`${b.label}: ${formatBar(b.value)}`}</title> : null}
-                  {bh > 0 ? (
-                    <rect
-                      x={x}
-                      y={y}
-                      width={barW}
-                      height={bh}
-                      rx="8"
-                      fill={`url(#${gradientId})`}
-                    />
-                  ) : null}
-                  <text
-                    x={padL + slot * i + slot / 2}
-                    y={h - 10}
-                    textAnchor="middle"
-                    fill="currentColor"
-                    fontSize="14"
-                    direction="rtl"
-                  >
-                    {label}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+      <TimeFigures ms={ms} />
+      <div className="mt-4">
+        <p className="text-[11px] text-[var(--h-muted)]">از بازهٔ جلسه‌ها</p>
+        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[var(--h-line)]">
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${pct}%`,
+              background: 'linear-gradient(to left, #2563eb, #9ec5ff)',
+            }}
+          />
         </div>
+      </div>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--h-line)] pt-2.5 text-[11px] text-[var(--h-muted)]">
+        <span className="whitespace-nowrap">
+          <span className="font-semibold text-[var(--h-text)] tabular-nums">{faNum(sessions)}</span>{' '}
+          جلسه
+        </span>
+        <span className="whitespace-nowrap">
+          پوشش{' '}
+          <span className="font-semibold text-[var(--h-text)] tabular-nums">
+            {faNum(whole ? Math.round(pct) : pct, whole ? 0 : 1)}٪
+          </span>
+        </span>
+      </div>
+    </StatShell>
+  );
+}
+
+function TradesCard({
+  className = '',
+  count,
+  buys,
+  ready,
+}: {
+  readonly className?: string;
+  readonly count: number;
+  readonly buys: number;
+  readonly ready: boolean;
+}) {
+  const sells = Math.max(0, count - buys);
+  const buyPct = count > 0 ? (buys / count) * 100 : 0;
+  return (
+    <StatShell
+      label="معاملات انجام‌شده"
+      hint="معاملات بسته‌شده در جلسه‌های این نما."
+      tone="var(--tc-up)"
+      rail="linear-gradient(to bottom, #8ef0cf, var(--tc-up))"
+      icon="journal"
+      className={`min-h-[158px] ${className}`}
+      busy={!ready}
+    >
+      <p className="mt-3 text-[32px] font-bold leading-none tracking-tight tabular-nums">
+        {faNum(count)}
+      </p>
+      {ready && count > 0 ? (
+        <>
+          <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-[var(--h-line)]">
+            <span className="h-full bg-[var(--tc-up)]" style={{ width: `${buyPct}%` }} />
+            <span
+              className="h-full bg-[var(--tc-down)]"
+              style={{ width: `${Math.max(0, 100 - buyPct)}%` }}
+            />
+          </div>
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--h-line)] pt-2.5 text-[11px]">
+            <span className="whitespace-nowrap text-[var(--tc-up)]">
+              <span className="font-semibold tabular-nums">{faNum(buys)}</span> خرید
+            </span>
+            <span className="whitespace-nowrap text-[var(--tc-down)]">
+              <span className="font-semibold tabular-nums">{faNum(sells)}</span> فروش
+            </span>
+          </div>
+        </>
+      ) : (
+        <p className="mt-auto pt-4 text-[12px] leading-5 text-[var(--h-muted)]">
+          {ready ? 'هنوز معامله‌ای بسته نشده' : '…'}
+        </p>
       )}
-    </section>
+    </StatShell>
+  );
+}
+
+function WinRateCard({
+  className = '',
+  wins,
+  trades,
+  ready,
+}: {
+  readonly className?: string;
+  readonly wins: number;
+  readonly trades: number;
+  readonly ready: boolean;
+}) {
+  const losses = Math.max(0, trades - wins);
+  const pct = trades > 0 ? (wins / trades) * 100 : 0;
+  return (
+    <StatShell
+      label="نرخ برد کلی"
+      hint="سهم معاملات بسته‌شده‌ای که سود خالص داشته‌اند."
+      tone="#8eb6ff"
+      rail="linear-gradient(to bottom, #d6e4ff, #1d4ed8)"
+      icon="target"
+      className={`min-h-[158px] ${className}`}
+      busy={!ready}
+    >
+      {!ready ? (
+        <p className="mt-4 text-[13px] text-[var(--h-muted)]">…</p>
+      ) : trades === 0 ? (
+        <>
+          <p className="mt-3 text-[40px] font-bold leading-none tabular-nums">—</p>
+          <p className="mt-auto pt-4 text-[12px] leading-5 text-[var(--h-muted)]">
+            هنوز معامله‌ای بسته نشده
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="mt-3 flex items-center justify-between gap-4">
+            <p className="text-[40px] font-bold leading-none tracking-tight tabular-nums">
+              {faNum(pct, 2)}
+              <span className="ms-1.5 text-[16px] font-semibold text-[var(--h-muted)]">٪</span>
+            </p>
+            <WinRing pct={pct} />
+          </div>
+          <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-[var(--h-line)]">
+            <span className="h-full bg-[var(--tc-up)]" style={{ width: `${pct}%` }} />
+            <span className="h-full bg-[var(--tc-down)]" style={{ width: `${100 - pct}%` }} />
+          </div>
+          <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--h-line)] pt-2.5 text-[12px]">
+            <span className="whitespace-nowrap text-[var(--tc-up)]">
+              <span className="font-semibold tabular-nums">{faNum(wins)}</span> برد
+            </span>
+            <span className="whitespace-nowrap text-[var(--tc-down)]">
+              <span className="font-semibold tabular-nums">{faNum(losses)}</span> باخت
+            </span>
+          </div>
+        </>
+      )}
+    </StatShell>
+  );
+}
+
+function WinRing({ pct }: { readonly pct: number }) {
+  const r = 22;
+  const c = 2 * Math.PI * r;
+  const filled = (Math.max(0, Math.min(100, pct)) / 100) * c;
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" className="shrink-0">
+      <circle cx="32" cy="32" r={r} fill="none" stroke="var(--h-line)" strokeWidth="6" />
+      <circle
+        cx="32"
+        cy="32"
+        r={r}
+        fill="none"
+        stroke="#8eb6ff"
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray={`${filled} ${c - filled}`}
+        transform="rotate(-90 32 32)"
+      />
+    </svg>
+  );
+}
+
+function WinMonthCard({
+  className = '',
+  months,
+  now,
+}: {
+  readonly className?: string;
+  readonly months: readonly { key: string; label: string; value: number }[] | null;
+  readonly now: number | null;
+}) {
+  const slots = months !== null && now !== null ? winRateMonthSpan(months, now) : null;
+  const anyTrades = slots?.some((slot) => slot.value !== null) ?? false;
+  return (
+    <StatShell
+      label="نرخ برد"
+      hint="نرخ برد معاملات هر ماه، بر اساس آخرین کار روی جلسه."
+      tone="#8eb6ff"
+      rail="linear-gradient(to bottom, #d6e4ff, #1d4ed8)"
+      icon="chart"
+      className={className}
+      busy={slots === null}
+    >
+      {slots === null ? (
+        <p className="mt-4 text-[13px] text-[var(--h-muted)]">…</p>
+      ) : (
+        <>
+          <ul className="mt-4 flex min-h-40 flex-1 items-stretch gap-1" dir="rtl">
+            {slots.map((slot) => {
+              const active = slot.value !== null;
+              const height = active ? `${Math.max(12, slot.value ?? 0)}%` : '6px';
+              return (
+                <li
+                  key={slot.key}
+                  aria-label={`${slot.label}: ${active ? `${faNum(slot.value ?? 0, 1)}٪` : 'بدون معامله'}`}
+                  title={`${slot.label}: ${active ? `${faNum(slot.value ?? 0, 1)}٪` : 'بدون معامله'}`}
+                  className={`flex min-w-0 flex-1 flex-col items-center ${
+                    active || slot.current ? '' : 'opacity-45'
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] tabular-nums leading-none ${
+                      active ? 'font-semibold text-[var(--h-text)]' : 'text-[var(--h-muted)]'
+                    }`}
+                  >
+                    {active ? `${faNum(slot.value ?? 0, 0)}٪` : '—'}
+                  </span>
+                  <span className="relative mt-1.5 w-full flex-1">
+                    <span className="absolute inset-0 flex items-end justify-center">
+                      <span
+                        className="block w-full max-w-9 rounded-md"
+                        style={{
+                          height,
+                          background: active
+                            ? 'linear-gradient(to top, #1d4ed8, #8eb6ff)'
+                            : 'var(--h-line)',
+                        }}
+                      />
+                    </span>
+                  </span>
+                  <span
+                    className={`mt-1.5 max-w-full truncate text-[10px] leading-none ${
+                      slot.current
+                        ? 'font-semibold text-[var(--h-text)]'
+                        : 'text-[var(--h-muted)]'
+                    }`}
+                  >
+                    {slot.name}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {anyTrades ? null : (
+            <p className="mt-3 text-[12px] leading-5 text-[var(--h-muted)]">
+              با بستن معامله، نرخ برد هر ماه اینجا می‌آید.
+            </p>
+          )}
+        </>
+      )}
+    </StatShell>
+  );
+}
+
+function MeterList({
+  rows,
+  gradient,
+}: {
+  readonly rows: readonly { key: string; label: string; value: string; pct: number; ltr?: boolean }[];
+  readonly gradient: string;
+}) {
+  return (
+    <ul className="mt-4 flex flex-1 flex-col justify-center gap-3">
+      {rows.map((row) => (
+        <li
+          key={row.key}
+          className="grid grid-cols-[auto_minmax(4rem,1fr)_auto] items-center gap-3"
+        >
+          <span
+            dir={row.ltr ? 'ltr' : undefined}
+            className="whitespace-nowrap text-[12px] font-medium"
+          >
+            {row.label}
+          </span>
+          <span className="h-2.5 overflow-hidden rounded-full bg-[var(--h-line)]">
+            <span
+              className="block h-full rounded-full"
+              style={{
+                width: `${Math.max(row.pct > 0 ? 4 : 0, Math.min(100, row.pct))}%`,
+                background: gradient,
+              }}
+            />
+          </span>
+          <span className="whitespace-nowrap text-[12px] font-semibold tabular-nums text-[var(--h-text)]">
+            {row.value}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -758,67 +971,39 @@ function SymbolChart({
   readonly rows: readonly { symbol: string; count: number }[];
   readonly className?: string;
 }) {
-  const max = niceMax(Math.max(0, ...rows.map((r) => r.count)));
-  const ticks = [0, max / 2, max];
+  const max = Math.max(1, ...rows.map((row) => row.count));
   return (
-    <section
-      aria-label="معاملات هر نماد"
-      className={`${card} relative flex h-full min-h-[250px] flex-col p-4 ${className}`}
+    <StatShell
+      label="معاملات هر نماد"
+      hint="تعداد معاملات بسته‌شده به تفکیک نماد."
+      tone="#e879f9"
+      rail="linear-gradient(to bottom, #f5d0fe, #6d28d9)"
+      icon="list"
+      className={className}
     >
-      <div className="pe-6 text-[13px] text-[var(--h-muted)]">معاملات هر نماد</div>
-      <span
-        title="تعداد معاملات بسته‌شده به تفکیک نماد."
-        className="absolute end-3.5 top-3.5 text-[var(--h-muted)]"
-      >
-        <Icon name="info" size={15} />
-      </span>
       {rows.length === 0 ? (
-        <p className="flex flex-1 items-center justify-center text-center text-[13px] text-[var(--h-muted)]">
+        <p className="flex flex-1 items-center justify-center text-center text-[13px] leading-6 text-[var(--h-muted)]">
           هنوز معامله‌ای بسته نشده.
         </p>
       ) : (
-        <div className="mt-4 flex min-h-0 flex-1 flex-col justify-center gap-3">
-          <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 start-[118px] end-0 flex justify-between">
-              {ticks.map((t) => (
-                <span key={t} className="w-px border-s border-dashed border-[var(--h-muted)]/30" />
-              ))}
-            </div>
-            <ul className="relative flex flex-col gap-3">
-              {rows.map((row) => (
-                <li
-                  key={row.symbol}
-                  className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-2"
-                >
-                  <span dir="ltr" className="truncate text-end text-[12px] font-medium">
-                    {row.symbol}
-                  </span>
-                  <span className="block h-7">
-                    <span
-                      className="block h-full rounded-md"
-                      style={{
-                        width: `${Math.max(2, (row.count / max) * 100)}%`,
-                        marginInlineEnd: 'auto',
-                        background: 'linear-gradient(to left, #6d28d9, #e879f9)',
-                      }}
-                      title={`${row.symbol}: ${faNum(row.count)}`}
-                    />
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="grid grid-cols-[110px_minmax(0,1fr)] text-[11px] text-[var(--h-muted)]">
-            <span />
-            <span className="flex justify-between tabular-nums">
-              {ticks.map((t) => (
-                <span key={t}>{axisNumber(t)}</span>
-              ))}
-            </span>
-          </div>
-        </div>
+        <>
+          <MeterList
+            rows={rows.map((row) => ({
+              key: row.symbol,
+              label: row.symbol,
+              value: faNum(row.count),
+              pct: (row.count / max) * 100,
+              ltr: true,
+            }))}
+            gradient="linear-gradient(to left, #6d28d9, #e879f9)"
+          />
+          <p className="mt-3 border-t border-[var(--h-line)] pt-2.5 text-[12px] text-[var(--h-muted)]">
+            <span className="font-semibold text-[var(--h-text)] tabular-nums">{faNum(rows.length)}</span>{' '}
+            نماد
+          </p>
+        </>
       )}
-    </section>
+    </StatShell>
   );
 }
 
@@ -914,12 +1099,6 @@ function IconLink({
       <Icon name={name} size={15} />
     </button>
   );
-}
-
-function axisNumber(v: number): string {
-  const nearest = Math.round(v * 10) / 10;
-  const whole = Math.abs(nearest - Math.round(nearest)) < 0.001;
-  return faNum(whole ? Math.round(nearest) : nearest, whole ? 0 : 1);
 }
 
 function shortDate(t: number): string {

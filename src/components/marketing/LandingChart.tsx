@@ -331,11 +331,13 @@ function ChartShell({
           <div className="h-10 shrink-0 border-b border-line bg-panel" />
         )}
         <div className="flex min-h-0 flex-1">
-          {app ? (
-            <DrawingToolbar />
-          ) : (
-            <div className="w-12 shrink-0 border-r border-line bg-panel" />
-          )}
+          <div className="flex h-full min-h-0 w-12 shrink-0 self-stretch">
+            {app ? (
+              <DrawingToolbar />
+            ) : (
+              <div className="h-full w-12 border-r border-line bg-panel" />
+            )}
+          </div>
           <main className="relative min-w-0 flex-1" aria-label="نمودار تمرینی">
             <div ref={chartRef} className="absolute inset-0" />
             {app ? (
