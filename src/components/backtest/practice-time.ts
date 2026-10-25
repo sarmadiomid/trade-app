@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { sanitizePracticeImport, type PracticeLog } from '@/lib/backtest/session/practice';
+import { sanitizePracticeImport, type PracticeLog } from '@/lib/backtest';
 
 const KEY = 'chartix-practice-ms';
 const SYNCED = 'chartix-practice-ms-synced';

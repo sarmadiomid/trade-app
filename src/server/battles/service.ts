@@ -2,6 +2,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { ObjectId, type Filter, type UpdateFilter } from 'mongodb';
 import { tradeActionSchema, type TradeAction } from '@/lib/backtest';
+import { PlanDenied, assertBattleChat, releaseBattleSlot, takeBattleSlot } from '../billing';
 import {
   COUNTDOWN_MS,
   MAX_ACTIONS,
@@ -171,7 +172,13 @@ export async function createBattle(host: Player, input: BattleSettings): Promise
     results: null,
     version: 0,
   };
-  await battles.insertOne(doc);
+  await takeBattleSlot(host._id, 'join');
+  try {
+    await battles.insertOne(doc);
+  } catch (e) {
+    await releaseBattleSlot(host._id);
+    throw e;
+  }
   return doc;
 }
 
@@ -214,7 +221,17 @@ export async function createRankedBattle(
     results: null,
     version: 0,
   };
-  await battles.insertOne(doc);
+  const taken: ObjectId[] = [];
+  try {
+    for (const p of players) {
+      await takeBattleSlot(p._id, 'ranked');
+      taken.push(p._id);
+    }
+    await battles.insertOne(doc);
+  } catch (e) {
+    await Promise.all(taken.map((id) => releaseBattleSlot(id)));
+    throw e;
+  }
   return doc;
 }
 
@@ -427,10 +444,18 @@ export async function joinBattle(id: string, user: Player, code?: string): Promi
   if (target.settings.visibility === 'private' && !isIn(target, user._id) && code !== target.code)
     throw new BattleError('This battle is private: join it with its battle ID', 403);
   const profile = await ensureProfile(user._id);
-  return mutate(target._id, (b, now) => {
+  let reserved = false;
+  let added = false;
+  try {
+    if (!isIn(target, user._id)) {
+      await takeBattleSlot(user._id, 'join');
+      reserved = true;
+    }
+    const saved = await mutate(target._id, (b, now) => {
     if (isIn(b, user._id)) return null;
     const blocked = joinBlocked(b, user._id);
     if (blocked) throw new BattleError(blocked, 409);
+    added = true;
     // Everyone replays the same market from its first candle, late joiners included.
     return {
       $push: {
@@ -438,7 +463,14 @@ export async function joinBattle(id: string, user: Player, code?: string): Promi
         chat: { $each: [systemMessage(`${user.name} joined`, now)], $slice: -MAX_CHAT },
       },
     };
-  });
+    });
+    if (reserved && !added) await releaseBattleSlot(user._id);
+    return saved;
+  } catch (e) {
+    if (reserved) await releaseBattleSlot(user._id);
+    if (e instanceof PlanDenied) throw new BattleError(e.message, e.status);
+    throw e;
+  }
 }
 
 export async function findByCode(code: string): Promise<BattleDoc | null> {
@@ -476,7 +508,10 @@ export async function leaveBattle(id: string, user: Player): Promise<BattleDoc> 
     return { $set: { [`participants.${i}.leftT`]: cursorOf(b, me) }, $push: { chat: msg } };
   });
   if (after.participants.some((p) => p.userId.equals(user._id))) await syncTrader(after, user._id);
-  else await deletePositionEvents(user._id, 'battle', after._id.toHexString());
+  else {
+    await releaseBattleSlot(user._id);
+    await deletePositionEvents(user._id, 'battle', after._id.toHexString());
+  }
   return after;
 }
 
@@ -548,6 +583,8 @@ export async function controlBattle(id: string, user: Player, op: ControlOp): Pr
     }
   });
   if (op === 'restart') await deleteScopeEvents('battle', battle._id.toHexString());
+  if (op === 'cancel' && battle.status === 'cancelled')
+    await Promise.all(battle.participants.map((p) => releaseBattleSlot(p.userId)));
   return op === 'end' ? endEarly(battle) : battle;
 }
 
@@ -628,6 +665,7 @@ export async function postChat(id: string, user: Player, text: unknown): Promise
   if (typeof text !== 'string') throw new BattleError('Invalid message');
   const body = text.replace(/\s+/g, ' ').trim().slice(0, 300);
   if (!body) throw new BattleError('Empty message');
+  await assertBattleChat(user._id);
   const target = await loadBattle(id);
   return mutate(target._id, (b, now) => {
     if (!isIn(b, user._id)) throw new BattleError('Join the battle to chat', 403);

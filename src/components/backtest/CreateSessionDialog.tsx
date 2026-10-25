@@ -1,8 +1,23 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useRef, useState } from 'react';
-import type { BacktestServices } from '@/lib/app';
+import {
+  entitlements,
+  isPlanLimitMessage,
+  limitMessage,
+  openPlanPrompt,
+  PLAN_LABEL,
+  requiresPlan,
+  selectableHistoryStart,
+  sessionSettingsDenial,
+  STANDARD_BALANCE,
+  symbolAllowed,
+  symbolDenial,
+  symbolMinPlan,
+  type BacktestServices,
+  type PlanId,
+} from '@/lib/app';
+import { usePlan, usePlanReady, usePlanUsage } from '../billing/usePlan';
 import { DAY_MS } from '@/lib/core';
 import { assetClassOf, type AssetClass } from '@/lib/data';
 import {
@@ -59,14 +74,17 @@ export function CreateSessionDialog({
   initial,
   defaultType = 'backtesting',
 }: Props) {
+  const plan = usePlan();
+  const planReady = usePlanReady();
+  const usage = usePlanUsage();
+  const access = entitlements(plan);
   const instruments = services.instruments();
   const [type, setType] = useState<SessionType>(initial?.type ?? defaultType);
   const [name, setName] = useState(initial ? `${initial.name} (کپی)` : '');
   const [section, setSection] = useState<Section>('basics');
   const [tried, setTried] = useState(false);
   const [symbol, setSymbol] = useState(initial?.symbol ?? instruments[0]?.symbol ?? 'XAUUSD');
-  const spec = services.spec(symbol);
-  const range = services.dataRange(symbol);
+  const initialSpec = services.spec(symbol);
   const [balance, setBalance] = useState(initial?.startingBalance ?? 100_000);
   const [customBalance, setCustomBalance] = useState(
     () =>
@@ -75,10 +93,10 @@ export function CreateSessionDialog({
   const [start, setStart] = useState(toDateInput(initial?.startDate ?? Date.UTC(2024, 0, 1)));
   const [end, setEnd] = useState(toDateInput(initial?.endDate ?? Date.UTC(2024, 0, 31)));
   const [spreadOn, setSpreadOn] = useState(initial?.spreadEnabled ?? false);
-  const [spread, setSpread] = useState(initial?.spread ?? spec.defaultSpread);
+  const [spread, setSpread] = useState(initial?.spread ?? initialSpec.defaultSpread);
   const [commOn, setCommOn] = useState(initial?.commissionEnabled ?? false);
   const [comm, setComm] = useState(
-    initial?.commissionPerLot ?? (spec.defaultCommissionPerLot || 3.5),
+    initial?.commissionPerLot ?? (initialSpec.defaultCommissionPerLot || 3.5),
   );
   const [rules, setRules] = useState(initial?.propRules ?? DEFAULT_PROP_RULES);
   const [description, setDescription] = useState(initial?.description ?? '');
@@ -87,38 +105,54 @@ export function CreateSessionDialog({
   const [busy, setBusy] = useState(false);
   const [presetOpen, setPresetOpen] = useState(false);
   const strategyInputRef = useRef<HTMLInputElement>(null);
+  const sessionType: SessionType = !access.prop && type === 'prop' ? 'backtesting' : type;
+  const balanceValue = access.customBalance ? balance : STANDARD_BALANCE;
+  const customOn = access.customBalance && customBalance;
+  const spreadEnabled = access.spread && spreadOn;
+  const commissionEnabled = access.commission && commOn;
+  const strategyTag = access.strategyTags === 0 ? '' : tag;
+  const symbolValue = symbolAllowed(plan, symbol) ? symbol : 'XAUUSD';
+  const spec = services.spec(symbolValue);
+  const range = services.dataRange(symbolValue);
+  const lastDay = range.end - DAY_MS;
+  const earliest = planReady ? selectableHistoryStart(plan, range) : range.start;
+  const { start: shownStart, end: shownEnd } = fitHistory(start, end, earliest, lastDay);
+  const historyLimited = planReady && access.historyMonths !== null;
 
   const settings = useMemo((): SessionSettings | null => {
-    const s = fromDateInput(start);
-    const e = fromDateInput(end);
+    const fitted = fitHistory(start, end, earliest, lastDay);
+    const s = fromDateInput(fitted.start);
+    const e = fromDateInput(fitted.end);
     if (s === null || e === null) return null;
     return {
       name: name.trim(),
       description,
-      strategyTag: tag.trim(),
-      type,
-      symbol,
-      startingBalance: balance,
+      strategyTag: strategyTag.trim(),
+      type: sessionType,
+      symbol: symbolValue,
+      startingBalance: balanceValue,
       startDate: s,
       endDate: e,
-      spreadEnabled: spreadOn,
+      spreadEnabled,
       spread,
-      commissionEnabled: commOn,
+      commissionEnabled,
       commissionPerLot: comm,
-      propRules: type === 'prop' ? rules : null,
+      propRules: sessionType === 'prop' ? rules : null,
     };
   }, [
     name,
     description,
-    tag,
-    type,
-    symbol,
-    balance,
+    strategyTag,
+    sessionType,
+    symbolValue,
+    balanceValue,
     start,
     end,
-    spreadOn,
+    earliest,
+    lastDay,
+    spreadEnabled,
     spread,
-    commOn,
+    commissionEnabled,
     comm,
     rules,
   ]);
@@ -141,10 +175,18 @@ export function CreateSessionDialog({
       setError(name.trim() ? invalid : null);
       return;
     }
+    const denied = sessionSettingsDenial(plan, settings, range);
+    if (denied) return openPlanPrompt(denied);
+    if (usage.sessionLimit !== null && usage.sessions >= usage.sessionLimit) {
+      return openPlanPrompt(limitMessage('جلسات بک‌تست', plan, usage.sessionLimit));
+    }
     setBusy(true);
     const res = await services.create(settings);
     setBusy(false);
-    if ('error' in res) return setError(res.error);
+    if ('error' in res) {
+      if (isPlanLimitMessage(res.error)) return openPlanPrompt(res.error);
+      return setError(res.error);
+    }
     onCreated(res.session.id);
   };
 
@@ -167,10 +209,10 @@ export function CreateSessionDialog({
             <button
               type="button"
               role="tab"
-              aria-selected={type === 'backtesting'}
+              aria-selected={sessionType === 'backtesting'}
               onClick={() => setType('backtesting')}
               className={`h-8 rounded-full px-3.5 text-[13px] font-semibold transition ${
-                type === 'backtesting'
+                sessionType === 'backtesting'
                   ? 'bg-[#1c1d22] text-white'
                   : 'text-[#7c808d] hover:text-white'
               }`}
@@ -180,10 +222,16 @@ export function CreateSessionDialog({
             <button
               type="button"
               role="tab"
-              aria-selected={type === 'prop'}
-              onClick={() => setType('prop')}
+              aria-selected={sessionType === 'prop'}
+              onClick={() => {
+                if (!access.prop) return openPlanPrompt(requiresPlan('جلسه پراپ', 'mid'));
+                setError(null);
+                setType('prop');
+              }}
               className={`inline-flex h-8 items-center gap-1.5 rounded-full ps-3.5 pe-2 text-[13px] font-semibold transition ${
-                type === 'prop' ? 'bg-[#1c1d22] text-white' : 'text-[#7c808d] hover:text-white'
+                sessionType === 'prop'
+                  ? 'bg-[#1c1d22] text-white'
+                  : 'text-[#7c808d] hover:text-white'
               }`}
             >
               <span>پراپ</span>
@@ -261,7 +309,7 @@ export function CreateSessionDialog({
             active={section === 'more'}
             title="گزینه‌های بیشتر"
             text={
-              type === 'prop'
+              sessionType === 'prop'
                 ? 'اسپرد و کارمزد، اهرم، مارجین و قوانین پراپ'
                 : 'اسپرد و کارمزد، اهرم، مارجین و اسلیپیج'
             }
@@ -271,22 +319,28 @@ export function CreateSessionDialog({
         <div className="min-w-0 flex-1 space-y-5 p-5 text-[13.5px] text-white sm:p-6">
           {section === 'basics' ? (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#14357a] bg-[#0b1326] px-4 py-3.5">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13.5px] font-bold text-white">نگهداری داده‌ها تا ۱ هفته.</p>
-                  <p className="mt-1 text-[12.5px] leading-6 text-[#8a8f9e]">
-                    طرح فعلی شما از نگهداری داده تا ۱ هفته پشتیبانی می‌کند. در صورت نیاز به زمان
-                    بیشتر، طرح خود را ارتقا دهید.
-                  </p>
+              {historyLimited ? (
+                <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#14357a] bg-[#0b1326] px-4 py-3.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-bold text-white">
+                      تاریخ جلسه تا یک ماه گذشتهٔ بازار.
+                    </p>
+                    <p className="mt-1 text-[12.5px] leading-6 text-[#8a8f9e]">
+                      طرح مبتدی فقط یک ماه آخر بازار را باز می‌کند. تاریخ‌های قدیمی‌تر برای طرح
+                      متوسط و بالاتر است.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openPlanPrompt(requiresPlan('تاریخ قبل از یک ماه گذشتهٔ بازار', 'mid'))
+                    }
+                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#0d59f2] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1e68ff]"
+                  >
+                    ارتقا
+                  </button>
                 </div>
-                <Link
-                  href="/home/settings"
-                  onClick={onClose}
-                  className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-[#0d59f2] px-4 text-[13px] font-semibold text-white transition hover:bg-[#1e68ff]"
-                >
-                  ارتقا
-                </Link>
-              </div>
+              ) : null}
 
               <label className="block space-y-2">
                 <FieldLabel required>نام جلسه</FieldLabel>
@@ -308,7 +362,7 @@ export function CreateSessionDialog({
                 <FieldLabel required>موجودی حساب</FieldLabel>
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#1e2026] bg-[#0b0c0e] p-2.5">
                   {BALANCE_PRESETS.map((p) => {
-                    const on = !customBalance && balance === p.value;
+                    const on = !customOn && balanceValue === p.value;
                     return (
                       <button
                         key={p.value}
@@ -316,6 +370,10 @@ export function CreateSessionDialog({
                         dir="ltr"
                         aria-pressed={on}
                         onClick={() => {
+                          if (!access.customBalance && p.value !== STANDARD_BALANCE) {
+                            return openPlanPrompt(requiresPlan('موجودی دلخواه', 'mid'));
+                          }
+                          setError(null);
                           setCustomBalance(false);
                           setBalance(p.value);
                         }}
@@ -331,10 +389,15 @@ export function CreateSessionDialog({
                   })}
                   <button
                     type="button"
-                    aria-pressed={customBalance}
-                    onClick={() => setCustomBalance(true)}
+                    aria-pressed={customOn}
+                    onClick={() => {
+                      if (!access.customBalance)
+                        return openPlanPrompt(requiresPlan('موجودی دلخواه', 'mid'));
+                      setError(null);
+                      setCustomBalance(true);
+                    }}
                     className={`h-9 min-w-[4.75rem] rounded-lg px-4 text-[13px] font-semibold transition ${
-                      customBalance
+                      customOn
                         ? 'border border-[#1d5eff] bg-[#0d1528] text-[#4285ff]'
                         : 'border border-[#262830] bg-[#17181c] text-[#e5e7eb] hover:border-[#343742] hover:text-white'
                     }`}
@@ -342,7 +405,7 @@ export function CreateSessionDialog({
                     دلخواه
                   </button>
                 </div>
-                {customBalance ? (
+                {customOn ? (
                   <input
                     aria-label="موجودی حساب"
                     type="number"
@@ -358,14 +421,20 @@ export function CreateSessionDialog({
 
               <div className="space-y-2">
                 <FieldLabel>استراتژی</FieldLabel>
-                <StrategyField inputRef={strategyInputRef} value={tag} onChange={setTag} />
-                <button
-                  type="button"
-                  onClick={() => strategyInputRef.current?.focus()}
-                  className="inline-flex items-center gap-1 text-[13px] font-medium text-[#2f74ff] transition hover:text-[#528bff]"
-                >
-                  <span>+ ساخت استراتژی جدید</span>
-                </button>
+                {access.strategyTags === 0 ? (
+                  <LockedUpgrade message={requiresPlan('برچسب استراتژی', 'mid')} plan="mid" />
+                ) : (
+                  <StrategyField inputRef={strategyInputRef} value={tag} onChange={setTag} />
+                )}
+                {access.strategyTags === 0 ? null : (
+                  <button
+                    type="button"
+                    onClick={() => strategyInputRef.current?.focus()}
+                    className="inline-flex items-center gap-1 text-[13px] font-medium text-[#2f74ff] transition hover:text-[#528bff]"
+                  >
+                    <span>+ ساخت استراتژی جدید</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -373,7 +442,16 @@ export function CreateSessionDialog({
                   <FieldLabel required>نماد</FieldLabel>
                   <span className="text-[12.5px] text-[#7c808d]">درخواست نماد</span>
                 </div>
-                <SymbolField instruments={instruments} symbol={symbol} onChange={setSymbol} />
+                <SymbolField
+                  instruments={instruments}
+                  symbol={symbolValue}
+                  plan={plan}
+                  onChange={setSymbol}
+                  onLocked={(next) => {
+                    const message = symbolDenial(plan, next);
+                    if (message) openPlanPrompt(message);
+                  }}
+                />
                 <p className="text-[12px] leading-6 text-[#7c808d]">
                   هر لات {faNum(spec.contractSize, 0)} واحد، پیپ {faNum(spec.pipSize)}، حجم{' '}
                   {faNum(spec.lotMin)} تا {faNum(spec.lotMax)} لات.
@@ -386,9 +464,9 @@ export function CreateSessionDialog({
                   <JalaliDateField
                     ariaLabel="تاریخ شروع"
                     className={dateField}
-                    value={start}
-                    min={toDateInput(range.start)}
-                    max={toDateInput(range.end - DAY_MS)}
+                    value={shownStart}
+                    min={toDateInput(earliest)}
+                    max={toDateInput(lastDay)}
                     onChange={setStart}
                   />
                 </label>
@@ -397,9 +475,9 @@ export function CreateSessionDialog({
                   <JalaliDateField
                     ariaLabel="تاریخ پایان"
                     className={dateField}
-                    value={end}
-                    min={start}
-                    max={toDateInput(range.end - DAY_MS)}
+                    value={shownEnd}
+                    min={shownStart}
+                    max={toDateInput(lastDay)}
                     onChange={setEnd}
                   />
                 </label>
@@ -407,8 +485,9 @@ export function CreateSessionDialog({
               <p className="-mt-2 text-[12px] leading-6 text-[#7c808d]">
                 {days > 0 ? `${faNum(days)} روز` : ''}
                 {' · '}
-                داده از {utcDate(range.start)} تا {utcDate(range.end - DAY_MS)}. تاریخ شمسی است و
-                ساعت جلسه، ساعت جهانی می‌ماند.
+                داده از {utcDate(range.start)} تا {utcDate(lastDay)}.
+                {historyLimited ? ` در این طرح از ${utcDate(earliest)} به بعد.` : ''} تاریخ شمسی است
+                و ساعت جلسه، ساعت جهانی می‌ماند.
               </p>
             </>
           ) : (
@@ -416,8 +495,11 @@ export function CreateSessionDialog({
               <CostRow
                 label="اسپرد"
                 hint={`${faNum(spread / spec.pipSize, 1)} پیپ، واحد قیمت`}
-                on={spreadOn}
-                onToggle={setSpreadOn}
+                on={spreadEnabled}
+                onToggle={(on) => {
+                  if (on && !access.spread) return openPlanPrompt(requiresPlan('اسپرد', 'mid'));
+                  setSpreadOn(on);
+                }}
                 valueLabel="اسپرد"
                 value={spread}
                 step={spec.tickSize}
@@ -426,14 +508,18 @@ export function CreateSessionDialog({
               <CostRow
                 label="کارمزد"
                 hint="دلار برای هر لات، هم ورود و هم خروج"
-                on={commOn}
-                onToggle={setCommOn}
+                on={commissionEnabled}
+                onToggle={(on) => {
+                  if (on && !access.commission)
+                    return openPlanPrompt(requiresPlan('کارمزد', 'mid'));
+                  setCommOn(on);
+                }}
                 valueLabel="کارمزد هر لات"
                 value={comm}
                 step={0.5}
                 onValue={setComm}
               />
-              {type === 'prop' ? (
+              {sessionType === 'prop' ? (
                 <fieldset className="space-y-3">
                   <legend className="text-[13px] font-semibold">قوانین پراپ</legend>
                   <p className="text-[12px] leading-6 text-[#7c808d]">درصد موجودی شروع.</p>
@@ -479,6 +565,21 @@ export function CreateSessionDialog({
       </div>
     </Dialog>
   );
+}
+
+/** Keeps a session inside the plan's market window. A date before that window snaps to the window's edge. */
+function fitHistory(
+  start: string,
+  end: string,
+  minMs: number,
+  maxMs: number,
+): { readonly start: string; readonly end: string } {
+  const s = fromDateInput(start);
+  const e = fromDateInput(end);
+  const startMs = Math.min(maxMs, Math.max(minMs, s ?? minMs));
+  const endRaw = e === null || e < minMs ? maxMs : e;
+  const endMs = Math.min(maxMs, Math.max(startMs, endRaw));
+  return { start: toDateInput(startMs), end: toDateInput(endMs) };
 }
 
 function StrategyField({
@@ -588,11 +689,15 @@ function writeFavoriteSymbols(list: readonly string[]): void {
 function SymbolField({
   instruments,
   symbol,
+  plan,
   onChange,
+  onLocked,
 }: {
   readonly instruments: readonly { symbol: string; description: string }[];
   readonly symbol: string;
+  readonly plan: PlanId;
   readonly onChange: (symbol: string) => void;
+  readonly onLocked: (symbol: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -686,7 +791,9 @@ function SymbolField({
             setCursor((c) => Math.max(0, c - 1));
           } else if (e.key === 'Enter' && items[active]) {
             e.preventDefault();
-            pick(items[active]!.symbol);
+            const next = items[active]!.symbol;
+            if (symbolAllowed(plan, next)) pick(next);
+            else onLocked(next);
           } else if (e.key === 'Escape' && open) {
             e.stopPropagation();
             setOpen(false);
@@ -736,8 +843,15 @@ function SymbolField({
             ) : (
               items.map((item, i) => {
                 const fav = favorites.includes(item.symbol);
+                const locked = !symbolAllowed(plan, item.symbol);
+                const needed = symbolMinPlan(item.symbol);
                 return (
-                  <li key={item.symbol} role="option" aria-selected={i === active}>
+                  <li
+                    key={item.symbol}
+                    role="option"
+                    aria-selected={i === active}
+                    aria-disabled={locked}
+                  >
                     <div
                       onMouseEnter={() => setCursor(i)}
                       className={`flex items-center gap-1 pe-1.5 ${
@@ -747,16 +861,34 @@ function SymbolField({
                       <button
                         type="button"
                         onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => pick(item.symbol)}
-                        className="flex min-w-0 flex-1 items-center gap-2 px-3.5 py-2 text-start text-[13px]"
+                        onClick={() => (locked ? onLocked(item.symbol) : pick(item.symbol))}
+                        className={`flex min-w-0 flex-1 items-center gap-2 px-3.5 py-2 text-start text-[13px] ${
+                          locked ? 'text-[#6d7280]' : ''
+                        }`}
                       >
-                        <span dir="ltr" className="w-20 shrink-0 font-semibold text-white">
+                        {locked ? (
+                          <Icon name="lock" size={13} className="shrink-0 text-[#8b93a7]" />
+                        ) : null}
+                        <span
+                          dir="ltr"
+                          className={`w-20 shrink-0 font-semibold ${locked ? 'text-[#9aa3b5]' : 'text-white'}`}
+                        >
                           {item.symbol}
                         </span>
                         <span className="truncate">
                           {ASSET_FA[item.symbol] ?? item.description}
                         </span>
                       </button>
+                      {locked ? (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => onLocked(item.symbol)}
+                          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-[#102042] px-2 text-[11px] font-semibold text-[#4785ff] transition hover:bg-[#16306a]"
+                        >
+                          ارتقا به {PLAN_LABEL[needed]}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         aria-pressed={fav}
@@ -782,6 +914,24 @@ function SymbolField({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function LockedUpgrade({ message, plan }: { readonly message: string; readonly plan: PlanId }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openPlanPrompt(message)}
+      className="flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-[#23252c] bg-[#0b0c0e] px-3.5 text-start"
+    >
+      <span className="inline-flex min-w-0 items-center gap-2 text-[13px] text-[#7c808d]">
+        <Icon name="lock" size={14} className="shrink-0" />
+        <span className="truncate">{message}</span>
+      </span>
+      <span className="inline-flex h-7 shrink-0 items-center rounded-full bg-[#102042] px-2.5 text-[11px] font-semibold text-[#4785ff]">
+        ارتقا به {PLAN_LABEL[plan]}
+      </span>
+    </button>
   );
 }
 

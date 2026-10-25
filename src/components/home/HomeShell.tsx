@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { formatIranianMobile } from '@/auth/phone';
-import { APP_CONFIG } from '@/lib/app';
+import { APP_CONFIG, PLAN_LABEL } from '@/lib/app';
 import type { Theme } from '@/lib/core';
 import { faDigits } from '@/lib/locale/jalali';
 import { LocalStorageStorage, VersionedStore } from '@/lib/storage';
@@ -19,6 +19,7 @@ import { darkTheme, parseTheme, themeRegistry } from '@/lib/themes';
 import { BRAND_EN, BrandName, LogoMark } from '../marketing/Logo';
 import { useThemeCssVars } from '../hooks/useThemeCssVars';
 import { useUiStore } from '../state/ui-store';
+import { usePlan, usePlanReady } from '../billing/usePlan';
 import { initials } from '../platform/AppHeader';
 import type { Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
@@ -49,7 +50,6 @@ const NAV: ReadonlyArray<{
   badgeTone?: 'new' | 'beta' | 'soon';
 }> = [
   { href: '/home', label: 'تمرین', icon: null, path: HOME_ICONS.bars },
-  { href: '/chart', label: 'نمودار', icon: 'chart' },
   { href: '/battle', label: 'نبردها', icon: 'swords', badge: 'بتا', badgeTone: 'beta' },
   {
     href: '/home/learn',
@@ -399,15 +399,18 @@ export function ShellMenuButton() {
 /** Pro, language, theme, help, notices and the account menu. Sits in each page's own header. */
 export function ShellTools() {
   const { scheme, palette, toggleScheme, menu, openMenu, notices, noticeMenu } = useShell();
+  const plan = usePlan();
+  const planReady = usePlanReady();
+  const planLabel = PLAN_LABEL[plan];
   return (
     <div className="flex flex-nowrap items-center justify-end gap-0.5 sm:gap-1.5">
       <Link
-        href="/#pricing"
-        aria-label="اشتراک پرو"
+        href="/home/settings?tab=subscription"
+        aria-label={planReady ? `طرح ${planLabel}` : 'طرح اشتراک'}
         className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[var(--h-line)] bg-[var(--h-chip)] px-2 text-[12px] font-semibold transition hover:border-[var(--h-accent)] sm:h-9 sm:px-3 sm:text-[13px]"
       >
         <Icon name="crown" size={14} />
-        <span className="max-[380px]:sr-only">پرو</span>
+        <span className="max-[380px]:sr-only">{planReady ? planLabel : '…'}</span>
       </Link>
       <div className="relative" data-home-menu="">
         <button

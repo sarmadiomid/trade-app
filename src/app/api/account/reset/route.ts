@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { resetPracticeUsage } from '@/server/billing';
 import { activeBattleOf } from '@/server/battles/views';
 import { collections } from '@/server/db';
 import { json, readJson, requestUser, sameOrigin } from '@/server/http';
@@ -18,6 +19,7 @@ export async function POST(req: NextRequest) {
     const { chartRecords, battleProfiles, battleQueue, backtestSessions, positionEvents, backtestShots } =
       await collections();
     await Promise.all([
+      resetPracticeUsage(user._id),
       chartRecords.deleteMany({ userId: user._id }),
       battleProfiles.deleteOne({ _id: user._id }),
       battleQueue.deleteOne({ _id: user._id }),

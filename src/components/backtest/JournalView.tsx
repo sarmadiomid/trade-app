@@ -14,6 +14,8 @@ import {
   type JournalEntry,
   type Trade,
 } from '@/lib/backtest';
+import { entitlements, limitMessage, openPlanPrompt, requiresPlan } from '@/lib/app';
+import { usePlan } from '../billing/usePlan';
 import { useThemeCssVars } from '../hooks/useThemeCssVars';
 import { journalHref } from '../home/journal-href';
 import { statsHref } from '../home/stats-href';
@@ -56,6 +58,7 @@ export default function JournalView({
   readonly sessions?: readonly SessionOption[];
 }) {
   useThemeCssVars();
+  const journalPlan = entitlements(usePlan());
   const { state, update } = useStoredSession(id);
   const [q, setQ] = useState('');
   const [side, setSide] = useState('');
@@ -247,81 +250,91 @@ export default function JournalView({
             />
           </div>
 
-          <div
-            role="group"
-            aria-label="فیلتر معاملات"
-            className="mt-3 flex flex-wrap items-center gap-2"
-          >
-            <div className="relative min-w-[min(100%,220px)] flex-1">
-              <Icon
-                name="search"
-                size={16}
-                className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted"
-              />
-              <input
-                type="search"
-                aria-label="جستجو در یادداشت و برچسب"
-                placeholder="یادداشت، برچسب یا شماره"
-                className={`${field} w-full cursor-text ps-9`}
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
-            <select
-              aria-label="جهت"
-              className={`${field} cursor-pointer`}
-              value={side}
-              onChange={(e) => setSide(e.target.value)}
+          {journalPlan.journalSearch || journalPlan.journalFilters ? (
+            <div
+              role="group"
+              aria-label="فیلتر معاملات"
+              className="mt-3 flex flex-wrap items-center gap-2"
             >
-              <option value="">همه جهت‌ها</option>
-              <option value="buy">خرید</option>
-              <option value="sell">فروش</option>
-            </select>
-            <select
-              aria-label="نتیجه"
-              className={`${field} cursor-pointer`}
-              value={outcome}
-              onChange={(e) => setOutcome(e.target.value)}
-            >
-              <option value="">همه نتایج</option>
-              <option value="win">سود</option>
-              <option value="loss">ضرر</option>
-              <option value="breakeven">سربه‌سر</option>
-            </select>
-            <select
-              aria-label="برچسب"
-              className={`${field} max-w-full cursor-pointer`}
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-            >
-              <option value="">همه برچسب‌ها</option>
-              {allTags.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-            <select
-              aria-label="سشن معاملاتی"
-              className={`${field} cursor-pointer`}
-              value={tsession}
-              onChange={(e) => setTsession(e.target.value)}
-            >
-              <option value="">همه سشن‌ها</option>
-              {TRADING_SESSIONS.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {SESSION_FA[s.id] ?? s.label}
-                </option>
-              ))}
-            </select>
-            {filtered ? (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="inline-flex h-10 cursor-pointer items-center rounded-lg px-3 text-[13px] font-medium text-muted transition-colors duration-200 hover:bg-[var(--h-chip)] hover:text-fg motion-reduce:transition-none"
+              <div className="relative min-w-[min(100%,220px)] flex-1">
+                <Icon
+                  name="search"
+                  size={16}
+                  className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted"
+                />
+                <input
+                  type="search"
+                  aria-label="جستجو در یادداشت و برچسب"
+                  placeholder="یادداشت، برچسب یا شماره"
+                  className={`${field} w-full cursor-text ps-9`}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </div>
+              <select
+                aria-label="جهت"
+                className={`${field} cursor-pointer`}
+                value={side}
+                onChange={(e) => setSide(e.target.value)}
               >
-                پاک کردن فیلترها
-              </button>
-            ) : null}
-          </div>
+                <option value="">همه جهت‌ها</option>
+                <option value="buy">خرید</option>
+                <option value="sell">فروش</option>
+              </select>
+              <select
+                aria-label="نتیجه"
+                className={`${field} cursor-pointer`}
+                value={outcome}
+                onChange={(e) => setOutcome(e.target.value)}
+              >
+                <option value="">همه نتایج</option>
+                <option value="win">سود</option>
+                <option value="loss">ضرر</option>
+                <option value="breakeven">سربه‌سر</option>
+              </select>
+              <select
+                aria-label="برچسب"
+                className={`${field} max-w-full cursor-pointer`}
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+              >
+                <option value="">همه برچسب‌ها</option>
+                {allTags.map((t) => (
+                  <option key={t}>{t}</option>
+                ))}
+              </select>
+              <select
+                aria-label="سشن معاملاتی"
+                className={`${field} cursor-pointer`}
+                value={tsession}
+                onChange={(e) => setTsession(e.target.value)}
+              >
+                <option value="">همه سشن‌ها</option>
+                {TRADING_SESSIONS.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {SESSION_FA[s.id] ?? s.label}
+                  </option>
+                ))}
+              </select>
+              {filtered ? (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex h-10 cursor-pointer items-center rounded-lg px-3 text-[13px] font-medium text-muted transition-colors duration-200 hover:bg-[var(--h-chip)] hover:text-fg motion-reduce:transition-none"
+                >
+                  پاک کردن فیلترها
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openPlanPrompt(requiresPlan('جستجو و فیلتر دفتر معاملات', 'mid'))}
+              className="mt-3 text-start text-[13px] text-muted hover:text-fg"
+            >
+              {requiresPlan('جستجو و فیلتر دفتر معاملات', 'mid')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -584,6 +597,18 @@ function EmptyJournal({
   );
 }
 
+function LimitNote({ message }: { readonly message: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => openPlanPrompt(message)}
+      className="mt-2 text-start text-[13px] text-muted hover:text-fg"
+    >
+      {message}
+    </button>
+  );
+}
+
 function TradeDetail({
   trade: t,
   entry,
@@ -603,6 +628,10 @@ function TradeDetail({
   readonly onSave: (patch: Partial<JournalEntry>, screenshot?: string) => Promise<void>;
   readonly onClose: () => void;
 }) {
+  const plan = usePlan();
+  const journalPlan = entitlements(plan);
+  const tagCap = journalPlan.journalTags;
+  const shotCap = journalPlan.journalShots;
   const [notes, setNotes] = useState(entry.notes);
   const [tagText, setTagText] = useState('');
   const [shots, setShots] = useState<Array<{ id: string; url: string }>>([]);
@@ -661,6 +690,8 @@ function TradeDetail({
   const addTag = () => {
     const v = tagText.trim();
     if (!v || entry.tags.includes(v)) return;
+    const limit = journalPlan.journalTags;
+    if (limit !== null && entry.tags.length >= limit) return;
     setTagText('');
     void onSave({ tags: [...entry.tags, v] });
   };
@@ -738,29 +769,41 @@ function TradeDetail({
           ))}
         </ul>
 
-        <div className="mb-1 mt-4 flex items-center justify-between gap-2">
-          <h4 className="font-semibold">اطمینان</h4>
-          <span className="text-[12px] text-muted">
-            {entry.confidence ? `${faNum(entry.confidence)} از ۵` : 'ثبت نشده'}
-          </span>
-        </div>
-        <div className="flex gap-1" role="radiogroup" aria-label="اطمینان">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              type="button"
-              role="radio"
-              aria-checked={entry.confidence === n}
-              aria-label={`${faNum(n)} از ۵`}
-              onClick={() => void onSave({ confidence: entry.confidence === n ? null : n })}
-              className={`inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--h-chip)] motion-reduce:transition-none ${
-                (entry.confidence ?? 0) >= n ? 'text-accent' : 'text-muted'
-              }`}
-            >
-              <Icon name="star" size={18} />
-            </button>
-          ))}
-        </div>
+        {journalPlan.journalConfidence ? (
+          <>
+            <div className="mb-1 mt-4 flex items-center justify-between gap-2">
+              <h4 className="font-semibold">اطمینان</h4>
+              <span className="text-[12px] text-muted">
+                {entry.confidence ? `${faNum(entry.confidence)} از ۵` : 'ثبت نشده'}
+              </span>
+            </div>
+            <div className="flex gap-1" role="radiogroup" aria-label="اطمینان">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  role="radio"
+                  aria-checked={entry.confidence === n}
+                  aria-label={`${faNum(n)} از ۵`}
+                  onClick={() => void onSave({ confidence: entry.confidence === n ? null : n })}
+                  className={`inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--h-chip)] motion-reduce:transition-none ${
+                    (entry.confidence ?? 0) >= n ? 'text-accent' : 'text-muted'
+                  }`}
+                >
+                  <Icon name="star" size={18} />
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openPlanPrompt(requiresPlan('امتیاز اطمینان', 'mid'))}
+            className="mb-1 mt-4 text-start text-[13px] text-muted hover:text-fg"
+          >
+            {requiresPlan('امتیاز اطمینان', 'mid')}
+          </button>
+        )}
 
         <h4 className="mb-1 mt-4 font-semibold">برچسب‌ها</h4>
         <div className="flex flex-wrap gap-1.5">
@@ -781,27 +824,31 @@ function TradeDetail({
             </span>
           ))}
         </div>
-        <div className="mt-2 flex gap-2">
-          <input
-            aria-label="برچسب جدید"
-            placeholder="مثلاً ستاپ الف"
-            className={`${field} min-w-0 flex-1 cursor-text`}
-            value={tagText}
-            onChange={(e) => setTagText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter') return;
-              e.preventDefault();
-              addTag();
-            }}
-          />
-          <button
-            type="button"
-            onClick={addTag}
-            className="inline-flex h-10 cursor-pointer items-center rounded-lg bg-accent px-3 text-[13px] font-semibold text-accent-fg transition-colors duration-200 hover:brightness-110 motion-reduce:transition-none"
-          >
-            افزودن
-          </button>
-        </div>
+        {tagCap !== null && entry.tags.length >= tagCap ? (
+          <LimitNote message={limitMessage('برچسب هر معامله', plan, tagCap)} />
+        ) : (
+          <div className="mt-2 flex gap-2">
+            <input
+              aria-label="برچسب جدید"
+              placeholder="مثلاً ستاپ الف"
+              className={`${field} min-w-0 flex-1 cursor-text`}
+              value={tagText}
+              onChange={(e) => setTagText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                addTag();
+              }}
+            />
+            <button
+              type="button"
+              onClick={addTag}
+              className="inline-flex h-10 cursor-pointer items-center rounded-lg bg-accent px-3 text-[13px] font-semibold text-accent-fg transition-colors duration-200 hover:brightness-110 motion-reduce:transition-none"
+            >
+              افزودن
+            </button>
+          </div>
+        )}
 
         <label className="mb-1 mt-4 block font-semibold" htmlFor={`note-${t.id}`}>
           یادداشت
@@ -835,23 +882,29 @@ function TradeDetail({
             </a>
           ))}
         </div>
-        <label className="mt-2 inline-flex h-10 cursor-pointer items-center gap-1.5 self-start rounded-lg border border-line px-3 text-[13px] transition-colors duration-200 hover:bg-[var(--h-chip)] motion-reduce:transition-none">
-          <Icon name="camera" size={15} /> افزودن تصویر
-          <input
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (!file) return;
-              const reader = new FileReader();
-              reader.onload = () =>
-                typeof reader.result === 'string' && void onSave({}, reader.result);
-              reader.readAsDataURL(file);
-            }}
-          />
-        </label>
+        {shotCap !== null && entry.screenshots.length >= shotCap ? (
+          <LimitNote message={limitMessage('عکس تحلیل', plan, shotCap)} />
+        ) : (
+          <label className="mt-2 inline-flex h-10 cursor-pointer items-center gap-1.5 self-start rounded-lg border border-line px-3 text-[13px] transition-colors duration-200 hover:bg-[var(--h-chip)] motion-reduce:transition-none">
+            <Icon name="camera" size={15} /> افزودن تصویر
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                const shotLimit = journalPlan.journalShots;
+                if (shotLimit !== null && entry.screenshots.length >= shotLimit) return;
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () =>
+                  typeof reader.result === 'string' && void onSave({}, reader.result);
+                reader.readAsDataURL(file);
+              }}
+            />
+          </label>
+        )}
         <p className="mt-2 text-[12px] leading-6 text-muted">
           در خود جلسه، از تب تاریخچه می‌توانید تصویر نمودار را به همین معامله بچسبانید.
         </p>

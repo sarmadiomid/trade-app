@@ -105,8 +105,8 @@ describe('practice overview', () => {
     expect(span[3]).toMatchObject({ key: current.key, value: 50, current: true });
     expect(span[0]?.value).toBeNull();
     expect(span[7]?.value).toBeNull();
-    expect(span[2]?.key < current.key).toBe(true);
-    expect(span[4]?.key > current.key).toBe(true);
+    expect(span[2] !== undefined && span[2].key < current.key).toBe(true);
+    expect(span[4] !== undefined && span[4].key > current.key).toBe(true);
 
     const older = monthOfInstant(now - 200 * DAY_MS);
     const fixed = winRateMonthSpan([{ key: older.key, label: older.label, value: 10 }], now);
@@ -133,7 +133,7 @@ describe('practice overview', () => {
     expect(html).toContain('هفته اول');
     expect(html).toContain('XAUUSD');
     expect(html).toContain('شروع جلسه');
-    expect(html).toContain('شروع چالش');
+    expect(html).toContain('ارتقا به متوسط');
   });
 
   it('ranks symbols by how many trades they have', () => {

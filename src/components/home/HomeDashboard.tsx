@@ -4,12 +4,19 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { browserBacktestServices } from '@/lib/app';
+import {
+  browserBacktestServices,
+  entitlements,
+  openPlanPrompt,
+  PLAN_LABEL,
+  requiresPlan,
+} from '@/lib/app';
 import type { SessionSummary, SessionType } from '@/lib/backtest';
 import type { BattleSummary } from '@/lib/battles';
 import { faNum } from '@/lib/locale/jalali';
 import { STATUS, battleTitle } from '../battles/format';
 import { CreateSessionDialog } from '../backtest/CreateSessionDialog';
+import { usePlan } from '../billing/usePlan';
 import { PracticeOverview, PracticeSkeleton } from './PracticeOverview';
 import { signedMoney } from '../backtest/format';
 import { HOME_ICONS, HomeShell, ShellMenuButton, ShellTools } from './HomeShell';
@@ -268,6 +275,7 @@ export function HomeDashboard({
 }
 
 function Dashboard({ onCreate }: { readonly onCreate: (type: SessionType) => void }) {
+  const propLocked = !entitlements(usePlan()).prop;
   return (
     <div className="flex min-h-full flex-col">
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-10 text-center sm:px-8">
@@ -290,11 +298,14 @@ function Dashboard({ onCreate }: { readonly onCreate: (type: SessionType) => voi
           />
           <StartCard
             testId="start-prop"
-            icon="shield"
+            icon={propLocked ? 'lock' : 'shield'}
             title="جلسه پراپ"
             text="استراتژی را با قوانین پراپ بسنجید"
             hint="هدف سود، سقف ضرر روزانه و سقف ضرر کلی؛ مثل چالش شرکت‌های پراپ."
-            onClick={() => onCreate('prop')}
+            badge={propLocked ? `ارتقا به ${PLAN_LABEL.mid}` : undefined}
+            onClick={() =>
+              propLocked ? openPlanPrompt(requiresPlan('جلسه پراپ', 'mid')) : onCreate('prop')
+            }
           />
         </div>
       </div>
@@ -319,6 +330,7 @@ function StartCard({
   title,
   text,
   hint,
+  badge,
   onClick,
 }: {
   readonly testId: string;
@@ -327,30 +339,39 @@ function StartCard({
   readonly title: string;
   readonly text: string;
   readonly hint: string;
+  readonly badge?: string | undefined;
   readonly onClick: () => void;
 }) {
   return (
     <button
       type="button"
       data-testid={testId}
+      aria-label={badge ? `${title}، ${badge}` : undefined}
       onClick={onClick}
-      className={`rounded-xl border bg-[var(--h-card)] p-4 text-start transition hover:-translate-y-0.5 ${
-        primary ? 'neon-blink' : 'border-[var(--h-line)] hover:border-[var(--h-accent)]/50'
+      className={`rounded-xl border bg-[var(--h-card)] p-4 text-start transition ${
+        badge
+          ? 'border-[var(--h-line)] hover:border-[var(--h-accent)]/45'
+          : `hover:-translate-y-0.5 ${
+              primary ? 'neon-blink' : 'border-[var(--h-line)] hover:border-[var(--h-accent)]/50'
+            }`
       }`}
     >
       <span className="flex items-start gap-3">
         <span
           className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-            primary
-              ? 'border-[#3d6dff]/70 text-[#8eb6ff]'
-              : 'border-[var(--h-line)] text-[var(--h-muted)]'
+            badge
+              ? 'border-[var(--h-accent)]/40 text-[var(--h-accent)]'
+              : primary
+                ? 'border-[#3d6dff]/70 text-[#8eb6ff]'
+                : 'border-[var(--h-line)] text-[var(--h-muted)]'
           }`}
         >
           <Icon name={icon} size={16} />
         </span>
         <span className="min-w-0">
-          <span className="flex items-center gap-1.5 text-[14.5px] font-bold">
+          <span className="flex flex-wrap items-center gap-1.5 text-[14.5px] font-bold">
             {title}
+            {badge ? <UpgradeBadge label={badge} /> : null}
             <span title={hint} className="text-[var(--h-muted)]">
               <Icon name="info" size={14} />
             </span>
@@ -359,6 +380,14 @@ function StartCard({
         </span>
       </span>
     </button>
+  );
+}
+
+function UpgradeBadge({ label }: { readonly label: string }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-[color-mix(in_srgb,var(--h-accent)_16%,transparent)] px-2 py-0.5 text-[11px] font-semibold text-[var(--h-accent)]">
+      {label}
+    </span>
   );
 }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { drawingRegistry, type AnyToolDefinition } from '@/lib/drawings';
+import { selectDrawingTool } from '../../drawing/plan-tool';
 import { useApp } from '../../state/app-context';
 import { useFavoritesStore } from '../../state/favorites-store';
 import { useUiStore } from '../../state/ui-store';
@@ -75,7 +76,9 @@ export function MobileChartOverlay({
               <Dock
                 defs={defs}
                 active={active}
-                onPick={(id) => app.drawings.setTool(active === id ? null : id)}
+                onPick={(id) =>
+                  selectDrawingTool((next) => app.drawings.setTool(next), active === id ? null : id)
+                }
               />
             ) : null}
           </div>
@@ -106,7 +109,9 @@ export function MobileChartOverlay({
           defs={defs}
           active={active}
           vertical
-          onPick={(id) => app.drawings.setTool(active === id ? null : id)}
+          onPick={(id) =>
+            selectDrawingTool((next) => app.drawings.setTool(next), active === id ? null : id)
+          }
         />
       ) : null}
 

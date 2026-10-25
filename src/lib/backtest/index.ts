@@ -18,5 +18,6 @@ export { MinuteBuffer, type MinuteLoader } from './replay/minute-buffer';
 export { CursorGatedProvider } from './replay/gated-provider';
 export { revealMinutes, resyncForming } from './replay/display';
 export { resimulate } from './replay/simulate';
+export { sanitizePracticeImport, type PracticeLog } from './session/practice';
 export { TradeOverlay, type TradeOverlayHost } from './chart/trade-overlay';
 export { buildTradeLines, TRADE_COLORS, type TradeLine } from './chart/overlay-model';

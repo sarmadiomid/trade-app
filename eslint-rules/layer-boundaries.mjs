@@ -9,7 +9,12 @@
  */
 import path from 'node:path';
 
-const SRC = `${path.sep}src${path.sep}`;
+const SRC = '/src/';
+
+/** The rule compares paths, so Windows filenames and the POSIX fixtures share one form. */
+function normalize(filePath) {
+  return filePath.replaceAll('\\', '/');
+}
 
 /** element -> elements it may import from */
 const ALLOWED = {
@@ -86,9 +91,10 @@ const FRAMEWORK_PACKAGES = ['react', 'react-dom', 'next', 'zustand'];
 
 /** Returns { element, rest } for an absolute path inside src/, else null. */
 function classify(absPath) {
-  const idx = absPath.lastIndexOf(SRC);
+  const normalized = normalize(absPath);
+  const idx = normalized.lastIndexOf(SRC);
   if (idx === -1) return null;
-  const parts = absPath.slice(idx + SRC.length).split(path.sep);
+  const parts = normalized.slice(idx + SRC.length).split('/');
   if (parts[0] === 'lib' && parts[1] && LIB_ELEMENTS.has(parts[1])) {
     return { element: parts[1], rest: parts.slice(2) };
   }
@@ -98,12 +104,13 @@ function classify(absPath) {
 }
 
 function resolveImport(source, fromFile) {
+  const file = normalize(fromFile);
   if (source.startsWith('@/')) {
-    const idx = fromFile.lastIndexOf(SRC);
+    const idx = file.lastIndexOf(SRC);
     if (idx === -1) return null;
-    return path.join(fromFile.slice(0, idx + SRC.length), source.slice(2));
+    return `${file.slice(0, idx + SRC.length)}${source.slice(2)}`;
   }
-  if (source.startsWith('.')) return path.resolve(path.dirname(fromFile), source);
+  if (source.startsWith('.')) return path.posix.resolve(path.posix.dirname(file), source);
   return null;
 }
 

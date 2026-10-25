@@ -1,4 +1,5 @@
 import { drawingRegistry } from '@/lib/drawings';
+import { currentPlan, denyPlan, drawingToolDenial, isPlanInstalled } from '../billing';
 import type { ChartApp } from '../chart-app';
 import type { ShortcutDefinition } from './shortcut-registry';
 
@@ -17,7 +18,17 @@ export function drawingShortcuts(): ShortcutDefinition<ChartApp>[] {
       keys: [d.shortcut!],
       description: d.label,
       category: 'Drawing tools',
-      run: (a) => a.drawings.setTool(a.drawings.tool === d.id ? null : d.id),
+      run: (a) => {
+        const next = a.drawings.tool === d.id ? null : d.id;
+        if (next && isPlanInstalled()) {
+          const denial = drawingToolDenial(currentPlan(), next);
+          if (denial) {
+            denyPlan(denial);
+            return;
+          }
+        }
+        a.drawings.setTool(next);
+      },
     }));
   const nudge = (
     id: string,

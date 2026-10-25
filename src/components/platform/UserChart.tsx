@@ -6,6 +6,7 @@ import type { ChartApp } from '@/lib/app';
 import { RemoteStorage, RemoteStorageError } from '@/lib/storage';
 import { bindFavoritesStorage } from '../state/favorites-store';
 import { useUiStore } from '../state/ui-store';
+import { PlanSync } from '../billing/PlanUpgradeModal';
 import { AccountMenu } from './AccountMenu';
 
 const ChartWorkspace = dynamic(() => import('../chart/ChartWorkspace'), {
@@ -94,12 +95,15 @@ export function UserChart({ phone }: { phone: string }) {
   }
   const { storage } = state;
   return (
-    <ChartWorkspace
-      wrapDeps={(deps) => ({ ...deps, storage })}
-      onApp={(app) => {
-        appRef.current = app;
-      }}
-      toolbarEnd={<AccountMenu phone={phone} storage={storage} />}
-    />
+    <>
+      <PlanSync />
+      <ChartWorkspace
+        wrapDeps={(deps) => ({ ...deps, storage })}
+        onApp={(app) => {
+          appRef.current = app;
+        }}
+        toolbarEnd={<AccountMenu phone={phone} storage={storage} />}
+      />
+    </>
   );
 }

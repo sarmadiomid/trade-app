@@ -3,6 +3,7 @@ import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 
 import { cookies } from 'next/headers';
 import type { ObjectId } from 'mongodb';
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from '@/auth/phone';
+import { normalizePlan, type PlanId } from '@/lib/app/billing/entitlements';
 import { collections, type UserDoc } from './db';
 import { defaultDisplayName } from './migrations';
 import { sendOtpSms } from './sms';
@@ -21,6 +22,7 @@ export interface SessionUser {
   readonly phone: string;
   /** Public name (leaderboards, battles). */
   readonly name: string;
+  readonly plan: PlanId;
 }
 
 const nameOf = (u: Pick<UserDoc, 'phone' | 'displayName'>) =>
@@ -120,7 +122,15 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
     { phone },
     {
       $set: { lastLoginAt: now },
-      $setOnInsert: { phone, createdAt: now, displayName: defaultDisplayName(phone) },
+      $setOnInsert: {
+        phone,
+        createdAt: now,
+        displayName: defaultDisplayName(phone),
+        plan: 'beginner',
+        usageSessions: 0,
+        usageBattles: 0,
+        strategyTags: [],
+      },
     },
     { upsert: true, returnDocument: 'after', includeResultMetadata: true },
   );
@@ -137,7 +147,12 @@ export async function verifyOtp(phone: string, code: string): Promise<VerifyOtpR
   return {
     ok: true,
     token,
-    user: { id: user._id.toHexString(), phone: user.phone, name: nameOf(user) },
+    user: {
+      id: user._id.toHexString(),
+      phone: user.phone,
+      name: nameOf(user),
+      plan: normalizePlan(user.plan),
+    },
     isNew,
   };
 }
@@ -156,7 +171,13 @@ export async function userFromToken(
   }
   const user = await users.findOne({ _id: session.userId });
   return user
-    ? { _id: user._id, id: user._id.toHexString(), phone: user.phone, name: nameOf(user) }
+    ? {
+        _id: user._id,
+        id: user._id.toHexString(),
+        phone: user.phone,
+        name: nameOf(user),
+        plan: normalizePlan(user.plan),
+      }
     : null;
 }
 
@@ -171,7 +192,7 @@ export async function currentUser(): Promise<SessionUser | null> {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   try {
     const user = await userFromToken(token);
-    return user ? { id: user.id, phone: user.phone, name: user.name } : null;
+    return user ? { id: user.id, phone: user.phone, name: user.name, plan: user.plan } : null;
   } catch (e) {
     console.error('[auth] session lookup failed', e);
     return null;

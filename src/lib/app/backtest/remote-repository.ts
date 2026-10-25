@@ -1,4 +1,10 @@
-import type { BacktestRepository, BacktestSession, LoggedAction, SessionSummary } from '@/lib/backtest';
+import { isPlanLimitMessage, openPlanPrompt } from '@/lib/app/billing';
+import type {
+  BacktestRepository,
+  BacktestSession,
+  LoggedAction,
+  SessionSummary,
+} from '@/lib/backtest';
 
 const SESSIONS = '/api/backtest/sessions';
 
@@ -22,7 +28,11 @@ async function call<T>(url: string, method = 'GET', body?: unknown): Promise<T> 
     login.searchParams.set('next', window.location.pathname);
     window.location.replace(login.href);
   }
-  if (!res.ok) throw new Error(data.error ?? 'ذخیره روی سرور ناموفق بود');
+  if (!res.ok) {
+    const message = data.error ?? 'ذخیره روی سرور ناموفق بود';
+    if (isPlanLimitMessage(message)) openPlanPrompt(message);
+    throw new Error(message);
+  }
   return data;
 }
 
@@ -40,7 +50,9 @@ export class RemoteBacktestRepository implements BacktestRepository {
 
   async load(id: string): Promise<BacktestSession | null> {
     try {
-      const body = await call<{ session: BacktestSession }>(`${SESSIONS}/${encodeURIComponent(id)}`);
+      const body = await call<{ session: BacktestSession }>(
+        `${SESSIONS}/${encodeURIComponent(id)}`,
+      );
       return body.session;
     } catch (e) {
       if (e instanceof Error && e.message === 'جلسه پیدا نشد') return null;
@@ -64,7 +76,10 @@ export class RemoteBacktestRepository implements BacktestRepository {
 
   confirmAction(id: string, action: LoggedAction): Promise<void> {
     return this.queue(id, () =>
-      call(`${SESSIONS}/${encodeURIComponent(id)}/actions`, 'POST', { t: action.t, action: action.a }),
+      call(`${SESSIONS}/${encodeURIComponent(id)}/actions`, 'POST', {
+        t: action.t,
+        action: action.a,
+      }),
     );
   }
 
@@ -78,7 +93,9 @@ export class RemoteBacktestRepository implements BacktestRepository {
 
   async loadScreenshot(id: string): Promise<string | null> {
     try {
-      const body = await call<{ dataUrl?: string }>(`/api/backtest/shots/${encodeURIComponent(id)}`);
+      const body = await call<{ dataUrl?: string }>(
+        `/api/backtest/shots/${encodeURIComponent(id)}`,
+      );
       return body.dataUrl ?? null;
     } catch {
       return null;

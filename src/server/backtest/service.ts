@@ -1,5 +1,12 @@
 import 'server-only';
 import type { ObjectId } from 'mongodb';
+import {
+  cursorDenial,
+  entitlements,
+  journalDenial,
+  limitMessage,
+  sessionSettingsDenial,
+} from '@/lib/app/billing/entitlements';
 import { DAY_MS, type Candle } from '@/lib/core';
 import { instrumentSpec } from '@/lib/data';
 import {
@@ -25,6 +32,14 @@ import {
   type PracticeLog,
 } from '@/lib/backtest/session/practice';
 import { planReplay } from '@/lib/backtest/session/reconcile';
+import {
+  PlanDenied,
+  claimStrategyTag,
+  planOf,
+  releaseSessionSlot,
+  syncStrategyTags,
+  takeSessionSlot,
+} from '../billing';
 import { collections } from '../db';
 import { practiceMarket } from './market';
 import { deletePositionEvents, replacePositionEvents } from './positions';
@@ -235,11 +250,29 @@ export async function saveSession(userId: ObjectId, raw: unknown): Promise<void>
   const range = practiceMarket().dataRange(proposed.settings.symbol);
   const invalid = validateSettings(proposed.settings, range);
   if (invalid) throw new BacktestError(invalid);
-  const cursor = Math.min(endOf(proposed.settings), Math.max(proposed.settings.startDate, proposed.cursor));
+  const cursor = Math.min(
+    endOf(proposed.settings),
+    Math.max(proposed.settings.startDate, proposed.cursor),
+  );
   const { backtestSessions } = await collections();
   const doc = await backtestSessions.findOne({ _id: proposed.id });
   if (doc && !doc.userId.equals(userId)) throw new BacktestError('این جلسه متعلق به شما نیست', 403);
+  const access = await planOf(userId);
   if (!doc) {
+    const denied = sessionSettingsDenial(access, proposed.settings, range);
+    if (denied) throw new BacktestError(denied, 403);
+    const jumped = cursorDenial(
+      access,
+      proposed.settings.startDate,
+      cursor,
+      proposed.prefs.tickerValue,
+    );
+    if (jumped) throw new BacktestError(jumped, 403);
+    const notes = journalDenial(access, {}, proposed.journal);
+    if (notes) throw new BacktestError(notes, 403);
+    const tag = proposed.settings.strategyTag.trim();
+    if (tag) await claimTag(userId, tag);
+    await reserveSession(userId, tag);
     const settings = proposed.settings;
     const fresh = createSession({
       id: proposed.id,
@@ -261,18 +294,64 @@ export async function saveSession(userId: ObjectId, raw: unknown): Promise<void>
         updatedAt: new Date(),
       });
     } catch {
+      await releaseSessionSlot(userId);
+      if (tag) await syncStrategyTags(userId);
       throw new BacktestError('جلسه هم‌زمان از جای دیگری ذخیره شد', 409);
     }
-    await replacePositionEvents(userId, 'backtest', proposed.id, session.settings.symbol, session.account);
+    if (tag) await syncStrategyTags(userId);
+    await replacePositionEvents(
+      userId,
+      'backtest',
+      proposed.id,
+      session.settings.symbol,
+      session.account,
+    );
     return;
   }
+  const jumped = cursorDenial(access, doc.session.cursor, cursor, doc.session.prefs.tickerValue);
+  if (jumped) throw new BacktestError(jumped, 403);
+  const notes = journalDenial(access, doc.session.journal, proposed.journal);
+  if (notes) throw new BacktestError(notes, 403);
   if (economics(doc.session.settings) !== economics(proposed.settings))
     throw new BacktestError('تنظیمات مالی جلسه بعد از ساخت تغییر نمی‌کند', 409);
+  const nextTag = proposed.settings.strategyTag.trim();
+  const prevTag = doc.session.settings.strategyTag.trim();
+  const tagChanged = nextTag !== prevTag;
+  if (nextTag && tagChanged) await claimTag(userId, nextTag);
   const plan = planReplay(doc.session, proposed.actions, cursor);
-  if ('error' in plan) throw new BacktestError(plan.error, 409);
+  if ('error' in plan) {
+    if (tagChanged) await syncStrategyTags(userId);
+    throw new BacktestError(plan.error, 409);
+  }
   const base = meta(doc.session, proposed);
-  const session = plan.kind === 'meta' ? base : simulateTo(base, proposed.actions, cursor, plan.kind);
-  await write(userId, proposed.id, doc.version, session);
+  const session =
+    plan.kind === 'meta' ? base : simulateTo(base, proposed.actions, cursor, plan.kind);
+  try {
+    await write(userId, proposed.id, doc.version, session);
+  } catch (e) {
+    if (tagChanged) await syncStrategyTags(userId);
+    throw e;
+  }
+  if (tagChanged) await syncStrategyTags(userId);
+}
+
+async function claimTag(userId: ObjectId, tag: string): Promise<void> {
+  try {
+    await claimStrategyTag(userId, tag);
+  } catch (e) {
+    if (e instanceof PlanDenied) throw new BacktestError(e.message, e.status);
+    throw e;
+  }
+}
+
+async function reserveSession(userId: ObjectId, tag: string): Promise<void> {
+  try {
+    await takeSessionSlot(userId);
+  } catch (e) {
+    if (tag) await syncStrategyTags(userId);
+    if (e instanceof PlanDenied) throw new BacktestError(e.message, e.status);
+    throw e;
+  }
 }
 
 /**
@@ -294,6 +373,8 @@ export async function confirmAction(
   const doc = await backtestSessions.findOne({ _id: id, userId });
   if (!doc) throw new BacktestError('جلسه پیدا نشد', 404);
   const session = doc.session;
+  const jumped = cursorDenial(await planOf(userId), session.cursor, t, session.prefs.tickerValue);
+  if (jumped) throw new BacktestError(jumped, 403);
   const end = endOf(session.settings);
   if (t < session.cursor || t > end) throw new BacktestError('زمان معامله با نمودار یکی نیست', 409);
   const spec = specOf(session.settings.symbol);
@@ -301,7 +382,13 @@ export async function confirmAction(
   const market = practiceMarket();
   const engine =
     t > session.cursor
-      ? advance(cfg, session.account, market.minuteBars(session.settings.symbol, session.cursor, t), t, end)
+      ? advance(
+          cfg,
+          session.account,
+          market.minuteBars(session.settings.symbol, session.cursor, t),
+          t,
+          end,
+        )
       : new ExecutionEngine(cfg, structuredClone(session.account));
   if (engine.state.status !== 'active') throw new BacktestError('این جلسه تمام شده است', 409);
   engine.state.time = Math.max(engine.state.time, t);
@@ -385,6 +472,7 @@ export async function removeSession(userId: ObjectId, id: string): Promise<void>
   const { backtestSessions, backtestShots } = await collections();
   const res = await backtestSessions.deleteOne({ _id: id, userId });
   if (res.deletedCount === 0) throw new BacktestError('جلسه پیدا نشد', 404);
+  await Promise.all([releaseSessionSlot(userId), syncStrategyTags(userId)]);
   await Promise.all([
     deletePositionEvents(userId, 'backtest', id),
     backtestShots.deleteMany({ userId, sessionId: id }),
@@ -393,12 +481,35 @@ export async function removeSession(userId: ObjectId, id: string): Promise<void>
 
 export async function saveShot(userId: ObjectId, id: string, dataUrl: unknown): Promise<void> {
   if (!SHOT_RE.test(id)) throw new BacktestError('شناسهٔ تصویر نامعتبر است');
-  if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/') || dataUrl.length > MAX_SHOT)
+  if (
+    typeof dataUrl !== 'string' ||
+    !dataUrl.startsWith('data:image/') ||
+    dataUrl.length > MAX_SHOT
+  )
     throw new BacktestError('تصویر نامعتبر است');
   const sessionId = id.split('-')[0]!;
   const { backtestShots, backtestSessions } = await collections();
-  const owns = await backtestSessions.findOne({ _id: sessionId, userId }, { projection: { _id: 1 } });
+  const owns = await backtestSessions.findOne(
+    { _id: sessionId, userId },
+    { projection: { _id: 1 } },
+  );
   if (!owns) throw new BacktestError('جلسه پیدا نشد', 404);
+  const access = await planOf(userId);
+  const shotLimit = entitlements(access).journalShots;
+  if (shotLimit !== null) {
+    const existing = await backtestShots.findOne({ _id: id, userId }, { projection: { _id: 1 } });
+    if (!existing) {
+      const position = id.split('-')[1] ?? '';
+      const prefix = `${sessionId}-${position}-`.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const n = await backtestShots.countDocuments({
+        userId,
+        sessionId,
+        _id: { $regex: `^${prefix}` },
+      });
+      if (n >= shotLimit)
+        throw new BacktestError(limitMessage('عکس تحلیل', access, shotLimit), 403);
+    }
+  }
   await backtestShots.updateOne(
     { _id: id, userId },
     { $set: { data: dataUrl, sessionId, updatedAt: new Date() } },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { chordLabel } from '@/lib/app';
+import { chordLabel, currentPlan, entitlements, guardPlan, requiresPlan } from '@/lib/app';
 import { TIMEFRAMES, type TimeframeId } from '@/lib/core';
 import { FREQUENCIES, TICKER_VALUES } from '@/lib/backtest';
 import { useUiStore } from '../state/ui-store';
@@ -143,7 +143,11 @@ export function PriceSkipperBar() {
             type="button"
             dir="rtl"
             disabled={blocked || snap.loading}
-            onClick={() => openModal({ type: 'go-to' })}
+            onClick={() => {
+              const allowed = entitlements(currentPlan()).priceJump;
+              if (!guardPlan(allowed ? null : requiresPlan('پرش قیمت', 'mid'))) return;
+              openModal({ type: 'go-to' });
+            }}
             className="flex h-8 w-[10.5rem] items-center justify-center gap-1.5 rounded-md px-2 text-fg hover:bg-hover disabled:opacity-60"
           >
             <Icon name="calendar" size={14} className="shrink-0 text-muted" />

@@ -34,6 +34,7 @@ import {
   type LoggedAction,
   type TradeAction,
 } from '@/lib/backtest';
+import { currentPlan, entitlements, isPlanInstalled, requiresPlan } from '../billing';
 import type { ChartApp } from '../chart-app';
 import { describeEvent } from './notices';
 import { buildSnapshot, type BacktestSnapshot } from './snapshot';
@@ -302,6 +303,8 @@ export class BacktestController {
 
   /** Go to: forward jump to `time`, processing every minute in between. */
   async goTo(time: number): Promise<string | null> {
+    if (isPlanInstalled() && !entitlements(currentPlan()).priceJump)
+      return requiresPlan('پرش قیمت', 'mid');
     if (this.tradeLock) return 'معامله در حال ثبت روی سرور است';
     const target = Math.min(time, this.end);
     if (target <= this.cursor) return 'پرش فقط به جلو است. برای برگشت از بازگردانی استفاده کنید.';

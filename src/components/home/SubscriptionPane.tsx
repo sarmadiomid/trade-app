@@ -1,9 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { PLAN_LABEL, normalizePlan, type PlanId } from '@/lib/app';
 import { faNum } from '@/lib/locale/jalali';
+import { applyPlan, refreshPlan, usePlan } from '../billing/usePlan';
 import { SUBSCRIPTION_PLANS, subscriptionAmount, type BillingCycle } from '../billing/plans';
 import { Icon } from '../ui/Icon';
+
+const PLAN_RANK: Readonly<Record<PlanId, number>> = { beginner: 0, mid: 1, pro: 2 };
 
 type Cell = 'yes' | 'no' | string;
 
@@ -21,6 +25,7 @@ const GROUPS: ReadonlyArray<{
       { label: 'بازپخش کندل‌به‌کندل', cells: ['yes', 'yes', 'yes'] },
       { label: 'شروع با انتخاب کندل', cells: ['yes', 'yes', 'yes'] },
       { label: 'شروع با تاریخ', cells: ['yes', 'yes', 'yes'] },
+      { label: 'تاریخ جلسه', cells: ['یک ماه گذشته', 'کل بازار', 'کل بازار'] },
       { label: 'شروع از اولین کندل', cells: ['yes', 'yes', 'yes'] },
       { label: 'کندل تصادفی', cells: ['no', 'yes', 'yes'] },
       { label: 'پرش قیمت', cells: ['no', 'yes', 'yes'] },
@@ -106,10 +111,40 @@ const GRID = `${LABEL_FR}fr repeat(3, ${PLAN_FR}fr)`;
 
 /** Subscription tab: plan cards and comparison, display only. */
 export function SubscriptionPane() {
+  const activePlan = usePlan();
+  const current =
+    SUBSCRIPTION_PLANS.find((item) => item.id === activePlan) ?? SUBSCRIPTION_PLANS[0]!;
   const [cycle, setCycle] = useState<BillingCycle>('month');
   const [menu, setMenu] = useState(false);
   const [closed, setClosed] = useState<Readonly<Record<string, boolean>>>({});
+  const [busy, setBusy] = useState<PlanId | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const choose = async (id: PlanId) => {
+    if (id === activePlan || busy) return;
+    setBusy(id);
+    setPlanError(null);
+    try {
+      const res = await fetch('/api/account/plan', {
+        method: 'PUT',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ plan: id }),
+      });
+      const body = (await res.json()) as { plan?: unknown; error?: string };
+      if (!res.ok) {
+        setPlanError(body.error ?? 'تغییر طرح انجام نشد');
+        return;
+      }
+      applyPlan(normalizePlan(body.plan));
+      await refreshPlan();
+    } catch {
+      setPlanError('تغییر طرح انجام نشد');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   useEffect(() => {
     if (!menu) return;
@@ -139,8 +174,12 @@ export function SubscriptionPane() {
       <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] px-5 py-4">
         <div>
           <div className="flex items-baseline gap-3">
-            <span className="text-[18px] font-semibold">مبتدی</span>
-            <span className="text-[18px] font-bold">رایگان</span>
+            <span className="text-[18px] font-semibold">{current.name}</span>
+            <span className="text-[18px] font-bold">
+              {current.id === 'beginner'
+                ? 'رایگان'
+                : `${faNum(subscriptionAmount(current.id, cycle))} تومان`}
+            </span>
           </div>
           <p className="mt-1 text-[13px] text-[var(--h-muted)]">
             مهارت معامله‌گری‌تان را بهتر کنید
@@ -148,7 +187,7 @@ export function SubscriptionPane() {
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex h-9 items-center rounded-full bg-[var(--h-accent)] px-3.5 text-[12.5px] font-semibold text-white">
-            طرح رایگان
+            {activePlan === 'beginner' ? 'طرح رایگان' : PLAN_LABEL[activePlan]}
           </span>
           <div ref={menuRef} className="relative">
             <button
@@ -170,7 +209,9 @@ export function SubscriptionPane() {
                 role="menu"
                 className="absolute end-0 z-30 mt-2 w-48 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-1.5 shadow-2xl"
               >
-                <p className="px-2.5 py-1.5 text-[12px] text-[var(--h-muted)]">طرح فعلی: مبتدی</p>
+                <p className="px-2.5 py-1.5 text-[12px] text-[var(--h-muted)]">
+                  طرح فعلی: {current.name}
+                </p>
                 <button
                   type="button"
                   role="menuitem"
@@ -263,19 +304,27 @@ export function SubscriptionPane() {
                 </li>
               ))}
             </ul>
-            {plan.id === 'beginner' ? null : (
-              <div className="relative mt-auto pt-6">
-                <button
-                  type="button"
-                  className="h-11 w-full rounded-full border border-[var(--h-line)] text-[14px] font-medium transition hover:bg-[var(--h-chip)]"
-                >
-                  ارتقا
-                </button>
-              </div>
-            )}
+            <div className="relative mt-auto pt-6">
+              <button
+                type="button"
+                disabled={plan.id === activePlan || busy !== null}
+                onClick={() => void choose(plan.id)}
+                className="h-11 w-full rounded-full border border-[var(--h-line)] text-[14px] font-medium transition hover:bg-[var(--h-chip)] disabled:cursor-default disabled:opacity-60"
+              >
+                {plan.id === activePlan
+                  ? 'طرح فعلی'
+                  : PLAN_RANK[plan.id] > PLAN_RANK[activePlan]
+                    ? 'ارتقا'
+                    : 'تغییر طرح'}
+              </button>
+            </div>
           </article>
         ))}
       </div>
+      <p className="mt-4 text-[13px] leading-6 text-[var(--h-muted)]">
+        پرداخت هنوز در کندلو فعال نیست. با انتخاب طرح، دسترسی همان لحظه عوض می‌شود.
+      </p>
+      {planError ? <p className="mt-2 text-[13px] text-[#ff6b81]">{planError}</p> : null}
 
       <div className="mt-10 flex flex-col gap-8">
         {GROUPS.map((group) => {
@@ -298,7 +347,7 @@ export function SubscriptionPane() {
                   className={`text-[var(--h-muted)] transition ${open ? 'rotate-180' : ''}`}
                 />
               </button>
-              {open ? <Compare rows={group.rows} /> : null}
+              {open ? <Compare rows={group.rows} plan={activePlan} /> : null}
             </section>
           );
         })}
@@ -309,10 +358,13 @@ export function SubscriptionPane() {
 
 function Compare({
   rows,
+  plan,
 }: {
   readonly rows: ReadonlyArray<{ label: string; cells: readonly [Cell, Cell, Cell] }>;
+  readonly plan: PlanId;
 }) {
   const names = ['مبتدی', 'متوسط', 'حرفه‌ای'] as const;
+  const column = plan === 'pro' ? 2 : plan === 'mid' ? 1 : 0;
   return (
     <div className="mt-2 overflow-x-auto">
       <div className="relative min-w-[720px]">
@@ -320,7 +372,7 @@ function Compare({
           aria-hidden
           className="pointer-events-none absolute inset-y-0 z-[1] rounded-2xl border-2 border-[var(--h-accent)]"
           style={{
-            insetInlineStart: `${(LABEL_FR / TOTAL_FR) * 100}%`,
+            insetInlineStart: `${((LABEL_FR + PLAN_FR * column) / TOTAL_FR) * 100}%`,
             width: `${(PLAN_FR / TOTAL_FR) * 100}%`,
           }}
         />

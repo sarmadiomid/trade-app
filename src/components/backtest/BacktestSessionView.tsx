@@ -2,7 +2,13 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { BacktestRuntime, browserBacktestServices, type BacktestController } from '@/lib/app';
+import {
+  BacktestRuntime,
+  browserBacktestServices,
+  isPlanLimitMessage,
+  openPlanPrompt,
+  type BacktestController,
+} from '@/lib/app';
 import { setDisplayUtc } from '@/lib/core';
 import { useUiStore } from '../state/ui-store';
 import { statsHref } from '../home/stats-href';
@@ -25,7 +31,10 @@ function useBridge(c: BacktestController | null): void {
     store.setSnap(c.snapshot());
     const offs = [
       c.events.on('snapshot', (s) => useBacktestStore.getState().setSnap(s)),
-      c.events.on('notice', (n) => toast(n.text, n.level)),
+      c.events.on('notice', (n) => {
+        if (n.level === 'error' && isPlanLimitMessage(n.text)) openPlanPrompt(n.text);
+        else toast(n.text, n.level);
+      }),
       c.events.on('ended', () => {
         const id = c.session.id;
         void c.save().finally(() => {

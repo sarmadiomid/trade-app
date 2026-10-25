@@ -20,6 +20,7 @@ import {
   type WinCondition,
 } from '@/lib/battles';
 import { faNum } from '@/lib/locale/jalali';
+import { isPlanLimitMessage } from '@/lib/app';
 import { api } from '../platform/api';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
@@ -81,7 +82,9 @@ export function NewBattleDialog({
       const r = await api<{ id: string }>('/api/battles', { method: 'POST', body: { settings } });
       onCreated(r.id);
     } catch (err) {
-      setError(err instanceof Error ? faMessage(err.message) : faMessage('Could not create the battle'));
+      const message =
+        err instanceof Error ? faMessage(err.message) : faMessage('Could not create the battle');
+      if (!isPlanLimitMessage(message)) setError(message);
       setBusy(false);
     }
   };
@@ -221,7 +224,8 @@ export function NewBattleDialog({
               <span className="mb-1.5 flex items-baseline justify-between font-medium">
                 نمادها
                 <span className="text-[11.5px] font-normal text-muted">
-                  {faNum(s.assets.length)}/{faNum(MAX_ASSETS)} · بازار موقع شروع از بین همین‌ها کشیده می‌شود
+                  {faNum(s.assets.length)}/{faNum(MAX_ASSETS)} · بازار موقع شروع از بین همین‌ها
+                  کشیده می‌شود
                 </span>
               </span>
               <div className="flex flex-wrap gap-2">
@@ -269,7 +273,9 @@ export function NewBattleDialog({
             <label className="block">
               <span className="mb-1.5 flex items-baseline justify-between font-medium">
                 مدت
-                <span className="text-[13px] font-semibold tabular-nums">{minutes(s.durationMin)}</span>
+                <span className="text-[13px] font-semibold tabular-nums">
+                  {minutes(s.durationMin)}
+                </span>
               </span>
               <input
                 type="range"
@@ -402,10 +408,15 @@ export function NewBattleDialog({
                     ? `${faNum(s.profitTargetPct)}٪`
                     : 'تعیین نشده',
                 ],
-                ['حداکثر افت', s.maxDrawdownPct === null ? 'تعیین نشده' : `${faNum(s.maxDrawdownPct)}٪`],
+                [
+                  'حداکثر افت',
+                  s.maxDrawdownPct === null ? 'تعیین نشده' : `${faNum(s.maxDrawdownPct)}٪`,
+                ],
                 [
                   'حداکثر افت روزانه',
-                  s.maxDailyDrawdownPct === null ? 'تعیین نشده' : `${faNum(s.maxDailyDrawdownPct)}٪`,
+                  s.maxDailyDrawdownPct === null
+                    ? 'تعیین نشده'
+                    : `${faNum(s.maxDailyDrawdownPct)}٪`,
                 ],
                 ['نفرات', `تا ${faNum(s.maxParticipants)} نفر`],
                 ['ورود دیرهنگام', s.allowLateJoin ? 'مجاز' : 'غیرمجاز'],

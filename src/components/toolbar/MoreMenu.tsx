@@ -1,6 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  currentPlan,
+  entitlements,
+  guardPlan,
+  isPlanLimitMessage,
+  openPlanPrompt,
+  requiresPlan,
+} from '@/lib/app';
 import { useApp } from '../state/app-context';
 import { useUiStore } from '../state/ui-store';
 import { Icon } from '../ui/Icon';
@@ -25,16 +33,33 @@ export function MoreMenu() {
     const res = app.drawingStore.importJson(await readJsonFile(file));
     if (res.ok)
       pushToast(`Imported ${res.count} drawing(s)${res.skipped ? `, skipped ${res.skipped}` : ''}`);
+    else if (isPlanLimitMessage(res.error)) openPlanPrompt(res.error);
     else pushToast(`Import failed: ${res.error}`, 'error');
   };
 
+  const transferAllowed = () =>
+    guardPlan(
+      entitlements(currentPlan()).drawingTransfer
+        ? null
+        : requiresPlan('خروجی و ورود ترسیم', 'mid'),
+    );
   const items: Array<{ label: string; icon: IconName; shortcut?: string; run: () => void }> = [
     {
       label: t('Export drawings (JSON)'),
       icon: 'download',
-      run: () => downloadText(`${symbol}.drawings.json`, app.drawingStore.exportJson()),
+      run: () => {
+        if (!transferAllowed()) return;
+        downloadText(`${symbol}.drawings.json`, app.drawingStore.exportJson());
+      },
     },
-    { label: t('Import drawings…'), icon: 'upload', run: () => fileInput?.click() },
+    {
+      label: t('Import drawings…'),
+      icon: 'upload',
+      run: () => {
+        if (!transferAllowed()) return;
+        fileInput?.click();
+      },
+    },
     { label: t('Themes…'), icon: 'palette', run: () => openDialog({ type: 'theme-editor' }) },
     {
       label: t('Keyboard shortcuts'),
@@ -64,7 +89,11 @@ export function MoreMenu() {
       />
       {anchor ? (
         <Popover anchor={anchor} onClose={() => setAnchor(null)}>
-          <div dir={fa ? 'rtl' : 'ltr'} className="-m-1.5 flex min-w-56 flex-col gap-0.5 p-1" role="menu">
+          <div
+            dir={fa ? 'rtl' : 'ltr'}
+            className="-m-1.5 flex min-w-56 flex-col gap-0.5 p-1"
+            role="menu"
+          >
             {items.map((it, idx) => (
               <div key={it.label}>
                 {idx === 2 ? <div role="separator" className="my-1 h-px bg-line/70" /> : null}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { currentPlan, entitlements, guardPlan, requiresPlan } from '@/lib/app';
 import { useApp } from '../state/app-context';
 import { useUiStore } from '../state/ui-store';
 import { Icon } from '../ui/Icon';
@@ -33,6 +34,8 @@ export function ReplayButton() {
       label: t('Random bar'),
       icon: 'shuffle',
       run: () => {
+        const allowed = entitlements(currentPlan()).randomCandle;
+        if (!guardPlan(allowed ? null : requiresPlan('کندل تصادفی', 'mid'))) return;
         app.replay.startSelecting();
         void app.replay.selectRandomBar();
       },

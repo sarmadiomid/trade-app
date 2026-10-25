@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { chordLabel } from '@/lib/app';
+import { chartTypeDenial, chordLabel, currentPlan, guardPlan } from '@/lib/app';
 import { seriesRegistry } from '@/lib/series';
 import { captureChart } from '../backtest/capture';
 import { useApp } from '../state/app-context';
@@ -232,6 +232,7 @@ export function TopToolbar({
                   role="menuitemradio"
                   aria-checked={on}
                   onClick={() => {
+                    if (!guardPlan(chartTypeDenial(currentPlan(), id))) return;
                     setFlowAnchor(null);
                     app.settings.update({ chartType: id });
                   }}

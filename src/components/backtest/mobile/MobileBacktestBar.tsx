@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { currentPlan, entitlements, guardPlan, requiresPlan } from '@/lib/app';
 import { FREQUENCIES, TICKER_VALUES } from '@/lib/backtest';
 import { TIMEFRAMES, type TimeframeId } from '@/lib/core';
 import { useUiStore } from '../../state/ui-store';
@@ -233,7 +234,11 @@ function ReplayDeck({ onClose }: { readonly onClose: () => void }) {
           <button
             type="button"
             disabled={blocked || snap.loading}
-            onClick={() => openModal({ type: 'go-to' })}
+            onClick={() => {
+              const allowed = entitlements(currentPlan()).priceJump;
+              if (!guardPlan(allowed ? null : requiresPlan('پرش قیمت', 'mid'))) return;
+              openModal({ type: 'go-to' });
+            }}
             className="absolute bottom-1.5 px-2 py-0.5 text-[9px] font-semibold tracking-[0.2em] text-muted active:text-fg disabled:opacity-30"
           >
             GO TO

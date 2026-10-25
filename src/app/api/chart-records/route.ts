@@ -1,4 +1,6 @@
 import type { NextRequest } from 'next/server';
+import { chartRecordDenial } from '@/lib/app';
+import { planOf } from '@/server/billing';
 import { collections } from '@/server/db';
 import { json, readJson, requestUser, sameOrigin } from '@/server/http';
 
@@ -37,6 +39,12 @@ export async function PUT(req: NextRequest) {
     const user = await requestUser(req);
     if (!user) return json({ error: 'Unauthorized' }, 401);
     const { chartRecords } = await collections();
+    const previous = await chartRecords.findOne(
+      { userId: user._id, key },
+      { projection: { value: 1 } },
+    );
+    const denial = chartRecordDenial(await planOf(user._id), key, body.value, previous?.value);
+    if (denial) return json({ error: denial }, 403);
     await chartRecords.updateOne(
       { userId: user._id, key },
       { $set: { value: body.value, updatedAt: new Date() } },

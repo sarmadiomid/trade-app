@@ -69,11 +69,45 @@ export const MIGRATIONS: readonly Migration[] = [
         db.collection('position_events').createIndex({ userId: 1, scope: 1, scopeId: 1 }),
         db.collection('backtest_shots').createIndex({ userId: 1, sessionId: 1 }),
       ]);
-      const sessions = db.collection<{ _id: string; createdAt: Date; expiresAt: Date }>('sessions');
+      const sessions = db.collection<{ _id: string; createdAt: Date; expiresAt: Date }>(
+        'sessions',
+      );
       const cursor = sessions.find({});
       for await (const s of cursor) {
         const cap = new Date(new Date(s.createdAt).getTime() + ttl);
         if (s.expiresAt > cap) await sessions.updateOne({ _id: s._id }, { $set: { expiresAt: cap } });
+      }
+    },
+  },
+  {
+    id: '005-plan-usage',
+    description: 'Beginner plan and usage counters for every existing user',
+    async up(db) {
+      const users = db.collection<{
+        _id: unknown;
+        plan?: string;
+      }>('users');
+      const sessions = db.collection<{ userId: unknown; session?: { settings?: { strategyTag?: string } } }>(
+        'backtest_sessions',
+      );
+      const battles = db.collection('battles');
+      const cursor = users.find({}, { projection: { plan: 1 } });
+      for await (const user of cursor) {
+        const usageSessions = await sessions.countDocuments({ userId: user._id });
+        const usageBattles = await battles.countDocuments({ 'participants.userId': user._id });
+        const raw = await sessions.distinct('session.settings.strategyTag', { userId: user._id });
+        const strategyTags = [
+          ...new Set(
+            raw
+              .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+              .filter((tag) => tag.length > 0),
+          ),
+        ];
+        const plan = user.plan === 'mid' || user.plan === 'pro' ? user.plan : 'beginner';
+        await users.updateOne(
+          { _id: user._id },
+          { $set: { plan, usageSessions, usageBattles, strategyTags } },
+        );
       }
     },
   },

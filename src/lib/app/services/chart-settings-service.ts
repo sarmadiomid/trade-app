@@ -1,4 +1,5 @@
 import type { ChartEngine, ChartOptions, CommandHistory, Timer } from '@/lib/core';
+import { chartTypeDenial, currentPlan, denyPlan, isPlanInstalled } from '../billing';
 import type { VersionedStore } from '@/lib/storage';
 import { UpdateChartOptionsCommand } from '../commands/update-chart-options';
 import { APP_CONFIG } from '../config';
@@ -41,6 +42,16 @@ export class ChartSettingsService {
 
   /** Undoable update. `mergeable` lets rapid edits of one control collapse into one step. */
   update(patch: Partial<ChartOptions>, mergeable = false): void {
+    if (patch.chartType && isPlanInstalled()) {
+      const denial = chartTypeDenial(currentPlan(), patch.chartType);
+      if (denial) {
+        denyPlan(denial);
+        const rest = { ...patch };
+        delete rest.chartType;
+        if (Object.keys(rest).length === 0) return;
+        patch = rest;
+      }
+    }
     const current = this.engine.getOptions();
     const before: Partial<ChartOptions> = {};
     for (const k of Object.keys(patch) as (keyof ChartOptions)[]) {

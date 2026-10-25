@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { chartTypeDenial, currentPlan, guardPlan, isPlanLimitMessage } from '@/lib/app';
 import { isTimeframeId } from '@/lib/core';
 import { seriesRegistry } from '@/lib/series';
 import { drawingRegistry } from '@/lib/drawings';
@@ -13,10 +14,11 @@ import { statsHref } from '../../home/stats-href';
 import type { IconName } from '../../ui/icons';
 import { MobileSheet } from '../../chart/mobile/MobileSheet';
 import {
+  loadServerLayouts,
+  persistLayouts,
   readActiveLayout,
   readLayouts,
   writeActiveLayout,
-  writeLayouts,
   type ChartLayout,
 } from '../../chart/mobile/layouts';
 import { useDesktopMode } from '../../chart/mobile/mobile-ui';
@@ -46,6 +48,17 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
   const actionsEnabled = useBacktestStore((s) => s.actionsEnabled);
   const [layouts, setLayouts] = useState<ChartLayout[]>(readLayouts);
   const [activeId, setActiveId] = useState<string | null>(readActiveLayout);
+
+  useEffect(() => {
+    let live = true;
+    void loadServerLayouts().then((list) => {
+      if (!live || !list) return;
+      setLayouts(list);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const activeName = layouts.find((l) => l.id === activeId)?.name ?? 'Default';
   const indicatorCount = options.volumeVisible ? 1 : 0;
@@ -88,11 +101,16 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
     const list = layouts.some((l) => l.id === next.id)
       ? layouts.map((l) => (l.id === next.id ? next : l))
       : [...layouts, next];
-    setLayouts(list);
-    setActiveId(next.id);
-    writeLayouts(list);
-    writeActiveLayout(next.id);
-    pushToast(`Saved “${next.name}”`, 'success');
+    void persistLayouts(list).then((err) => {
+      if (err) {
+        if (!isPlanLimitMessage(err)) pushToast(err, 'error');
+        return;
+      }
+      setLayouts(list);
+      setActiveId(next.id);
+      writeActiveLayout(next.id);
+      pushToast(`Saved “${next.name}”`, 'success');
+    });
   };
 
   const applyLayout = (layout: ChartLayout) => {
@@ -284,12 +302,17 @@ export function MobileMoreSheet({ onClose }: { readonly onClose: () => void }) {
                   aria-label={`Delete ${layout.name}`}
                   onClick={() => {
                     const list = layouts.filter((l) => l.id !== layout.id);
-                    setLayouts(list);
-                    writeLayouts(list);
-                    if (activeId === layout.id) {
-                      setActiveId(null);
-                      writeActiveLayout(null);
-                    }
+                    void persistLayouts(list).then((err) => {
+                      if (err) {
+                        if (!isPlanLimitMessage(err)) pushToast(err, 'error');
+                        return;
+                      }
+                      setLayouts(list);
+                      if (activeId === layout.id) {
+                        setActiveId(null);
+                        writeActiveLayout(null);
+                      }
+                    });
                   }}
                   className="flex h-9 w-9 items-center justify-center text-muted hover:text-fg"
                 >
@@ -420,6 +443,7 @@ function ChartTypes({ onDone }: { readonly onDone: () => void }) {
           <button
             type="button"
             onClick={() => {
+              if (!guardPlan(chartTypeDenial(currentPlan(), t.id))) return;
               app.settings.update({ chartType: t.id });
               onDone();
             }}

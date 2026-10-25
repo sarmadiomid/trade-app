@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
+import { PlanSync } from '@/components/billing/PlanUpgradeModal';
 
 /** Switches the document to Persian RTL while a backtest route is mounted, then restores it. */
 export function BacktestLocale({ children }: { readonly children: ReactNode }) {
@@ -21,5 +22,10 @@ export function BacktestLocale({ children }: { readonly children: ReactNode }) {
       if (!prev.fa) html.classList.remove('bt-fa');
     };
   }, []);
-  return children;
+  return (
+    <>
+      <PlanSync />
+      {children}
+    </>
+  );
 }

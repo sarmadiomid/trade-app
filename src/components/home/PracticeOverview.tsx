@@ -2,10 +2,17 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { browserBacktestServices } from '@/lib/app';
+import {
+  browserBacktestServices,
+  entitlements,
+  openPlanPrompt,
+  PLAN_LABEL,
+  requiresPlan,
+} from '@/lib/app';
 import { outcomeOf, type SessionSummary, type SessionType } from '@/lib/backtest';
 import { faDigits, gregorianToJalali, JALALI_MONTHS, utcToJalali } from '@/lib/locale/jalali';
 import { dropPracticeTime, loadPracticeTime, type PracticeStore } from '../backtest/practice-time';
+import { usePlan } from '../billing/usePlan';
 import { faNum, money } from '../backtest/format';
 import { journalHref } from './journal-href';
 import { statsHref } from './stats-href';
@@ -90,6 +97,7 @@ export function PracticeOverview({
   const [status, setStatus] = useState<StatusId>('all');
   const [deleting, setDeleting] = useState<SessionSummary | null>(null);
   const [renaming, setRenaming] = useState<SessionSummary | null>(null);
+  const propLocked = !entitlements(usePlan()).prop;
 
   const ids = sessions.map((s) => s.id).join('\n');
 
@@ -233,11 +241,14 @@ export function PracticeOverview({
         />
         <ActionTile
           testId="start-prop"
-          icon="trophy"
+          icon={propLocked ? 'lock' : 'trophy'}
           title="جلسه پراپ"
-          text="شروع چالش"
+          text={propLocked ? `ارتقا به ${PLAN_LABEL.mid}` : 'شروع چالش'}
           hint="هدف سود، سقف ضرر روزانه و سقف ضرر کلی."
-          onClick={() => onCreate('prop')}
+          locked={propLocked}
+          onClick={() =>
+            propLocked ? openPlanPrompt(requiresPlan('جلسه پراپ', 'mid')) : onCreate('prop')
+          }
         />
         <ActionTile
           icon={null}
@@ -408,6 +419,7 @@ function ActionTile({
   text,
   hint,
   href,
+  locked = false,
   onClick,
 }: {
   readonly testId?: string;
@@ -418,6 +430,7 @@ function ActionTile({
   readonly text: string;
   readonly hint: string;
   readonly href?: string;
+  readonly locked?: boolean;
   readonly onClick?: () => void;
 }) {
   const className = `${card} flex flex-col items-center gap-1.5 px-2 py-2.5 text-center transition hover:border-[var(--h-accent)]/45 sm:flex-row sm:gap-3 sm:px-4 sm:py-3 sm:text-start ${
@@ -425,7 +438,13 @@ function ActionTile({
   }`;
   const body = (
     <>
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--h-line)] text-[var(--h-muted)] sm:h-9 sm:w-9">
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border sm:h-9 sm:w-9 ${
+          locked
+            ? 'border-[var(--h-accent)]/40 text-[var(--h-accent)]'
+            : 'border-[var(--h-line)] text-[var(--h-muted)]'
+        }`}
+      >
         {path ? <Icon path={path} size={16} /> : <Icon name={icon ?? 'plus'} size={16} />}
       </span>
       <span className="min-w-0">
@@ -435,7 +454,13 @@ function ActionTile({
             <Icon name="info" size={13} />
           </span>
         </span>
-        <span className="mt-0.5 block text-[11px] text-[var(--h-muted)] sm:text-[12px]">{text}</span>
+        <span
+          className={`mt-0.5 block text-[11px] sm:text-[12px] ${
+            locked ? 'font-semibold text-[var(--h-accent)]' : 'text-[var(--h-muted)]'
+          }`}
+        >
+          {text}
+        </span>
       </span>
     </>
   );
@@ -447,7 +472,13 @@ function ActionTile({
     );
   }
   return (
-    <button type="button" data-testid={testId} onClick={onClick} className={className}>
+    <button
+      type="button"
+      data-testid={testId}
+      aria-label={locked ? `${title}، ${text}` : undefined}
+      onClick={onClick}
+      className={className}
+    >
       {body}
     </button>
   );
@@ -529,7 +560,9 @@ function SpentTimeCard({
             dir="ltr"
           >
             <span>{recent[0] ? practiceDayCaption(recent[0].key) : ''}</span>
-            <span>{recent.length > 0 ? practiceDayCaption(recent[recent.length - 1].key) : ''}</span>
+            <span>
+              {recent.length > 0 ? practiceDayCaption(recent[recent.length - 1]?.key ?? '') : ''}
+            </span>
           </div>
           {totalMs > 0 ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[var(--h-line)] pt-2.5 text-[12px] text-[var(--h-muted)]">

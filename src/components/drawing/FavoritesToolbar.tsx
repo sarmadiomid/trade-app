@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { chordLabel } from '@/lib/app';
+import { selectDrawingTool } from './plan-tool';
 import { drawingRegistry, type AnyToolDefinition } from '@/lib/drawings';
 import { useApp } from '../state/app-context';
 import { useFavoritesStore } from '../state/favorites-store';
@@ -131,7 +132,9 @@ export function FavoritesToolbar() {
             shortcut={def.shortcut ? chordLabel(def.shortcut) : undefined}
             tooltipSide={tooltipSide}
             active={tool === def.id}
-            onClick={() => app.drawings.setTool(tool === def.id ? null : def.id)}
+            onClick={() =>
+              selectDrawingTool((id) => app.drawings.setTool(id), tool === def.id ? null : def.id)
+            }
             onContextMenu={(e) => {
               e.preventDefault();
               toggle(def.id);

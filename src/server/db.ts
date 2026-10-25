@@ -1,5 +1,6 @@
 import 'server-only';
 import { MongoClient, type Collection, type Db, type ObjectId } from 'mongodb';
+import type { PlanId } from '@/lib/app/billing/entitlements';
 import type {
   BattleMode,
   BattleSettings,
@@ -15,6 +16,14 @@ export interface UserDoc {
   phone: string;
   /** Public name on leaderboards and in battles (migration 002 backfills it). */
   displayName?: string;
+  /** Missing means Beginner (migration 005 backfills it). */
+  plan?: PlanId;
+  /** Backtest sessions this account has created. Released when a session is deleted. */
+  usageSessions?: number;
+  /** Battles this account has joined. Released only when they leave before the start. */
+  usageBattles?: number;
+  /** Distinct non-empty strategy tags currently used by this account's sessions. */
+  strategyTags?: string[];
   createdAt: Date;
   lastLoginAt: Date;
 }

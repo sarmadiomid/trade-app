@@ -1,5 +1,7 @@
 'use client';
 
+import { isPlanLimitMessage, openPlanPrompt } from '@/lib/app';
+
 /** Error from the platform's JSON API, with the HTTP status. */
 export class ApiError extends Error {
   constructor(
@@ -34,7 +36,11 @@ export async function api<T>(
     login.searchParams.set('next', window.location.pathname);
     window.location.replace(login.href);
   }
-  if (!res.ok) throw new ApiError(data.error ?? `Request failed (${res.status})`, res.status);
+  if (!res.ok) {
+    const message = data.error ?? `Request failed (${res.status})`;
+    if (isPlanLimitMessage(message)) openPlanPrompt(message);
+    throw new ApiError(message, res.status);
+  }
   return data;
 }
 

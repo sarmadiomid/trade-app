@@ -1,6 +1,7 @@
 import 'server-only';
 import type { NextRequest } from 'next/server';
 import { json, readJson, requestUser, sameOrigin } from '../http';
+import { PlanDenied } from '../billing';
 import { BattleError, type Player } from './service';
 
 type Handler = (
@@ -28,7 +29,8 @@ export async function battleRoute(req: NextRequest, handler: Handler): Promise<R
     }
     return json(await handler({ _id: user._id, id: user.id, name: user.name }, body));
   } catch (e) {
-    if (e instanceof BattleError) return json({ error: e.message }, e.status);
+    if (e instanceof PlanDenied || e instanceof BattleError)
+      return json({ error: e.message }, e.status);
     console.error('[battles]', e);
     return json({ error: 'Server error' }, 500);
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useEffect,
   useRef,
@@ -156,8 +156,17 @@ async function clearLocalPractice(): Promise<void> {
 /** `/home/settings`: account page in the home shell, laid out like the reference, in Persian. */
 export function AccountSettings({ user }: { readonly user: Me }) {
   const router = useRouter();
+  const params = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState('account');
+  const requested = params.get('tab');
+  const tab = TABS.find((item) => item.id === requested)?.id ?? 'account';
+  const setTab = (id: string) => {
+    const next = new URLSearchParams(params.toString());
+    if (id === 'account') next.delete('tab');
+    else next.set('tab', id);
+    const query = next.toString();
+    router.replace(query ? `/home/settings?${query}` : '/home/settings', { scroll: false });
+  };
   const savedTz = useSyncExternalStore(
     subscribePrefs,
     () => readZone(readLocal(tzKey(user.id))),

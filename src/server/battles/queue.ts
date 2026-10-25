@@ -1,6 +1,8 @@
 import 'server-only';
 import { ObjectId } from 'mongodb';
+import { battleDenial, entitlements } from '@/lib/app/billing/entitlements';
 import { rankedFormat, type QueueStatus, type RankedFormat } from '@/lib/battles';
+import { PlanDenied, planOf, usageOf } from '../billing';
 import { collections, type BattleQueueDoc } from '../db';
 import { ensureProfile } from './profiles';
 import { BattleError, createRankedBattle, type Player } from './service';
@@ -39,6 +41,9 @@ async function status(doc: BattleQueueDoc | null, now: number): Promise<QueueSta
 export async function joinQueue(user: Player, formatId: unknown): Promise<QueueStatus> {
   const format = typeof formatId === 'string' ? rankedFormat(formatId) : null;
   if (!format) throw new BattleError('Unknown ranked format');
+  const plan = await planOf(user._id);
+  const denial = battleDenial(plan, 'ranked', (await usageOf(user._id)).battles);
+  if (denial || !entitlements(plan).ranked) throw new PlanDenied(denial ?? 'نبرد رتبه‌ای برای طرح متوسط و بالاتر است.');
   const { battleQueue } = await collections();
   const profile = await ensureProfile(user._id);
   const now = Date.now();
@@ -103,10 +108,22 @@ export async function pollQueue(user: Player): Promise<QueueStatus> {
     return status(await battleQueue.findOne({ _id: user._id }), now);
   }
   const format = rankedFormat(me.format) as RankedFormat;
-  await createRankedBattle(battleId, format, [
-    { _id: opponent._id, name: opponent.name },
-    { _id: user._id, name: user.name },
-  ]);
+  try {
+    await createRankedBattle(battleId, format, [
+      { _id: opponent._id, name: opponent.name },
+      { _id: user._id, name: user.name },
+    ]);
+  } catch (e) {
+    await battleQueue.updateOne(
+      { _id: opponent._id },
+      { $set: { status: 'searching', battleId: null } },
+    );
+    await battleQueue.updateOne(
+      { _id: user._id, status: 'matching' },
+      { $set: { status: 'searching', battleId: null } },
+    );
+    throw e;
+  }
   await battleQueue.updateOne({ _id: user._id }, { $set: { status: 'matched', battleId } });
   return { status: 'matched', battleId: battleId.toHexString() };
 }

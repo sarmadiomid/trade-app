@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { useContext, useEffect, useState, type ReactNode } from 'react';
-import { chordLabel } from '@/lib/app';
+import { chordLabel, isPlanLimitMessage } from '@/lib/app';
 import { isTimeframeId } from '@/lib/core';
 import {
+  loadServerLayouts,
+  persistLayouts,
   readActiveLayout,
   readLayouts,
   writeActiveLayout,
-  writeLayouts,
   type ChartLayout,
 } from '../chart/mobile/layouts';
 import { useApp } from '../state/app-context';
@@ -443,6 +444,17 @@ function LayoutControl({
   const [activeId, setActiveId] = useState<string | null>(readActiveLayout);
   const active = layouts.find((l) => l.id === activeId);
 
+  useEffect(() => {
+    let live = true;
+    void loadServerLayouts().then((list) => {
+      if (!live || !list) return;
+      setLayouts(list);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   const save = () => {
     const body = snapshot();
     const next: ChartLayout = active
@@ -451,11 +463,16 @@ function LayoutControl({
     const list = layouts.some((l) => l.id === next.id)
       ? layouts.map((l) => (l.id === next.id ? next : l))
       : [...layouts, next];
-    setLayouts(list);
-    setActiveId(next.id);
-    writeLayouts(list);
-    writeActiveLayout(next.id);
-    pushToast(`چیدمان «${next.name}» ذخیره شد`, 'success');
+    void persistLayouts(list).then((err) => {
+      if (err) {
+        if (!isPlanLimitMessage(err)) pushToast(err, 'error');
+        return;
+      }
+      setLayouts(list);
+      setActiveId(next.id);
+      writeActiveLayout(next.id);
+      pushToast(`چیدمان «${next.name}» ذخیره شد`, 'success');
+    });
   };
 
   return (

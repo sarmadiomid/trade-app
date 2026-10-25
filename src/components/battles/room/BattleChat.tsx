@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { entitlements, isPlanLimitMessage, openPlanPrompt, requiresPlan } from '@/lib/app';
 import { faNum } from '@/lib/locale/jalali';
+import { usePlan } from '../../billing/usePlan';
 import type { ChatMessage } from '@/lib/battles';
 import { api } from '../../platform/api';
 import { Icon } from '../../ui/Icon';
@@ -30,6 +32,8 @@ export function BattleChat({
   readonly canPost: boolean;
   readonly onSent: () => void;
 }) {
+  const chatAllowed = entitlements(usePlan()).battleChat;
+  const allowed = canPost && chatAllowed;
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +56,8 @@ export function BattleChat({
       setText('');
       onSent();
     } catch (err) {
-      setError(err instanceof Error ? faMessage(err.message) : faMessage('Could not send'));
+      const message = err instanceof Error ? faMessage(err.message) : faMessage('Could not send');
+      if (!isPlanLimitMessage(message)) setError(message);
     } finally {
       setSending(false);
     }
@@ -71,11 +76,21 @@ export function BattleChat({
               <Icon name="chat" size={18} />
             </span>
             <p className="mt-3 text-[13px] font-semibold">هنوز پیامی نیست</p>
-            <p className="mt-1 max-w-[16rem] text-[12px] leading-5 text-fg/75">
-              {canPost
-                ? 'برای معامله‌گرهای همین نبرد بنویس. پیام‌ها فقط داخل این نبرد می‌مانند.'
-                : 'پیام‌های نبرد اینجا نشان داده می‌شود.'}
-            </p>
+            {canPost && !chatAllowed ? (
+              <button
+                type="button"
+                onClick={() => openPlanPrompt(requiresPlan('گفتگوی اتاق', 'mid'))}
+                className="mt-1 max-w-[16rem] text-[12px] leading-5 text-fg/75 hover:text-fg"
+              >
+                {requiresPlan('گفتگوی اتاق', 'mid')}
+              </button>
+            ) : (
+              <p className="mt-1 max-w-[16rem] text-[12px] leading-5 text-fg/75">
+                {allowed
+                  ? 'برای معامله‌گرهای همین نبرد بنویس. پیام‌ها فقط داخل این نبرد می‌مانند.'
+                  : 'پیام‌های نبرد اینجا نشان داده می‌شود.'}
+              </p>
+            )}
           </div>
         ) : null}
         {messages.map((m) =>
@@ -130,7 +145,7 @@ export function BattleChat({
           {error}
         </p>
       ) : null}
-      {canPost ? (
+      {allowed ? (
         <form onSubmit={send} className="border-t border-line p-2">
           {text.length >= 240 ? (
             <p className="mb-1 px-1 text-end text-[11px] tabular-nums text-fg/75">

@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useState } from 'react';
+import { chartTypeDenial, currentPlan, guardPlan } from '@/lib/app';
 import { seriesRegistry } from '@/lib/series';
 import { useApp } from '../state/app-context';
 import { useUiStore } from '../state/ui-store';
@@ -91,6 +92,7 @@ export function ChartTypeMenu() {
                     role="menuitemradio"
                     aria-checked={isSelected}
                     onClick={() => {
+                      if (!guardPlan(chartTypeDenial(currentPlan(), t.id))) return;
                       setAnchor(null);
                       app.settings.update({ chartType: t.id });
                     }}

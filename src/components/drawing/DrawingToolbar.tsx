@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { chordLabel } from '@/lib/app';
+import { selectDrawingTool } from './plan-tool';
 import type { CrosshairMode } from '@/lib/core';
 import { drawingRegistry, type AnyToolDefinition, type MagnetMode } from '@/lib/drawings';
 import { useApp } from '../state/app-context';
@@ -225,7 +226,9 @@ export function DrawingToolbar() {
                 shortcut={def.shortcut ? chordLabel(def.shortcut) : undefined}
                 tooltipSide="right"
                 active={tool === def.id}
-                onClick={() => app.drawings.setTool(tool === def.id ? null : def.id)}
+                onClick={() =>
+                  selectDrawingTool((id) => app.drawings.setTool(id), tool === def.id ? null : def.id)
+                }
                 className="h-9 w-9"
               />
               <FavoriteMark id={def.id} label={def.label} />
@@ -243,7 +246,9 @@ export function DrawingToolbar() {
               shortcut={def.shortcut ? chordLabel(def.shortcut) : undefined}
               tooltipSide="right"
               active={activeDef !== undefined}
-              onClick={() => app.drawings.setTool(tool === def.id ? null : def.id)}
+              onClick={() =>
+                  selectDrawingTool((id) => app.drawings.setTool(id), tool === def.id ? null : def.id)
+                }
               onContextMenu={(e) => {
                 e.preventDefault();
                 setFlyout({ kind: 'group', id: slot.id, el: e.currentTarget });
@@ -389,7 +394,7 @@ export function DrawingToolbar() {
                 onToggleFavorite={() => toggleFavorite(def.id)}
                 onClick={() => {
                   setGroupChoice((c) => ({ ...c, [flyout.id]: def.id }));
-                  app.drawings.setTool(def.id);
+                  selectDrawingTool((id) => app.drawings.setTool(id), def.id);
                   setFlyout(null);
                 }}
               />

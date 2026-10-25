@@ -15,7 +15,9 @@ import {
   type QueueStatus,
   type RankedFormat,
 } from '@/lib/battles';
+import { entitlements, isPlanLimitMessage, openPlanPrompt, requiresPlan } from '@/lib/app';
 import { faNum } from '@/lib/locale/jalali';
+import { usePlan } from '../billing/usePlan';
 import { HomeShell, ShellMenuButton, ShellTools } from '../home/HomeShell';
 import { initials } from '../platform/AppHeader';
 import { api, type Me } from '../platform/api';
@@ -212,7 +214,8 @@ function JoinById() {
       });
       router.push(`/battle/${r.id}`);
     } catch (err) {
-      setError(err instanceof Error ? faMessage(err.message) : faMessage('Could not join'));
+      const message = err instanceof Error ? faMessage(err.message) : faMessage('Could not join');
+      if (!isPlanLimitMessage(message)) setError(message);
       setBusy(false);
     }
   };
@@ -264,20 +267,30 @@ function PlayTab({
   readonly onBrowse: () => void;
   readonly onMatched: (battleId: string) => void;
 }) {
+  const rankedOk = entitlements(usePlan()).ranked;
   const [queue, setQueue] = useState<QueueStatus>({ status: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
 
-  const join = useCallback(async (format: RankedFormat['id']) => {
-    setError(null);
-    try {
-      setQueue(await api<QueueStatus>('/api/battles/queue', { method: 'POST', body: { format } }));
-    } catch (e) {
-      setError(
-        e instanceof Error ? faMessage(e.message) : faMessage('Could not start matchmaking'),
-      );
-    }
-  }, []);
+  const join = useCallback(
+    async (format: RankedFormat['id']) => {
+      if (!rankedOk) {
+        openPlanPrompt(requiresPlan('نبرد رتبه‌ای', 'mid'));
+        return;
+      }
+      setError(null);
+      try {
+        setQueue(
+          await api<QueueStatus>('/api/battles/queue', { method: 'POST', body: { format } }),
+        );
+      } catch (e) {
+        const message =
+          e instanceof Error ? faMessage(e.message) : faMessage('Could not start matchmaking');
+        if (!isPlanLimitMessage(message)) setError(message);
+      }
+    },
+    [rankedOk],
+  );
 
   // Resume a search in progress (or start the one asked for by "Play again").
   useEffect(() => {
@@ -325,6 +338,15 @@ function PlayTab({
           title="رتبه‌ای"
           text="حریف‌یابی تو را با معامله‌گری هم‌سطح خودت جفت می‌کند. نتیجه این نبردها امتیاز الو را جابه‌جا می‌کند."
         />
+        {rankedOk ? null : (
+          <button
+            type="button"
+            onClick={() => openPlanPrompt(requiresPlan('نبرد رتبه‌ای', 'mid'))}
+            className="mt-3 inline-flex items-center gap-1.5 text-[13px] text-muted hover:text-fg"
+          >
+            {requiresPlan('نبرد رتبه‌ای', 'mid')}
+          </button>
+        )}
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           {RANKED_FORMATS.map((f) => (
             <RankedCard

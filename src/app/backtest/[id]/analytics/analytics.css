@@ -391,6 +391,126 @@
   font-size: 12.5px;
 }
 
+.an-lock {
+  position: relative;
+  min-height: 248px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.an-lock-chart {
+  max-height: 280px;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  filter: blur(16px);
+  opacity: 0.5;
+  transform: scale(1.08);
+}
+
+.an-lock-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px;
+  text-align: center;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(16, 21, 31, 0.78) 0%,
+    rgba(16, 21, 31, 0.42) 58%,
+    rgba(16, 21, 31, 0.12) 100%
+  );
+}
+
+.an-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--tc-text);
+}
+
+.an-lock-title {
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.an-lock-body {
+  max-width: 340px;
+  margin-top: 6px;
+  color: var(--tc-muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.an-lock-btn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  margin-top: 14px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--tc-accent);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.an-lock-btn:hover {
+  background: #4b86ff;
+}
+
+.an-metric-lock {
+  text-align: start;
+}
+
+.an-metric-lock-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--tc-accent);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.an-filter-lock {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.an-filter-lock .an-select {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.an-lock-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tc-accent) 16%, transparent);
+  color: var(--tc-accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .an-table {
   width: 100%;
   border-collapse: collapse;
@@ -448,7 +568,28 @@
 
 .home-shell .an-embed .an-go,
 .home-shell .an-embed .an-empty-btn,
+.home-shell .an-embed .an-lock-btn,
 .home-shell .an-embed .an-tab-on {
   background: var(--h-accent);
   color: #fff;
+}
+
+.home-shell .an-embed .an-lock-veil {
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--h-card) 88%, transparent) 0%,
+    color-mix(in srgb, var(--h-card) 48%, transparent) 62%,
+    transparent 100%
+  );
+}
+
+.home-shell .an-embed .an-lock-badge {
+  border-color: var(--h-line);
+  background: color-mix(in srgb, var(--h-card) 72%, transparent);
+  color: var(--h-text);
+}
+
+.home-shell .an-embed .an-lock-pill,
+.home-shell .an-embed .an-metric-lock-value {
+  color: var(--h-accent);
 }

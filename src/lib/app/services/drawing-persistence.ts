@@ -7,6 +7,7 @@ import {
   type ToolTemplate,
 } from '@/lib/drawings';
 import { readEnvelope, wrap, type VersionedStore } from '@/lib/storage';
+import { currentPlan, entitlements, isPlanInstalled, requiresPlan } from '../billing';
 import type { AppEventMap } from '../app-events';
 import { APP_CONFIG } from '../config';
 import { debounce } from '../debounce';
@@ -136,6 +137,8 @@ export class DrawingPersistence {
   }
 
   exportJson(): string {
+    if (isPlanInstalled() && !entitlements(currentPlan()).drawingTransfer)
+      return '';
     return JSON.stringify(
       wrap('drawings', { symbol: this.symbol, drawings: this.drawings.serializeAll() }),
       null,
@@ -145,6 +148,8 @@ export class DrawingPersistence {
 
   /** Adds the drawings of an exported file to the chart (new ids, undoable). */
   importJson(raw: unknown): DrawingImportResult {
+    if (isPlanInstalled() && !entitlements(currentPlan()).drawingTransfer)
+      return { ok: false, error: requiresPlan('ورود ترسیم', 'mid') };
     const res = readEnvelope(raw, 'drawings', validateFile);
     if (!res.ok) return { ok: false, error: res.error };
     const { drawings, skipped } = deserializeMany(

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { CrosshairMode } from '@/lib/core';
 import { drawingRegistry, type AnyToolDefinition } from '@/lib/drawings';
+import { selectDrawingTool } from '../../drawing/plan-tool';
 import { useApp } from '../../state/app-context';
 import { useFavoritesStore } from '../../state/favorites-store';
 import { useUiStore } from '../../state/ui-store';
@@ -64,7 +65,7 @@ export function MobileToolsSheet({ onClose }: { readonly onClose: () => void }) 
     .filter((d) => !q || d.label.toLowerCase().includes(q));
 
   const pick = (id: string) => {
-    app.drawings.setTool(tool === id ? null : id);
+    selectDrawingTool((next) => app.drawings.setTool(next), tool === id ? null : id);
     onClose();
   };
 
