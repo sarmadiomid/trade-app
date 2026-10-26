@@ -53,6 +53,6 @@ export async function sendOtpSms(phone: string, code: string): Promise<SmsResult
     console.error('[sms] Mediana is not configured (MEDIANA_API_KEY / MEDIANA_PATTERN_CODE)');
     return { ok: false };
   }
-  console.warn(`[otp] ${phone}: ${code}`);
+  // Plaintext OTP stays out of server logs. Local login without Mediana shows it in the UI only.
   return { ok: true, devCode: code };
 }
