@@ -1452,6 +1452,10 @@ function FinalCta({ signedIn }: { signedIn: boolean }) {
 
 /* ───────────────────────── footer ───────────────────────── */
 
+/** Official eNamad markup. Must stay byte-for-byte; `rel` hides the seal. */
+const ENAMAD_SEAL =
+  "<a referrerpolicy='origin' target='_blank' href='https://trustseal.enamad.ir/?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp'><img referrerpolicy='origin' src='https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp' alt='' style='cursor:pointer' code='5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp'></a>";
+
 function Footer({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="border-t border-white/[0.07]">
@@ -1498,14 +1502,19 @@ function Footer({ signedIn }: { signedIn: boolean }) {
       </div>
       <div className="border-t border-white/[0.06]">
         <div
-          className={`${WRAP} flex flex-col items-center justify-between gap-2 py-6 sm:flex-row`}
+          className={`${WRAP} flex flex-col items-center justify-between gap-4 py-6 sm:flex-row`}
         >
           <p className="text-xs text-[#6c7a9c]">
             © ۱۴۰۵ <BrandName />. تمامی حقوق محفوظ است.
           </p>
-          <p className="text-xs text-[#6c7a9c]">
+          <p className="text-center text-xs text-[#6c7a9c]">
             این پلتفرم برای آموزش و تمرین است و توصیه سرمایه‌گذاری نیست.
           </p>
+          <div
+            className="shrink-0"
+            aria-label="نماد اعتماد الکترونیکی"
+            dangerouslySetInnerHTML={{ __html: ENAMAD_SEAL }}
+          />
         </div>
       </div>
     </footer>
