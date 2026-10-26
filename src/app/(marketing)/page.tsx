@@ -3,7 +3,7 @@ import { Landing } from '@/components/marketing/Landing';
 import { currentUser } from '@/server/auth';
 
 export const metadata: Metadata = {
-  title: 'Candelo | بک‌تست و بازپخش بازار',
+  title: '34914740',
   description:
     'بازار را کندل‌به‌کندل بازپخش کنید، با حساب مجازی معامله کنید و استراتژی را قبل از ریسک واقعی بسنجید.',
 };
