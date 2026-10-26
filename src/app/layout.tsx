@@ -6,9 +6,6 @@ const POPPINS = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;7
 export const metadata: Metadata = {
   title: 'Candelo',
   description: 'بک‌تست و بازپخش بازار؛ معامله تمرینی بدون سرمایه واقعی',
-  other: {
-    enamad: '34914740',
-  },
 };
 
 export const viewport: Viewport = {
@@ -20,6 +17,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className="h-full">
+      <head>
+        <meta name="enamad" content="34914740" />
+      </head>
       <body className="h-full overflow-hidden antialiased">
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
