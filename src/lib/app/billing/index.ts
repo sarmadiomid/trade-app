@@ -37,4 +37,15 @@ export {
   isPlanInstalled,
   setPlanDeniedHandler,
 } from './active-plan';
-export { closePlanPrompt, openPlanPrompt, planPrompt, subscribePlanPrompt } from './plan-prompt';
+export {
+  closePlanPrompt,
+  openPlanPrompt,
+  openWelcomePlanPrompt,
+  planPrompt,
+  planPromptKind,
+  queueWelcomePlan,
+  subscribePlanPrompt,
+  welcomePlanQueued,
+  WELCOME_PLAN_MESSAGE,
+  type PlanPromptKind,
+} from './plan-prompt';

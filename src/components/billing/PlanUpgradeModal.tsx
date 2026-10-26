@@ -1,14 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import {
   closePlanPrompt,
   openPlanPrompt,
+  openWelcomePlanPrompt,
   planPrompt,
+  planPromptKind,
   setPlanDeniedHandler,
   subscribePlanPrompt,
+  welcomePlanQueued,
 } from '@/lib/app';
 import { usePlan } from './usePlan';
 import { Icon } from '../ui/Icon';
@@ -151,12 +154,17 @@ export function PlanSync() {
     setPlanDeniedHandler(openPlanPrompt);
     return () => setPlanDeniedHandler(null);
   }, []);
+  // Once per new account: the login screen queues this, and closing the modal clears it.
+  useLayoutEffect(() => {
+    if (welcomePlanQueued()) openWelcomePlanPrompt();
+  }, []);
   return <PlanUpgradeModal />;
 }
 
 /** Shown whenever an action hits a plan limit. The link opens plan selection in settings. */
 function PlanUpgradeModal() {
   const message = usePlanPrompt();
+  const welcome = message !== null && planPromptKind() === 'welcome';
   const ref = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<PlanId>(RECOMMENDED);
 
@@ -267,7 +275,7 @@ function PlanUpgradeModal() {
             </div>
             <div className="mt-4 sm:mt-0">
               <h2 id="plan-upgrade-title" className="text-[18px] font-bold tracking-tight">
-                این قابلیت برای طرح بالاتر است
+                {welcome ? 'طرح خود را انتخاب کنید' : 'این قابلیت برای طرح بالاتر است'}
               </h2>
               <p id="plan-upgrade-message" className="mt-2 text-[13.5px] leading-7 text-muted">
                 {message}
@@ -398,7 +406,7 @@ function PlanUpgradeModal() {
                 onClick={closePlanPrompt}
                 className="h-11 px-5 text-[14px] font-semibold text-muted transition hover:text-fg"
               >
-                بعداً
+                {welcome ? 'ادامه با طرح رایگان' : 'بعداً'}
               </button>
               <Link
                 href={`${PLAN_SETTINGS_HREF}&plan=${selectedPlan.id}`}

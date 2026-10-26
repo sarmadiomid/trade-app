@@ -49,7 +49,10 @@ export {
   limitMessage,
   normalizePlan,
   openPlanPrompt,
+  openWelcomePlanPrompt,
   planPrompt,
+  planPromptKind,
+  queueWelcomePlan,
   requiresPlan,
   selectableHistoryStart,
   sessionSettingsDenial,
@@ -58,5 +61,6 @@ export {
   symbolAllowed,
   symbolDenial,
   symbolMinPlan,
+  welcomePlanQueued,
   type PlanId,
 } from './billing';

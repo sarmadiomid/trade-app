@@ -9,6 +9,7 @@ import {
   normalizeIranianMobile,
   toAsciiDigits,
 } from '@/auth/phone';
+import { queueWelcomePlan } from '@/lib/app';
 import { BRAND_EN, BrandName, Logo } from './Logo';
 
 type Step = 'phone' | 'code';
@@ -166,8 +167,12 @@ export function LoginView({ next }: { next: string }) {
     lastSubmitted.current = value;
     setBusy(true);
     setError(null);
-    const { ok, data } = await post<{ error?: string }>('/api/auth/otp/verify', { phone, code: value });
+    const { ok, data } = await post<{ error?: string; isNew?: boolean }>('/api/auth/otp/verify', {
+      phone,
+      code: value,
+    });
     if (ok) {
+      if (data.isNew) queueWelcomePlan();
       window.location.assign(next);
       return;
     }

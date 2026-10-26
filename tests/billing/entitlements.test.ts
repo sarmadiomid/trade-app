@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TIMEFRAMES } from '@/lib/core';
 import {
   PLAY_BATCH,
@@ -22,7 +22,15 @@ import {
   type PlanId,
   type SessionGate,
 } from '@/lib/app/billing';
-import { closePlanPrompt, openPlanPrompt, planPrompt } from '@/lib/app/billing/plan-prompt';
+import {
+  closePlanPrompt,
+  openPlanPrompt,
+  openWelcomePlanPrompt,
+  planPrompt,
+  planPromptKind,
+  queueWelcomePlan,
+  welcomePlanQueued,
+} from '@/lib/app/billing/plan-prompt';
 
 const PLANS: PlanId[] = ['beginner', 'mid', 'pro'];
 
@@ -271,7 +279,35 @@ describe('plan entitlements', () => {
     closePlanPrompt();
     openPlanPrompt(requiresPlan('شاخص‌ها', 'pro'));
     expect(planPrompt()).toBe(requiresPlan('شاخص‌ها', 'pro'));
+    expect(planPromptKind()).toBe('limit');
     closePlanPrompt();
     expect(planPrompt()).toBeNull();
+    expect(planPromptKind()).toBeNull();
+  });
+
+  it('queues the plans modal once for a new account and drops it after close', () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value);
+      },
+      removeItem: (key: string) => {
+        store.delete(key);
+      },
+    });
+    closePlanPrompt();
+    queueWelcomePlan();
+    expect(welcomePlanQueued()).toBe(true);
+    openWelcomePlanPrompt();
+    expect(planPromptKind()).toBe('welcome');
+    expect(welcomePlanQueued()).toBe(true);
+    closePlanPrompt();
+    expect(planPrompt()).toBeNull();
+    expect(welcomePlanQueued()).toBe(false);
+    queueWelcomePlan();
+    closePlanPrompt();
+    expect(welcomePlanQueued()).toBe(true);
+    vi.unstubAllGlobals();
   });
 });
