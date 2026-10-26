@@ -167,11 +167,12 @@ function PlanUpgradeModal() {
   const welcome = message !== null && planPromptKind() === 'welcome';
   const ref = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<PlanId>(RECOMMENDED);
-
+  const [selectionFor, setSelectionFor] = useState<string | null>(message);
   // Every time the modal opens, start from the recommended plan.
-  useEffect(() => {
+  if (message !== selectionFor) {
+    setSelectionFor(message);
     if (message) setSelected(RECOMMENDED);
-  }, [message]);
+  }
 
   // Lock page scroll while open, and give focus back to whatever opened the modal.
   useEffect(() => {
