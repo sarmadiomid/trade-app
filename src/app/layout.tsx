@@ -6,6 +6,9 @@ const POPPINS = 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;7
 export const metadata: Metadata = {
   title: 'Candelo',
   description: 'بک‌تست و بازپخش بازار؛ معامله تمرینی بدون سرمایه واقعی',
+  other: {
+    enamad: '34914740',
+  },
 };
 
 export const viewport: Viewport = {
