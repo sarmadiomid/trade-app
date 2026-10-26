@@ -1,10 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { PLAN_LABEL, normalizePlan, type PlanId } from '@/lib/app';
 import { faNum } from '@/lib/locale/jalali';
 import { applyPlan, refreshPlan, usePlan } from '../billing/usePlan';
-import { SUBSCRIPTION_PLANS, subscriptionAmount, type BillingCycle } from '../billing/plans';
+import {
+  SUBSCRIPTION_PLANS,
+  checkoutPath,
+  subscriptionAmount,
+  type BillingCycle,
+} from '../billing/plans';
 import { Icon } from '../ui/Icon';
 
 const PLAN_RANK: Readonly<Record<PlanId, number>> = { beginner: 0, mid: 1, pro: 2 };
@@ -305,24 +311,20 @@ export function SubscriptionPane() {
               ))}
             </ul>
             <div className="relative mt-auto pt-6">
-              <button
-                type="button"
-                disabled={plan.id === activePlan || busy !== null}
-                onClick={() => void choose(plan.id)}
-                className="h-11 w-full rounded-full border border-[var(--h-line)] text-[14px] font-medium transition hover:bg-[var(--h-chip)] disabled:cursor-default disabled:opacity-60"
-              >
-                {plan.id === activePlan
-                  ? 'طرح فعلی'
-                  : PLAN_RANK[plan.id] > PLAN_RANK[activePlan]
-                    ? 'ارتقا'
-                    : 'تغییر طرح'}
-              </button>
+              <PlanAction
+                planId={plan.id}
+                activePlan={activePlan}
+                cycle={cycle}
+                busy={busy !== null}
+                onChoose={() => void choose(plan.id)}
+              />
             </div>
           </article>
         ))}
       </div>
       <p className="mt-4 text-[13px] leading-6 text-[var(--h-muted)]">
-        پرداخت هنوز در کندلو فعال نیست. با انتخاب طرح، دسترسی همان لحظه عوض می‌شود.
+        طرح پولی به صفحه تسویه حساب می‌رود و از آنجا وارد درگاه می‌شود. طرح رایگان همان لحظه فعال
+        می‌شود.
       </p>
       {planError ? <p className="mt-2 text-[13px] text-[#ff6b81]">{planError}</p> : null}
 
@@ -353,6 +355,49 @@ export function SubscriptionPane() {
         })}
       </div>
     </div>
+  );
+}
+
+const ACTION =
+  'inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--h-line)] text-[14px] font-medium transition hover:bg-[var(--h-chip)] disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent';
+
+function PlanAction({
+  planId,
+  activePlan,
+  cycle,
+  busy,
+  onChoose,
+}: {
+  readonly planId: PlanId;
+  readonly activePlan: PlanId;
+  readonly cycle: BillingCycle;
+  readonly busy: boolean;
+  readonly onChoose: () => void;
+}) {
+  const label =
+    planId === activePlan
+      ? 'طرح فعلی'
+      : PLAN_RANK[planId] > PLAN_RANK[activePlan]
+        ? 'ارتقا'
+        : 'تغییر طرح';
+
+  if (planId !== 'beginner' && planId !== activePlan) {
+    return (
+      <Link href={checkoutPath(planId, cycle)} className={ACTION}>
+        {label}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={planId === activePlan || busy}
+      onClick={onChoose}
+      className={ACTION}
+    >
+      {label}
+    </button>
   );
 }
 

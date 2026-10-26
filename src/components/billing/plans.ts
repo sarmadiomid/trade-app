@@ -46,7 +46,36 @@ export const SUBSCRIPTION_PLANS = [
   },
 ] as const;
 
-export function subscriptionAmount(planId: 'mid' | 'pro', cycle: BillingCycle): number {
-  const base = planId === 'mid' ? MID_TOMAN : PRO_TOMAN;
+export const SUBSCRIPTION_SETTINGS_HREF = '/home/settings?tab=subscription';
+
+export type PaidPlanId = 'mid' | 'pro';
+
+export function isPaidPlan(id: string): id is PaidPlanId {
+  return id === 'mid' || id === 'pro';
+}
+
+export function billingCycleOf(value: string | undefined): BillingCycle {
+  return value === 'year' ? 'year' : 'month';
+}
+
+/** Monthly price before the yearly multiplier. */
+export function monthlyAmount(planId: PaidPlanId): number {
+  return planId === 'mid' ? MID_TOMAN : PRO_TOMAN;
+}
+
+export function subscriptionAmount(planId: PaidPlanId, cycle: BillingCycle): number {
+  const base = monthlyAmount(planId);
   return cycle === 'year' ? base * 12 : base;
+}
+
+export function checkoutPath(planId: PaidPlanId, cycle: BillingCycle): string {
+  return `/home/checkout?plan=${planId}&cycle=${cycle}`;
+}
+
+/**
+ * Where checkout sends the buyer. The bank gateway behind this path is not built yet;
+ * the page only marks the handoff.
+ */
+export function paymentGatewayPath(planId: PaidPlanId, cycle: BillingCycle): string {
+  return `/home/checkout/pay?plan=${planId}&cycle=${cycle}`;
 }

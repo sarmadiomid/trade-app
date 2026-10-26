@@ -3,7 +3,12 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { faNum } from '@/lib/locale/jalali';
-import { SUBSCRIPTION_PLANS, subscriptionAmount, type BillingCycle } from '../billing/plans';
+import {
+  SUBSCRIPTION_PLANS,
+  checkoutPath,
+  subscriptionAmount,
+  type BillingCycle,
+} from '../billing/plans';
 
 const BTN_PRIMARY =
   'inline-flex items-center justify-center gap-2 rounded-xl bg-[#2f7bff] font-bold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.14)_inset,0_12px_32px_-12px_rgba(47,123,255,0.9)] transition hover:bg-[#4388ff]';
@@ -28,9 +33,18 @@ function Check() {
 }
 
 /** Plan cards shown in account settings, restyled for the landing. */
+function buyHref(
+  planId: 'beginner' | 'mid' | 'pro',
+  cycle: BillingCycle,
+  signedIn: boolean,
+): string {
+  if (planId === 'beginner') return signedIn ? '/home' : '/login';
+  const next = checkoutPath(planId, cycle);
+  return signedIn ? next : `/login?next=${encodeURIComponent(next)}`;
+}
+
 export function LandingPricing({ signedIn }: { signedIn: boolean }) {
   const [cycle, setCycle] = useState<BillingCycle>('month');
-  const href = signedIn ? '/home' : '/login';
 
   return (
     <div className="mt-12">
@@ -113,13 +127,15 @@ export function LandingPricing({ signedIn }: { signedIn: boolean }) {
               </ul>
               <div className="relative mt-auto pt-8">
                 <Link
-                  href={href}
+                  href={buyHref(plan.id, cycle, signedIn)}
                   className={`${featured ? BTN_PRIMARY : BTN_GHOST} h-12 w-full text-[14.5px]`}
                 >
-                  {signedIn
-                    ? 'ورود به داشبورد'
-                    : plan.id === 'beginner'
-                      ? 'شروع رایگان'
+                  {plan.id === 'beginner'
+                    ? signedIn
+                      ? 'ورود به داشبورد'
+                      : 'شروع رایگان'
+                    : signedIn
+                      ? 'خرید طرح'
                       : 'انتخاب طرح'}
                 </Link>
               </div>

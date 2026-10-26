@@ -13,11 +13,12 @@ import {
   subscribePlanPrompt,
   welcomePlanQueued,
 } from '@/lib/app';
+import { SUBSCRIPTION_SETTINGS_HREF, checkoutPath } from './plans';
 import { usePlan } from './usePlan';
 import { Icon } from '../ui/Icon';
 
 /** Plan cards on Settings → Subscription. */
-export const PLAN_SETTINGS_HREF = '/home/settings?tab=subscription';
+export const PLAN_SETTINGS_HREF = SUBSCRIPTION_SETTINGS_HREF;
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
@@ -399,7 +400,7 @@ function PlanUpgradeModal() {
           {/* actions */}
           <div className="mt-5 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-center text-[12px] leading-6 text-muted sm:max-w-[320px] sm:text-start">
-              پرداخت و مدیریت اشتراک از بخش تنظیمات انجام می‌شود.
+              جزئیات مبلغ و دکمه پرداخت در صفحه تسویه حساب است.
             </p>
             <div className="flex flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center">
               <button
@@ -410,12 +411,12 @@ function PlanUpgradeModal() {
                 {welcome ? 'ادامه با طرح رایگان' : 'بعداً'}
               </button>
               <Link
-                href={`${PLAN_SETTINGS_HREF}&plan=${selectedPlan.id}`}
+                href={checkoutPath(selectedPlan.id === 'pro' ? 'pro' : 'mid', 'month')}
                 onClick={closePlanPrompt}
                 data-testid="plan-upgrade-cta"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-accent px-7 text-[14px] font-bold text-accent-fg shadow-[0_10px_30px_-8px] shadow-accent/60 transition hover:brightness-110 active:scale-[0.98]"
               >
-                ارتقا به طرح {selectedPlan.name}
+                ادامه خرید طرح {selectedPlan.name}
               </Link>
             </div>
           </div>
