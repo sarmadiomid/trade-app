@@ -69,13 +69,12 @@ export const MIGRATIONS: readonly Migration[] = [
         db.collection('position_events').createIndex({ userId: 1, scope: 1, scopeId: 1 }),
         db.collection('backtest_shots').createIndex({ userId: 1, sessionId: 1 }),
       ]);
-      const sessions = db.collection<{ _id: string; createdAt: Date; expiresAt: Date }>(
-        'sessions',
-      );
+      const sessions = db.collection<{ _id: string; createdAt: Date; expiresAt: Date }>('sessions');
       const cursor = sessions.find({});
       for await (const s of cursor) {
         const cap = new Date(new Date(s.createdAt).getTime() + ttl);
-        if (s.expiresAt > cap) await sessions.updateOne({ _id: s._id }, { $set: { expiresAt: cap } });
+        if (s.expiresAt > cap)
+          await sessions.updateOne({ _id: s._id }, { $set: { expiresAt: cap } });
       }
     },
   },
@@ -87,9 +86,10 @@ export const MIGRATIONS: readonly Migration[] = [
         _id: unknown;
         plan?: string;
       }>('users');
-      const sessions = db.collection<{ userId: unknown; session?: { settings?: { strategyTag?: string } } }>(
-        'backtest_sessions',
-      );
+      const sessions = db.collection<{
+        userId: unknown;
+        session?: { settings?: { strategyTag?: string } };
+      }>('backtest_sessions');
       const battles = db.collection('battles');
       const cursor = users.find({}, { projection: { plan: 1 } });
       for await (const user of cursor) {
@@ -109,6 +109,13 @@ export const MIGRATIONS: readonly Migration[] = [
           { $set: { plan, usageSessions, usageBattles, strategyTags } },
         );
       }
+    },
+  },
+  {
+    id: '006-discount-codes',
+    description: 'Discount codes and the redemptions that count toward their limits',
+    async up(db) {
+      await db.collection('discount_redemptions').createIndex({ code: 1, userId: 1 });
     },
   },
 ];

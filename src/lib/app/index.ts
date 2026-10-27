@@ -41,6 +41,7 @@ export {
   drawingToolAllowed,
   drawingToolDenial,
   closePlanPrompt,
+  discountRejectionMessage,
   entitlements,
   historyDenial,
   installPlan,
@@ -62,5 +63,7 @@ export {
   symbolDenial,
   symbolMinPlan,
   welcomePlanQueued,
+  type DiscountKind,
+  type DiscountQuote,
   type PlanId,
 } from './billing';

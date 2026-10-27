@@ -182,6 +182,41 @@ export interface BacktestShotDoc {
   updatedAt: Date;
 }
 
+/** A checkout discount. `_id` is the normalized code. */
+export interface DiscountCodeDoc {
+  _id: string;
+  kind: 'percent' | 'fixed';
+  /** Percent (1–100) or toman off. */
+  value: number;
+  /** Empty means every paid plan. */
+  plans?: Array<'mid' | 'pro'>;
+  /** Empty means every billing cycle. */
+  cycles?: Array<'month' | 'year'>;
+  active?: boolean;
+  expiresAt?: Date | null;
+  /** Null means unlimited. */
+  maxUses?: number | null;
+  used?: number;
+  /** Null means a buyer can redeem it any number of times. */
+  perUser?: number | null;
+  label?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+/** One successful payment that consumed a discount code. */
+export interface DiscountRedemptionDoc {
+  _id: string;
+  code: string;
+  userId: ObjectId;
+  planId: 'mid' | 'pro';
+  cycle: 'month' | 'year';
+  subtotal: number;
+  discount: number;
+  total: number;
+  createdAt: Date;
+}
+
 /** A trader searching for a ranked match. */
 export interface BattleQueueDoc {
   /** The user's id. */
@@ -208,6 +243,8 @@ export interface Collections {
   backtestSessions: Collection<BacktestSessionDoc>;
   positionEvents: Collection<PositionEventDoc>;
   backtestShots: Collection<BacktestShotDoc>;
+  discountCodes: Collection<DiscountCodeDoc>;
+  discountRedemptions: Collection<DiscountRedemptionDoc>;
 }
 
 const globalForMongo = globalThis as unknown as {
@@ -230,6 +267,8 @@ async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
     backtestSessions: db.collection<BacktestSessionDoc>('backtest_sessions'),
     positionEvents: db.collection<PositionEventDoc>('position_events'),
     backtestShots: db.collection<BacktestShotDoc>('backtest_shots'),
+    discountCodes: db.collection<DiscountCodeDoc>('discount_codes'),
+    discountRedemptions: db.collection<DiscountRedemptionDoc>('discount_redemptions'),
   };
 }
 

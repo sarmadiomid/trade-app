@@ -68,14 +68,25 @@ export function subscriptionAmount(planId: PaidPlanId, cycle: BillingCycle): num
   return cycle === 'year' ? base * 12 : base;
 }
 
-export function checkoutPath(planId: PaidPlanId, cycle: BillingCycle): string {
-  return `/home/checkout?plan=${planId}&cycle=${cycle}`;
+/** Code carried in the checkout URL. Empty when the query has none. */
+export function discountCodeQuery(value: string | undefined): string {
+  return (value ?? '').trim().slice(0, 32);
+}
+
+export function checkoutPath(planId: PaidPlanId, cycle: BillingCycle, code?: string): string {
+  const params = new URLSearchParams({ plan: planId, cycle });
+  const clean = discountCodeQuery(code);
+  if (clean) params.set('code', clean);
+  return `/home/checkout?${params.toString()}`;
 }
 
 /**
  * Where checkout sends the buyer. The bank gateway behind this path is not built yet;
  * the page only marks the handoff.
  */
-export function paymentGatewayPath(planId: PaidPlanId, cycle: BillingCycle): string {
-  return `/home/checkout/pay?plan=${planId}&cycle=${cycle}`;
+export function paymentGatewayPath(planId: PaidPlanId, cycle: BillingCycle, code?: string): string {
+  const params = new URLSearchParams({ plan: planId, cycle });
+  const clean = discountCodeQuery(code);
+  if (clean) params.set('code', clean);
+  return `/home/checkout/pay?${params.toString()}`;
 }

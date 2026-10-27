@@ -29,6 +29,7 @@ export {
   type PlanId,
   type SessionGate,
 } from './entitlements';
+export { discountRejectionMessage, type DiscountKind, type DiscountQuote } from './discount';
 export {
   currentPlan,
   denyPlan,

@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { formatIranianMobile } from '@/auth/phone';
+import type { DiscountQuote } from '@/lib/app';
 import { faNum } from '@/lib/locale/jalali';
 import { HomeShell, ShellMenuButton, ShellTools } from '../home/HomeShell';
 import type { Me } from '../platform/api';
@@ -29,10 +30,16 @@ export function CheckoutView({
   user,
   planId,
   cycle: cycleFromUrl,
+  initialCode,
+  initialQuote,
+  initialError,
 }: {
   readonly user: Me;
   readonly planId: PaidPlanId;
   readonly cycle: BillingCycle;
+  readonly initialCode: string;
+  readonly initialQuote: DiscountQuote | null;
+  readonly initialError: string | null;
 }) {
   const router = useRouter();
   const activePlan = usePlan();
@@ -44,16 +51,63 @@ export function CheckoutView({
     setCycle(cycleFromUrl);
   }
 
+  const serverKey = `${planId}|${cycleFromUrl}|${initialCode}|${initialQuote?.code ?? ''}|${initialQuote?.total ?? ''}|${initialError ?? ''}`;
+  const [seenKey, setSeenKey] = useState(serverKey);
+  const [seenCode, setSeenCode] = useState(initialCode);
+  const [draft, setDraft] = useState(initialCode);
+  const [applied, setApplied] = useState(initialQuote);
+  const [discountError, setDiscountError] = useState(initialError);
+  const [discountPending, setDiscountPending] = useState(false);
+  if (serverKey !== seenKey) {
+    setSeenKey(serverKey);
+    setApplied(initialQuote);
+    setDiscountError(initialError);
+    setDiscountPending(false);
+    if (initialCode !== seenCode) {
+      setSeenCode(initialCode);
+      setDraft(initialCode);
+    }
+  }
+
   const plan = SUBSCRIPTION_PLANS.find((item) => item.id === planId) ?? SUBSCRIPTION_PLANS[1]!;
   const amount = subscriptionAmount(planId, cycle);
   const monthly = monthlyAmount(planId);
   const alreadyOnPlan = planReady && activePlan === planId;
-  const payHref = paymentGatewayPath(planId, cycle);
+  const quote = alreadyOnPlan || cycle !== cycleFromUrl ? null : applied;
+  const payable = quote?.total ?? amount;
+  const payHref = paymentGatewayPath(planId, cycle, quote?.code);
+  const holdPay = discountPending && !alreadyOnPlan;
 
   const pickCycle = (next: BillingCycle) => {
     if (next === cycle) return;
     setCycle(next);
-    router.replace(checkoutPath(planId, next), { scroll: false });
+    if (initialCode) setDiscountPending(true);
+    router.replace(checkoutPath(planId, next, initialCode || undefined), { scroll: false });
+  };
+
+  const applyDiscount = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const next = draft.trim();
+    if (!next) {
+      setDiscountError('کد تخفیف را وارد کنید');
+      return;
+    }
+    const href = checkoutPath(planId, cycle, next);
+    if (href === checkoutPath(planId, cycle, initialCode)) {
+      router.refresh();
+      return;
+    }
+    setDiscountError(null);
+    setDiscountPending(true);
+    router.replace(href, { scroll: false });
+  };
+
+  const clearDiscount = () => {
+    setDraft('');
+    setApplied(null);
+    setDiscountError(null);
+    setDiscountPending(false);
+    if (initialCode) router.replace(checkoutPath(planId, cycle), { scroll: false });
   };
 
   return (
@@ -149,14 +203,23 @@ export function CheckoutView({
 
                   <div className="relative mt-5 flex items-end gap-2">
                     <span className="text-[34px] font-bold leading-none tracking-tight tabular-nums sm:text-[40px]">
-                      {faNum(amount)}
+                      {faNum(payable)}
                     </span>
                     <span className="mb-1 text-[13px] text-[var(--h-muted)]">تومان</span>
                   </div>
                   <p className="relative mt-2 text-[13px] text-[var(--h-muted)]">
-                    {cycle === 'month'
-                      ? 'برای یک ماه'
-                      : `برای ۱۲ ماه، معادل ${faNum(monthly)} تومان در هر ماه`}
+                    {quote ? (
+                      <>
+                        <span className="tabular-nums line-through">{faNum(amount)}</span>
+                        <span className="ms-2 text-[var(--h-accent)]">
+                          {discountCaption(quote)}
+                        </span>
+                      </>
+                    ) : cycle === 'month' ? (
+                      'برای یک ماه'
+                    ) : (
+                      `برای ۱۲ ماه، معادل ${faNum(monthly)} تومان در هر ماه`
+                    )}
                   </p>
 
                   <div className="relative my-5 h-px bg-[var(--h-line)]" />
@@ -216,13 +279,36 @@ export function CheckoutView({
                     {cycle === 'year' ? (
                       <Row k="مبلغ هر ماه" v={`${faNum(monthly)} تومان`} />
                     ) : null}
+                    {quote ? <Row k="مبلغ سفارش" v={`${faNum(quote.subtotal)} تومان`} /> : null}
+                    {quote ? (
+                      <Row k="تخفیف" v={`−${faNum(quote.discount)} تومان`} tone="accent" />
+                    ) : null}
                   </dl>
+
+                  {alreadyOnPlan ? null : (
+                    <DiscountCodeBox
+                      draft={draft}
+                      pending={discountPending}
+                      error={discountError}
+                      quote={quote}
+                      onDraft={(value) => {
+                        setDraft(value);
+                        if (discountError) setDiscountError(null);
+                      }}
+                      onApply={applyDiscount}
+                      onClear={clearDiscount}
+                    />
+                  )}
+
                   <div className="my-4 h-px bg-[var(--h-line)]" />
                   <div className="flex items-end justify-between gap-3">
                     <span className="text-[13px] text-[var(--h-muted)]">قابل پرداخت</span>
                     <p className="text-end" aria-live="polite">
-                      <span className="text-[22px] font-bold leading-none tabular-nums">
-                        {faNum(amount)}
+                      <span
+                        data-testid="checkout-payable"
+                        className="text-[22px] font-bold leading-none tabular-nums"
+                      >
+                        {faNum(payable)}
                       </span>
                       <span className="ms-1.5 text-[12px] text-[var(--h-muted)]">تومان</span>
                     </p>
@@ -241,6 +327,13 @@ export function CheckoutView({
                     >
                       بازگشت به طرح‌ها
                     </Link>
+                  ) : holdPay ? (
+                    <span
+                      aria-disabled="true"
+                      className="mt-4 inline-flex h-12 w-full cursor-default items-center justify-center rounded-full bg-[var(--h-accent)] text-[14.5px] font-bold text-white opacity-60"
+                    >
+                      در حال بررسی کد
+                    </span>
                   ) : (
                     <Link
                       href={payHref}
@@ -277,12 +370,14 @@ export function PaymentGatewayPending({
   user,
   planId,
   cycle,
+  quote,
 }: {
   readonly user: Me;
   readonly planId: PaidPlanId | null;
   readonly cycle: BillingCycle;
+  readonly quote: DiscountQuote | null;
 }) {
-  const back = planId ? checkoutPath(planId, cycle) : SUBSCRIPTION_SETTINGS_HREF;
+  const back = planId ? checkoutPath(planId, cycle, quote?.code) : SUBSCRIPTION_SETTINGS_HREF;
   return (
     <HomeShell user={user} notices={0} noticeMenu={null}>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -306,6 +401,19 @@ export function PaymentGatewayPending({
             <h2 className="mt-4 text-[24px] font-extrabold leading-tight sm:text-[28px]">
               درگاه پرداخت هنوز وصل نشده
             </h2>
+            {quote ? (
+              <p className="mt-3 text-[15px] leading-8 text-[var(--h-muted)]">
+                کد{' '}
+                <span dir="ltr" className="font-semibold text-[var(--h-text)]">
+                  {quote.code}
+                </span>{' '}
+                اعمال شده و مبلغ قابل پرداخت{' '}
+                <span className="font-semibold tabular-nums text-[var(--h-text)]">
+                  {faNum(quote.total)}
+                </span>{' '}
+                تومان است.
+              </p>
+            ) : null}
             <p className="mt-3 text-[15px] leading-8 text-[var(--h-muted)]">
               اینجا همان جایی است که بعد از تسویه حساب به بانک می‌روید. اتصال هنوز برقرار نیست و
               مبلغی از حساب شما کم نشده.
@@ -324,11 +432,119 @@ export function PaymentGatewayPending({
   );
 }
 
-function Row({ k, v }: { readonly k: string; readonly v: string }) {
+function Row({
+  k,
+  v,
+  tone = 'default',
+}: {
+  readonly k: string;
+  readonly v: string;
+  readonly tone?: 'default' | 'accent';
+}) {
+  const accent = tone === 'accent';
   return (
     <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-[var(--h-muted)]">{k}</dt>
-      <dd className="text-end font-medium tabular-nums">{v}</dd>
+      <dt className={accent ? 'text-[var(--h-accent)]' : 'text-[var(--h-muted)]'}>{k}</dt>
+      <dd className={`text-end font-medium tabular-nums ${accent ? 'text-[var(--h-accent)]' : ''}`}>
+        {v}
+      </dd>
     </div>
   );
+}
+
+function DiscountCodeBox({
+  draft,
+  pending,
+  error,
+  quote,
+  onDraft,
+  onApply,
+  onClear,
+}: {
+  readonly draft: string;
+  readonly pending: boolean;
+  readonly error: string | null;
+  readonly quote: DiscountQuote | null;
+  readonly onDraft: (value: string) => void;
+  readonly onApply: (event: FormEvent<HTMLFormElement>) => void;
+  readonly onClear: () => void;
+}) {
+  if (quote) {
+    return (
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[color-mix(in_srgb,var(--h-accent)_35%,transparent)] bg-[color-mix(in_srgb,var(--h-accent)_10%,transparent)] px-3.5 py-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Icon name="tag" size={16} className="shrink-0 text-[var(--h-accent)]" />
+          <div className="min-w-0">
+            <p dir="ltr" className="truncate text-right text-[14px] font-semibold">
+              {quote.code}
+            </p>
+            <p className="text-[12px] text-[var(--h-accent)]">{discountCaption(quote)}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClear}
+          className="shrink-0 rounded-full px-2.5 py-1 text-[12.5px] font-medium text-[var(--h-muted)] transition hover:bg-[var(--h-chip)] hover:text-[var(--h-text)]"
+        >
+          حذف
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onApply} className="mt-4" aria-busy={pending}>
+      <label htmlFor="discount-code" className="text-[13px] font-medium">
+        کد تخفیف
+      </label>
+      <div className="mt-2 flex gap-2">
+        <input
+          id="discount-code"
+          data-testid="checkout-discount"
+          value={draft}
+          maxLength={32}
+          autoComplete="off"
+          autoCapitalize="characters"
+          autoCorrect="off"
+          spellCheck={false}
+          dir="ltr"
+          placeholder="OFF20"
+          disabled={pending}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'discount-code-error' : undefined}
+          onChange={(event) => onDraft(event.target.value)}
+          className="h-11 min-w-0 flex-1 rounded-xl border border-[var(--h-line)] bg-[var(--h-field)] px-3.5 text-left text-[14px] text-[var(--h-text)] outline-none transition placeholder:text-[var(--h-muted)] focus:border-[var(--h-accent)] disabled:opacity-60"
+        />
+        <button
+          type="submit"
+          data-testid="checkout-discount-apply"
+          disabled={pending || draft.trim().length === 0}
+          className="h-11 shrink-0 rounded-full border border-[var(--h-line)] bg-[var(--h-chip)] px-4 text-[13px] font-semibold transition hover:bg-[var(--h-soft)] disabled:cursor-default disabled:opacity-50"
+        >
+          {pending ? 'بررسی' : 'اعمال'}
+        </button>
+      </div>
+      {pending ? (
+        <p className="mt-2 text-[12.5px] leading-5 text-[var(--h-muted)]" aria-live="polite">
+          در حال بررسی کد…
+        </p>
+      ) : null}
+      {error ? (
+        <p
+          id="discount-code-error"
+          role="alert"
+          className="mt-2 text-[12.5px] leading-5 text-[var(--tc-down)]"
+        >
+          {error}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+function discountCaption(quote: DiscountQuote): string {
+  if (quote.label) return quote.label;
+  return quote.kind === 'percent'
+    ? `${faNum(quote.value)}٪ تخفیف`
+    : `${faNum(quote.value)} تومان تخفیف`;
 }
