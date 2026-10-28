@@ -112,9 +112,22 @@ const METAL = /^(XAU|XAG|XPT|XPD)/;
 const CRYPTO = /(USDT|USDC|BUSD)$/;
 const INDEX = /^(NAS|US|SPX|DJI|GER|UK|JP|FRA|HK|AUS|DAX|NDX)\d+/;
 
+/** Classes assigned by the admin catalogue. Replaced as a whole when that catalogue loads. */
+const assignedClass = new Map<string, AssetClass>();
+
+export function setAssetClasses(
+  entries: readonly { readonly symbol: string; readonly assetClass: AssetClass }[],
+): void {
+  assignedClass.clear();
+  for (const entry of entries)
+    assignedClass.set(entry.symbol.trim().toUpperCase(), entry.assetClass);
+}
+
 /** Classify a symbol so the picker can filter metals, forex, indices, and crypto. */
 export function assetClassOf(symbol: string): AssetClass {
   const s = symbol.trim().toUpperCase();
+  const assigned = assignedClass.get(s);
+  if (assigned) return assigned;
   if (METAL.test(s)) return 'metals';
   if (CRYPTO.test(s)) return 'crypto';
   if (INDEX.test(s)) return 'indices';

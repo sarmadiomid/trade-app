@@ -147,6 +147,31 @@
   }
 }
 
+.support-status-open {
+  color: #e8b931;
+  background: color-mix(in srgb, #e8b931 16%, transparent);
+}
+
+.home-shell[data-scheme='light'] .support-status-open {
+  color: #8a5a00;
+  background: color-mix(in srgb, #c8960a 18%, transparent);
+}
+
+.support-status-answered {
+  color: #3dcea0;
+  background: color-mix(in srgb, #3dcea0 14%, transparent);
+}
+
+.home-shell[data-scheme='light'] .support-status-answered {
+  color: #0d7a52;
+  background: color-mix(in srgb, #0f9f6e 14%, transparent);
+}
+
+.support-status-closed {
+  color: var(--h-muted);
+  background: var(--h-chip);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nav-battle-ring::before {
     animation: none;

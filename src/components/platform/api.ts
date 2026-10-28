@@ -15,7 +15,7 @@ export class ApiError extends Error {
 /** Same-origin JSON request; non-2xx answers throw ApiError with the server's message. */
 export async function api<T>(
   url: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; form?: FormData } = {},
 ): Promise<T> {
   let res: Response;
   try {
@@ -23,9 +23,11 @@ export async function api<T>(
       method: init.method ?? 'GET',
       credentials: 'same-origin',
       cache: 'no-store',
-      ...(init.body !== undefined
-        ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(init.body) }
-        : {}),
+      ...(init.form
+        ? { body: init.form }
+        : init.body !== undefined
+          ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(init.body) }
+          : {}),
     });
   } catch {
     throw new ApiError('Could not reach the server', 0);

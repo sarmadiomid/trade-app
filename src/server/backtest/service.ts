@@ -7,8 +7,9 @@ import {
   limitMessage,
   sessionSettingsDenial,
 } from '@/lib/app/billing/entitlements';
-import { DAY_MS, type Candle } from '@/lib/core';
+import { DAY_MS, type Candle, type InstrumentSpec } from '@/lib/core';
 import { instrumentSpec } from '@/lib/data';
+import { lookupMarket, readMarketBars, readMarketMinutes, SymbolError } from '../symbols';
 import {
   ExecutionEngine,
   accountConfig,
@@ -66,13 +67,54 @@ function nextIdAfter(actions: readonly LoggedAction[]): number {
   return max + 1;
 }
 
-function specOf(symbol: string) {
+async function specOf(symbol: string): Promise<InstrumentSpec> {
+  const found = await lookupMarket(symbol);
+  if (found.kind === 'custom') return found.spec;
   const spec = instrumentSpec(symbol);
   if (!spec) throw new BacktestError('نماد نامعتبر است');
   return spec;
 }
 
-function initialBid(symbol: string, settings: SessionSettings): number {
+async function rangeOf(symbol: string): Promise<{ start: number; end: number }> {
+  const found = await lookupMarket(symbol);
+  if (found.kind === 'custom') {
+    if (!found.range || found.timeframe !== '1m') {
+      throw new BacktestError('برای تمرین این نماد به کندل یک‌دقیقه‌ای نیاز است');
+    }
+    return found.range;
+  }
+  return practiceMarket().dataRange(symbol);
+}
+
+async function minutesOf(symbol: string, from: number, to: number) {
+  try {
+    const stored = await readMarketMinutes(symbol, from, to);
+    if (stored) return stored;
+  } catch (error) {
+    if (error instanceof SymbolError) throw new BacktestError(error.message, error.status);
+    throw error;
+  }
+  return practiceMarket().minuteBars(symbol, from, to);
+}
+
+async function initialBid(symbol: string, settings: SessionSettings): Promise<number> {
+  const found = await lookupMarket(symbol);
+  if (found.kind === 'custom') {
+    const before = await readMarketBars(symbol, {
+      timeframe: '1m',
+      endTime: settings.startDate - 1,
+      limit: 1,
+    });
+    const first = await readMarketBars(symbol, {
+      timeframe: '1m',
+      startTime: settings.startDate,
+      endTime: settings.endDate + DAY_MS - 1,
+      limit: 1,
+    });
+    const bid = before?.bars[before.bars.length - 1]?.close ?? first?.bars[0]?.open;
+    if (bid === undefined) throw new BacktestError('در این بازه داده‌ای وجود ندارد');
+    return bid;
+  }
   const market = practiceMarket();
   const before = market.generate({
     symbol,
@@ -192,30 +234,27 @@ async function write(
   await replacePositionEvents(userId, 'backtest', id, session.settings.symbol, session.account);
 }
 
-function simulateTo(
+async function simulateTo(
   session: BacktestSession,
   actions: readonly LoggedAction[],
   cursor: number,
   kind: 'advance' | 'replay',
-): BacktestSession {
-  const spec = specOf(session.settings.symbol);
+): Promise<BacktestSession> {
+  const spec = await specOf(session.settings.symbol);
   const cfg = accountConfig(session.settings, spec);
   const end = endOf(session.settings);
-  const market = practiceMarket();
+  const minutes =
+    kind === 'advance'
+      ? await minutesOf(session.settings.symbol, session.cursor, cursor)
+      : await minutesOf(session.settings.symbol, session.settings.startDate, cursor);
   const engine =
     kind === 'advance'
-      ? advance(
-          cfg,
-          session.account,
-          market.minuteBars(session.settings.symbol, session.cursor, cursor),
-          cursor,
-          end,
-        )
+      ? advance(cfg, session.account, minutes, cursor, end)
       : replay(
           cfg,
           ExecutionEngine.initialState(cfg, session.settings.startDate, session.initialBid),
           actions,
-          market.minuteBars(session.settings.symbol, session.settings.startDate, cursor),
+          minutes,
           cursor,
           end,
         );
@@ -246,8 +285,8 @@ export async function loadSession(userId: ObjectId, id: string): Promise<Backtes
 export async function saveSession(userId: ObjectId, raw: unknown): Promise<void> {
   const proposed = parseSession(raw);
   if (!proposed || !ID_RE.test(proposed.id)) throw new BacktestError('جلسه نامعتبر است');
-  const spec = specOf(proposed.settings.symbol);
-  const range = practiceMarket().dataRange(proposed.settings.symbol);
+  const spec = await specOf(proposed.settings.symbol);
+  const range = await rangeOf(proposed.settings.symbol);
   const invalid = validateSettings(proposed.settings, range);
   if (invalid) throw new BacktestError(invalid);
   const cursor = Math.min(
@@ -278,13 +317,13 @@ export async function saveSession(userId: ObjectId, raw: unknown): Promise<void>
       id: proposed.id,
       now: Date.now(),
       settings,
-      initialBid: initialBid(settings.symbol, settings),
+      initialBid: await initialBid(settings.symbol, settings),
       spec,
     });
     const session =
       proposed.actions.length === 0 && cursor === fresh.cursor
         ? meta(fresh, proposed)
-        : simulateTo(meta(fresh, proposed), proposed.actions, cursor, 'replay');
+        : await simulateTo(meta(fresh, proposed), proposed.actions, cursor, 'replay');
     try {
       await backtestSessions.insertOne({
         _id: proposed.id,
@@ -325,7 +364,7 @@ export async function saveSession(userId: ObjectId, raw: unknown): Promise<void>
   }
   const base = meta(doc.session, proposed);
   const session =
-    plan.kind === 'meta' ? base : simulateTo(base, proposed.actions, cursor, plan.kind);
+    plan.kind === 'meta' ? base : await simulateTo(base, proposed.actions, cursor, plan.kind);
   try {
     await write(userId, proposed.id, doc.version, session);
   } catch (e) {
@@ -377,18 +416,13 @@ export async function confirmAction(
   if (jumped) throw new BacktestError(jumped, 403);
   const end = endOf(session.settings);
   if (t < session.cursor || t > end) throw new BacktestError('زمان معامله با نمودار یکی نیست', 409);
-  const spec = specOf(session.settings.symbol);
+  const spec = await specOf(session.settings.symbol);
   const cfg = accountConfig(session.settings, spec);
-  const market = practiceMarket();
+  const minutes =
+    t > session.cursor ? await minutesOf(session.settings.symbol, session.cursor, t) : [];
   const engine =
     t > session.cursor
-      ? advance(
-          cfg,
-          session.account,
-          market.minuteBars(session.settings.symbol, session.cursor, t),
-          t,
-          end,
-        )
+      ? advance(cfg, session.account, minutes, t, end)
       : new ExecutionEngine(cfg, structuredClone(session.account));
   if (engine.state.status !== 'active') throw new BacktestError('این جلسه تمام شده است', 409);
   engine.state.time = Math.max(engine.state.time, t);

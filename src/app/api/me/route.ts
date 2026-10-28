@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { entitlements } from '@/lib/app';
 import { usageOf } from '@/server/billing';
+import { isAdminPhone } from '@/server/admin-http';
 import { json, requestUser } from '@/server/http';
 
 /** The signed-in user, their plan and the quotas that plan is counting. */
@@ -15,6 +16,7 @@ export async function GET(req: NextRequest) {
       name: user.name,
       phone: user.phone,
       plan: user.plan,
+      admin: isAdminPhone(user.phone),
       usage: {
         sessions: usage.sessions,
         sessionLimit: rules.backtestSessions,

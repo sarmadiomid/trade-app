@@ -9,6 +9,14 @@ import type {
   RankedFormat,
 } from '@/lib/battles';
 import type { BacktestSession, TradeAction } from '@/lib/backtest';
+import type { AssetClass, HourPreset } from '@/lib/data';
+import type { TimeframeId } from '@/lib/core';
+import type {
+  SupportAttachment,
+  SupportRole,
+  SupportStatus,
+  SupportSubjectId,
+} from '@/lib/support/catalog';
 import { migrate } from './migrations';
 
 export interface UserDoc {
@@ -217,6 +225,96 @@ export interface DiscountRedemptionDoc {
   createdAt: Date;
 }
 
+/** A support request owned by one user. Replies live in `support_messages`. */
+export interface SupportTicketDoc {
+  _id: ObjectId;
+  /** Public ticket number, shown as #۱۲. */
+  number: number;
+  userId: ObjectId;
+  userName: string;
+  subject: SupportSubjectId;
+  title: string;
+  /** Set when the subject is a custom-symbol request. */
+  symbol: string;
+  status: SupportStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  preview: string;
+  lastRole: SupportRole;
+  /** Support replies the user has not opened yet. */
+  unread: number;
+}
+
+/** One message in a support ticket, from the user or from Candelo support. */
+export interface SupportMessageDoc {
+  _id: ObjectId;
+  ticketId: ObjectId;
+  userId: ObjectId;
+  role: SupportRole;
+  name: string;
+  body: string;
+  createdAt: Date;
+  /** Missing on messages written before attachments existed. */
+  attachments?: SupportAttachment[];
+}
+
+/** Binary attached to one support message. The message itself only keeps the metadata. */
+export interface SupportFileDoc {
+  _id: ObjectId;
+  ticketId: ObjectId;
+  messageId: ObjectId;
+  userId: ObjectId;
+  name: string;
+  type: string;
+  size: number;
+  image: boolean;
+  data: Buffer;
+  createdAt: Date;
+}
+
+/** A symbol added from the admin panel. Built-in symbols are not stored here. */
+export interface InstrumentDoc {
+  /** Uppercase symbol. */
+  _id: string;
+  description: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  assetClass: AssetClass;
+  hours: HourPreset;
+  tickSize: number;
+  pipSize: number;
+  contractSize: number;
+  lotMin: number;
+  lotStep: number;
+  lotMax: number;
+  defaultSpread: number;
+  defaultCommissionPerLot: number;
+  active: boolean;
+  /** Timeframe of the stored candles, or null when none have been imported. */
+  timeframe: TimeframeId | null;
+  barCount: number;
+  /** First bar open time, or null. */
+  dataStart: number | null;
+  /** Exclusive end of the practice range (day after the last bar), or null. */
+  dataEnd: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** One UTC month of candles for an admin symbol. `bars` rows are time, open, high, low, close, volume. */
+export interface MarketChunkDoc {
+  _id: string;
+  symbol: string;
+  timeframe: TimeframeId;
+  /** UTC month start, ms. */
+  month: number;
+  count: number;
+  start: number;
+  end: number;
+  bars: number[][];
+  updatedAt: Date;
+}
+
 /** A trader searching for a ranked match. */
 export interface BattleQueueDoc {
   /** The user's id. */
@@ -245,10 +343,21 @@ export interface Collections {
   backtestShots: Collection<BacktestShotDoc>;
   discountCodes: Collection<DiscountCodeDoc>;
   discountRedemptions: Collection<DiscountRedemptionDoc>;
+  supportTickets: Collection<SupportTicketDoc>;
+  supportMessages: Collection<SupportMessageDoc>;
+  supportFiles: Collection<SupportFileDoc>;
+  instruments: Collection<InstrumentDoc>;
+  marketChunks: Collection<MarketChunkDoc>;
 }
 
+/**
+ * Bump when `Collections` gains a field. Dev hot reload keeps the previous promise on
+ * globalThis, and that object would not have the new collections.
+ */
+const COLLECTIONS_VERSION = 2;
+
 const globalForMongo = globalThis as unknown as {
-  __mongo?: { client: Promise<MongoClient>; ready: Promise<Collections> };
+  __mongo?: { version: number; client: Promise<MongoClient>; ready: Promise<Collections> };
 };
 
 async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
@@ -269,20 +378,28 @@ async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
     backtestShots: db.collection<BacktestShotDoc>('backtest_shots'),
     discountCodes: db.collection<DiscountCodeDoc>('discount_codes'),
     discountRedemptions: db.collection<DiscountRedemptionDoc>('discount_redemptions'),
+    supportTickets: db.collection<SupportTicketDoc>('support_tickets'),
+    supportMessages: db.collection<SupportMessageDoc>('support_messages'),
+    supportFiles: db.collection<SupportFileDoc>('support_files'),
+    instruments: db.collection<InstrumentDoc>('instruments'),
+    marketChunks: db.collection<MarketChunkDoc>('market_chunks'),
   };
 }
 
 /** Shared connection (cached on globalThis so dev hot reloads don't open new pools). */
 export function collections(): Promise<Collections> {
-  if (!globalForMongo.__mongo) {
-    const client = new MongoClient(process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017', {
+  const cached = globalForMongo.__mongo;
+  if (cached?.version === COLLECTIONS_VERSION) return cached.ready;
+  const client =
+    cached?.client ??
+    new MongoClient(process.env.MONGODB_URI ?? 'mongodb://127.0.0.1:27017', {
       serverSelectionTimeoutMS: 5000,
     }).connect();
-    const ready = init(client);
-    globalForMongo.__mongo = { client, ready };
-    ready.catch(() => {
-      delete globalForMongo.__mongo;
-    });
-  }
-  return globalForMongo.__mongo.ready;
+  const ready = init(client);
+  const next = { version: COLLECTIONS_VERSION, client, ready };
+  globalForMongo.__mongo = next;
+  ready.catch(() => {
+    if (globalForMongo.__mongo === next) delete globalForMongo.__mongo;
+  });
+  return ready;
 }

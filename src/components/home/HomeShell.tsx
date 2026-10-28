@@ -14,6 +14,7 @@ import { formatIranianMobile } from '@/auth/phone';
 import { APP_CONFIG, PLAN_LABEL } from '@/lib/app';
 import type { Theme } from '@/lib/core';
 import { faDigits } from '@/lib/locale/jalali';
+import { SUPPORT_INBOX_EVENT } from '@/lib/support/catalog';
 import { LocalStorageStorage, VersionedStore } from '@/lib/storage';
 import { darkTheme, parseTheme, themeRegistry } from '@/lib/themes';
 import { BRAND_EN, BrandName, LogoMark } from '../marketing/Logo';
@@ -21,7 +22,7 @@ import { useThemeCssVars } from '../hooks/useThemeCssVars';
 import { useUiStore } from '../state/ui-store';
 import { usePlan, usePlanReady } from '../billing/usePlan';
 import { initials } from '../platform/AppHeader';
-import type { Me } from '../platform/api';
+import { api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
 
@@ -51,6 +52,7 @@ const NAV: ReadonlyArray<{
 }> = [
   { href: '/home', label: 'تمرین', icon: null, path: HOME_ICONS.bars },
   { href: '/battle', label: 'نبردها', icon: 'swords', badge: 'بتا', badgeTone: 'beta' },
+  { href: '/home/support', label: 'پشتیبانی', icon: 'chat' },
   {
     href: '/home/learn',
     label: 'آموزش',
@@ -101,6 +103,7 @@ interface ShellContextValue {
   readonly openMenu: (id: Menu) => void;
   readonly notices: number;
   readonly noticeMenu: ReactNode;
+  readonly supportUnread: number;
   readonly user: Me;
 }
 
@@ -133,6 +136,7 @@ export function HomeShell({
   const collapsed = useSyncExternalStore(subscribeNav, readCollapsed, () => false);
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [supportUnread, setSupportUnread] = useState(0);
   const onSettings = pathname === '/home/settings' || pathname.startsWith('/home/settings/');
 
   useEffect(() => {
@@ -172,6 +176,25 @@ export function HomeShell({
     };
   }, [palette]);
 
+  useEffect(() => {
+    let cancel = false;
+    const load = () => {
+      void api<{ unread: number }>('/api/support/summary')
+        .then((data) => {
+          if (!cancel && Number.isFinite(data.unread)) setSupportUnread(data.unread);
+        })
+        .catch(() => {});
+    };
+    load();
+    const timer = window.setInterval(load, 20_000);
+    window.addEventListener(SUPPORT_INBOX_EVENT, load);
+    return () => {
+      cancel = true;
+      window.clearInterval(timer);
+      window.removeEventListener(SUPPORT_INBOX_EVENT, load);
+    };
+  }, []);
+
   const toggleScheme = () => writeScheme(scheme === 'dark' ? 'light' : 'dark');
   const toggleNav = () => {
     if (window.matchMedia('(min-width: 1024px)').matches) {
@@ -193,6 +216,7 @@ export function HomeShell({
         openMenu,
         notices,
         noticeMenu,
+        supportUnread,
         user,
       }}
     >
@@ -281,20 +305,31 @@ export function HomeShell({
                     pathname.startsWith('/home/journal')
                   : pathname === item.href || pathname.startsWith(`${item.href}/`);
               const orbit = item.href === '/battle';
+              const support = item.href === '/home/support';
+              const unreadLabel =
+                support && supportUnread > 0
+                  ? supportUnread > 9
+                    ? `${faDigits(9)}+`
+                    : faDigits(supportUnread)
+                  : null;
+              const badge = unreadLabel ?? item.badge;
+              const badgeTone = unreadLabel ? 'new' : (item.badgeTone ?? 'beta');
               const body = (
                 <>
-                  {item.path ? (
-                    <Icon path={item.path} size={18} className="shrink-0" />
-                  ) : (
-                    <Icon name={item.icon ?? 'chart'} size={18} className="shrink-0" />
-                  )}
+                  <span className="relative shrink-0">
+                    {item.path ? (
+                      <Icon path={item.path} size={18} />
+                    ) : (
+                      <Icon name={item.icon ?? 'chart'} size={18} />
+                    )}
+                    {collapsed && unreadLabel ? (
+                      <span className="absolute -end-1 -top-1 hidden h-2 w-2 rounded-full bg-[var(--h-accent)] ring-2 ring-[var(--h-side)] lg:block" />
+                    ) : null}
+                  </span>
                   <span className={`truncate ${collapsed ? 'lg:hidden' : ''}`}>{item.label}</span>
-                  {item.badge ? (
-                    <NavBadge
-                      tone={item.badgeTone ?? 'beta'}
-                      className={collapsed ? 'lg:hidden' : ''}
-                    >
-                      {item.badge}
+                  {badge ? (
+                    <NavBadge tone={badgeTone} className={collapsed ? 'lg:hidden' : ''}>
+                      {badge}
                     </NavBadge>
                   ) : null}
                 </>
@@ -310,9 +345,11 @@ export function HomeShell({
                 href: item.href,
                 'aria-current': activeNav ? ('page' as const) : undefined,
                 title: collapsed
-                  ? item.badge
-                    ? `${item.label}، ${item.badge}`
-                    : item.label
+                  ? unreadLabel
+                    ? `${item.label}، ${faDigits(supportUnread)} پاسخ جدید`
+                    : badge
+                      ? `${item.label}، ${badge}`
+                      : item.label
                   : undefined,
                 onClick: () => setDrawer(false),
               };
@@ -398,7 +435,8 @@ export function ShellMenuButton() {
 
 /** Pro, language, theme, help, notices and the account menu. Sits in each page's own header. */
 export function ShellTools() {
-  const { scheme, palette, toggleScheme, menu, openMenu, notices, noticeMenu } = useShell();
+  const { scheme, palette, toggleScheme, menu, openMenu, notices, noticeMenu, supportUnread } =
+    useShell();
   const plan = usePlan();
   const planReady = usePlanReady();
   const planLabel = PLAN_LABEL[plan];
@@ -453,7 +491,7 @@ export function ShellTools() {
       <div className="relative" data-home-menu="">
         <IconButton label="اعلان‌ها" pressed={menu === 'bell'} onClick={() => openMenu('bell')}>
           <Icon path={HOME_ICONS.bell} size={16} />
-          {notices > 0 ? (
+          {notices + supportUnread > 0 ? (
             <span className="absolute end-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-down" />
           ) : null}
         </IconButton>
@@ -463,10 +501,24 @@ export function ShellTools() {
             className="absolute end-0 top-full z-20 mt-2 w-72 rounded-xl border border-[var(--h-line)] bg-[var(--h-card)] p-2 shadow-2xl"
           >
             <p className="px-2 py-1 text-[12px] font-semibold text-[var(--h-muted)]">اعلان‌ها</p>
-            {notices === 0 ? (
+            {notices === 0 && supportUnread === 0 ? (
               <p className="px-2 py-3 text-[13px] text-[var(--h-muted)]">اعلانی ندارید.</p>
             ) : (
               <div className="flex flex-col gap-1" onClick={() => openMenu('bell')}>
+                {supportUnread > 0 ? (
+                  <Link
+                    href="/home/support"
+                    className="flex items-center gap-2 rounded-lg px-2 py-2 text-[13px] hover:bg-[var(--h-chip)]"
+                  >
+                    <Icon name="chat" size={14} className="shrink-0 text-[var(--h-accent)]" />
+                    <span className="min-w-0">
+                      پاسخ جدید پشتیبانی
+                      <span className="mt-0.5 block text-[11px] text-[var(--h-muted)]">
+                        {faDigits(supportUnread)} پیام خوانده‌نشده
+                      </span>
+                    </span>
+                  </Link>
+                ) : null}
                 {noticeMenu}
               </div>
             )}
@@ -482,7 +534,20 @@ function ProfileMenu() {
   const { user, menu, openMenu } = useShell();
   const router = useRouter();
   const [leaving, setLeaving] = useState(false);
+  const [admin, setAdmin] = useState(false);
   const open = menu === 'profile';
+
+  useEffect(() => {
+    let live = true;
+    api<{ admin?: boolean }>('/api/me')
+      .then((me) => {
+        if (live) setAdmin(me.admin === true);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const logout = async () => {
     setLeaving(true);
@@ -527,6 +592,16 @@ function ProfileMenu() {
               <Icon name="settings" size={15} />
               تنظیمات حساب
             </Link>
+            {admin ? (
+              <Link
+                href="/admin"
+                role="menuitem"
+                className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-[13px] font-medium transition hover:bg-[var(--h-chip)]"
+              >
+                <Icon name="grid" size={15} />
+                پنل مدیریت
+              </Link>
+            ) : null}
             <button
               type="button"
               role="menuitem"

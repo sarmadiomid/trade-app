@@ -15,7 +15,7 @@ import {
   type LoggedAction,
   type SessionSettings,
 } from '@/lib/backtest';
-import { MockMarketProvider, instrumentSpec, INSTRUMENTS } from '@/lib/data';
+import { HybridMarketProvider, customInstruments, customRange, customSpec, instrumentSpec, INSTRUMENTS } from '@/lib/data';
 import { MemoryStorage, NamespacedStorage } from '@/lib/storage';
 import { RemoteBacktestRepository } from './remote-repository';
 import type { ChartApp, ChartAppOptions } from '../chart-app';
@@ -38,7 +38,7 @@ export const SHARED_KEYS = [
 
 /** Market data and persistence of the backtest module. Swap implementations here. */
 export interface BacktestServices {
-  readonly market: MockMarketProvider;
+  readonly market: HybridMarketProvider;
   readonly repo: BacktestRepository;
   instruments(): readonly InstrumentSpec[];
   spec(symbol: string): InstrumentSpec;
@@ -47,7 +47,7 @@ export interface BacktestServices {
   create(settings: SessionSettings): Promise<{ session: BacktestSession } | { error: string }>;
 }
 
-let market: MockMarketProvider | null = null;
+let market: HybridMarketProvider | null = null;
 let browserServices: BacktestServices | null = null;
 
 /** Backtest services whose sessions and trades live in the server database. */
@@ -60,15 +60,19 @@ export function createBacktestServices(
   storage: StorageAdapter,
   repo: BacktestRepository = new StorageBacktestRepository(storage),
 ): BacktestServices {
-  market ??= new MockMarketProvider();
+  market ??= new HybridMarketProvider();
   const m = market;
-  const spec = (symbol: string) => instrumentSpec(symbol) ?? m.getSymbolInfo(symbol);
+  const spec = (symbol: string) => customSpec(symbol) ?? instrumentSpec(symbol) ?? m.getSymbolInfo(symbol);
   return {
     market: m,
     repo,
-    instruments: () => INSTRUMENTS.filter((i) => m.searchSymbols(i.symbol).length > 0),
+    instruments: () => {
+      const built = INSTRUMENTS.filter((item) => m.searchSymbols(item.symbol).length > 0);
+      const seen = new Set(built.map((item) => item.symbol));
+      return [...built, ...customInstruments().filter((item) => !seen.has(item.symbol))];
+    },
     spec,
-    dataRange: (symbol) => m.dataRange(symbol),
+    dataRange: (symbol) => customRange(symbol) ?? m.dataRange(symbol),
     async create(settings) {
       const error = validateSettings(settings, m.dataRange(settings.symbol));
       if (error) return { error };

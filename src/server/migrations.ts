@@ -118,6 +118,35 @@ export const MIGRATIONS: readonly Migration[] = [
       await db.collection('discount_redemptions').createIndex({ code: 1, userId: 1 });
     },
   },
+  {
+    id: '007-support-tickets',
+    description: 'Support tickets, their messages, and the public ticket number',
+    async up(db) {
+      await Promise.all([
+        db.collection('support_tickets').createIndex({ userId: 1, updatedAt: -1 }),
+        db.collection('support_tickets').createIndex({ number: 1 }, { unique: true }),
+        db.collection('support_tickets').createIndex({ status: 1, updatedAt: -1 }),
+        db.collection('support_messages').createIndex({ ticketId: 1, createdAt: 1 }),
+      ]);
+    },
+  },
+  {
+    id: '008-support-files',
+    description: 'Files attached to support messages',
+    async up(db) {
+      await db.collection('support_files').createIndex({ ticketId: 1, messageId: 1 });
+    },
+  },
+  {
+    id: '009-admin-symbols',
+    description: 'Admin instruments and their monthly candle chunks',
+    async up(db) {
+      await Promise.all([
+        db.collection('instruments').createIndex({ active: 1, updatedAt: -1 }),
+        db.collection('market_chunks').createIndex({ symbol: 1, timeframe: 1, month: 1 }, { unique: true }),
+      ]);
+    },
+  },
 ];
 
 export const defaultDisplayName = (phone: string) => `Trader ${phone.slice(-4)}`;

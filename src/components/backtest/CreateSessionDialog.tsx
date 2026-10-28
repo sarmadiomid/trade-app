@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   entitlements,
   isPlanLimitMessage,
@@ -19,7 +19,7 @@ import {
 } from '@/lib/app';
 import { usePlan, usePlanReady, usePlanUsage } from '../billing/usePlan';
 import { DAY_MS } from '@/lib/core';
-import { assetClassOf, type AssetClass } from '@/lib/data';
+import { assetClassOf, customCatalogVersion, ensureCustomCatalog, subscribeCustomCatalog, type AssetClass } from '@/lib/data';
 import {
   DEFAULT_PROP_RULES,
   validateSettings,
@@ -78,7 +78,14 @@ export function CreateSessionDialog({
   const planReady = usePlanReady();
   const usage = usePlanUsage();
   const access = entitlements(plan);
-  const instruments = services.instruments();
+  const catalogTick = useSyncExternalStore(subscribeCustomCatalog, customCatalogVersion, () => 0);
+  const instruments = useMemo(() => {
+    if (catalogTick < 0) return [];
+    return services.instruments();
+  }, [services, catalogTick]);
+  useEffect(() => {
+    void ensureCustomCatalog();
+  }, []);
   const [type, setType] = useState<SessionType>(initial?.type ?? defaultType);
   const [name, setName] = useState(initial ? `${initial.name} (کپی)` : '');
   const [section, setSection] = useState<Section>('basics');

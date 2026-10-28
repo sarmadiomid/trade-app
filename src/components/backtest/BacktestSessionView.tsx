@@ -9,6 +9,7 @@ import {
   openPlanPrompt,
   type BacktestController,
 } from '@/lib/app';
+import { ensureCustomCatalog } from '@/lib/data';
 import { setDisplayUtc } from '@/lib/core';
 import { useUiStore } from '../state/ui-store';
 import { statsHref } from '../home/stats-href';
@@ -89,7 +90,7 @@ export default function BacktestSessionView({ id }: { readonly id: string }) {
     ui.setSessionLinks(true);
     let cancelled = false;
     const services = browserBacktestServices();
-    void services.repo.load(id).then((session) => {
+    void ensureCustomCatalog().then(() => services.repo.load(id)).then((session) => {
       if (cancelled) return;
       setLoad(
         session
