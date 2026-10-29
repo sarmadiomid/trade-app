@@ -16,6 +16,11 @@ interface Overview {
   readonly discounts: number;
   readonly redemptions: number;
   readonly plans: Record<PlanId, number>;
+  readonly revenue: {
+    readonly total: number;
+    readonly orders: number;
+    readonly plans: Record<'mid' | 'pro', { readonly amount: number; readonly orders: number }>;
+  };
   readonly recentUsers: ReadonlyArray<{
     id: string;
     name: string;
@@ -37,7 +42,7 @@ interface Overview {
 /* Icons (inline, no extra dependency)                                 */
 /* ------------------------------------------------------------------ */
 
-type IconName = 'users' | 'ticket' | 'symbol' | 'session' | 'battle' | 'discount';
+type IconName = 'users' | 'ticket' | 'symbol' | 'session' | 'battle' | 'discount' | 'revenue';
 
 const ICON_PATHS: Record<IconName, ReactNode> = {
   users: (
@@ -76,6 +81,13 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M20 12.6 12.6 20a1.6 1.6 0 0 1-2.2 0L3.5 13.1a1.6 1.6 0 0 1-.5-1.2V5a2 2 0 0 1 2-2h6.9c.4 0 .9.2 1.2.5l6.9 6.9a1.6 1.6 0 0 1 0 2.2z" />
       <circle cx="8" cy="8" r="1.2" />
+    </>
+  ),
+  revenue: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.2v9.6" />
+      <path d="M14.7 9.2c-.4-.7-1.3-1.2-2.7-1.2-1.7 0-2.8.9-2.8 2s1.1 1.8 2.8 2.2c1.7.4 2.8 1 2.8 2.2s-1.1 2-2.8 2c-1.4 0-2.3-.5-2.7-1.2" />
     </>
   ),
 };
@@ -195,6 +207,11 @@ const CARDS: ReadonlyArray<{
 ];
 
 const PLAN_TONES: ReadonlyArray<Tone> = ['blue', 'violet', 'teal', 'amber', 'green', 'rose'];
+
+const REVENUE_PLANS: ReadonlyArray<{ id: 'mid' | 'pro'; tone: Tone }> = [
+  { id: 'mid', tone: 'violet' },
+  { id: 'pro', tone: 'amber' },
+];
 
 const FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3b78ff]/60 focus-visible:ring-offset-0';
@@ -329,6 +346,84 @@ function StatCard({
   );
 }
 
+function RevenueBox({ revenue }: { revenue: Overview['revenue'] }) {
+  return (
+    <Panel className="relative overflow-hidden p-5 lg:col-span-2">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#e4c27a]/14 to-transparent"
+      />
+      <div className="relative flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#e4c27a]/12 text-[#e4c27a] ring-1 ring-[#e4c27a]/25">
+            <Icon name="revenue" />
+          </span>
+          <div>
+            <h3 className="text-[14.5px] font-semibold tracking-tight">درآمد</h3>
+            <p className="mt-0.5 text-[12px] text-[var(--a-muted)]">
+              جمع مبلغ پرداخت‌های موفق، به تومان
+            </p>
+          </div>
+        </div>
+        <p className="text-[12.5px] text-[var(--a-muted)]">
+          <span className="font-semibold tabular-nums text-[var(--a-text)]">
+            {faNum(revenue.orders)}
+          </span>{' '}
+          پرداخت موفق
+        </p>
+      </div>
+
+      <p className="relative mt-5 flex items-baseline gap-2">
+        <span className="text-[32px] font-bold leading-none tracking-tight tabular-nums">
+          {faNum(revenue.total)}
+        </span>
+        <span className="text-[13px] text-[var(--a-muted)]">تومان</span>
+      </p>
+
+      <ul className="relative mt-5 grid gap-4 sm:grid-cols-2">
+        {REVENUE_PLANS.map(({ id, tone }) => {
+          const row = revenue.plans[id];
+          const pct = revenue.total > 0 ? (row.amount / revenue.total) * 100 : 0;
+          const colors = TONES[tone];
+          return (
+            <li key={id} className="rounded-xl border border-[var(--a-line)] bg-white/[0.03] p-3.5">
+              <div className="flex items-center justify-between gap-3 text-[13.5px]">
+                <span className="flex items-center gap-2 font-medium">
+                  <span className={`h-2 w-2 rounded-full ${colors.bar}`} aria-hidden="true" />
+                  {PLAN_LABEL[id]}
+                </span>
+                <span className="text-[12px] tabular-nums text-[var(--a-muted)]">
+                  {faNum(Math.round(pct))}٪
+                </span>
+              </div>
+              <p className="mt-2 flex items-baseline gap-1.5">
+                <span className="text-[18px] font-semibold tabular-nums">{faNum(row.amount)}</span>
+                <span className="text-[12px] text-[var(--a-muted)]">تومان</span>
+              </p>
+              <div
+                className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.06]"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(pct)}
+                aria-label={`سهم طرح ${PLAN_LABEL[id]} از درآمد`}
+              >
+                <div
+                  className={`h-full rounded-full ${colors.bar} transition-[width] duration-700 ease-out`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <p className="mt-2 text-[12px] text-[var(--a-muted)]">
+                {faNum(row.orders)} پرداخت
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Panel                                                               */
 /* ------------------------------------------------------------------ */
@@ -384,6 +479,14 @@ export function OverviewPanel() {
       {/* Loading skeleton for lower sections */}
       {loading && !data ? (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <Panel className="p-5 lg:col-span-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="mt-5 h-8 w-40" />
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </Panel>
           {[0, 1].map((i) => (
             <Panel key={i} className="p-5">
               <Skeleton className="h-4 w-24" />
@@ -399,6 +502,8 @@ export function OverviewPanel() {
 
       {data ? (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <RevenueBox revenue={data.revenue} />
+
           {/* Plans distribution */}
           <Panel className="p-5">
             <SectionHead

@@ -80,13 +80,7 @@ export function checkoutPath(planId: PaidPlanId, cycle: BillingCycle, code?: str
   return `/home/checkout?${params.toString()}`;
 }
 
-/**
- * Where checkout sends the buyer. The bank gateway behind this path is not built yet;
- * the page only marks the handoff.
- */
-export function paymentGatewayPath(planId: PaidPlanId, cycle: BillingCycle, code?: string): string {
-  const params = new URLSearchParams({ plan: planId, cycle });
-  const clean = discountCodeQuery(code);
-  if (clean) params.set('code', clean);
-  return `/home/checkout/pay?${params.toString()}`;
+/** Receipt after the bank sends the buyer back, or after a free order. */
+export function checkoutResultPath(paymentId: string): string {
+  return `/home/checkout/result?payment=${encodeURIComponent(paymentId)}`;
 }

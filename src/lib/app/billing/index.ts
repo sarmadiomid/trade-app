@@ -31,6 +31,12 @@ export {
 } from './entitlements';
 export { discountRejectionMessage, type DiscountKind, type DiscountQuote } from './discount';
 export {
+  checkoutCharge,
+  isPaymentGateway,
+  isPaymentRedirect,
+  type PaymentGatewayId,
+} from './gateway';
+export {
   currentPlan,
   denyPlan,
   guardPlan,

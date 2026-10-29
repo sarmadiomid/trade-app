@@ -14,6 +14,23 @@ export class AdminError extends Error {
   }
 }
 
+/** Collected toman from successful checkouts, split by the paid plan. */
+function revenueFrom(rows: ReadonlyArray<{ _id: string; amount: number; orders: number }>) {
+  const plans = {
+    mid: { amount: 0, orders: 0 },
+    pro: { amount: 0, orders: 0 },
+  };
+  for (const row of rows) {
+    if (row._id !== 'mid' && row._id !== 'pro') continue;
+    plans[row._id] = { amount: row.amount || 0, orders: row.orders || 0 };
+  }
+  return {
+    total: plans.mid.amount + plans.pro.amount,
+    orders: plans.mid.orders + plans.pro.orders,
+    plans,
+  };
+}
+
 export async function adminOverview() {
   const {
     users,
@@ -23,6 +40,7 @@ export async function adminOverview() {
     instruments,
     discountCodes,
     discountRedemptions,
+    payments,
   } = await collections();
   const [
     userCount,
@@ -33,6 +51,7 @@ export async function adminOverview() {
     plans,
     recentUsers,
     waiting,
+    revenueRows,
   ] = await Promise.all([
     users.countDocuments(),
     supportTickets.countDocuments({ status: 'open' }),
@@ -55,6 +74,12 @@ export async function adminOverview() {
       .sort({ updatedAt: -1 })
       .limit(6)
       .toArray(),
+    payments
+      .aggregate<{ _id: string; amount: number; orders: number }>([
+        { $match: { status: 'paid' } },
+        { $group: { _id: '$planId', amount: { $sum: '$amount' }, orders: { $sum: 1 } } },
+      ])
+      .toArray(),
   ]);
   const planCounts = { beginner: 0, mid: 0, pro: 0 };
   for (const row of plans) {
@@ -68,6 +93,7 @@ export async function adminOverview() {
     sessionCount,
     symbolCount,
     plans: planCounts,
+    revenue: revenueFrom(revenueRows),
     discounts: await discountCodes.countDocuments({ active: { $ne: false } }),
     redemptions: await discountRedemptions.countDocuments(),
     recentUsers: recentUsers.map((user) => ({

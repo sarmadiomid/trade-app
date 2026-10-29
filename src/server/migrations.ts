@@ -143,7 +143,19 @@ export const MIGRATIONS: readonly Migration[] = [
     async up(db) {
       await Promise.all([
         db.collection('instruments').createIndex({ active: 1, updatedAt: -1 }),
-        db.collection('market_chunks').createIndex({ symbol: 1, timeframe: 1, month: 1 }, { unique: true }),
+        db
+          .collection('market_chunks')
+          .createIndex({ symbol: 1, timeframe: 1, month: 1 }, { unique: true }),
+      ]);
+    },
+  },
+  {
+    id: '010-payments',
+    description: 'Subscription payments, looked up by the gateway authority',
+    async up(db) {
+      await Promise.all([
+        db.collection('payments').createIndex({ authority: 1 }, { unique: true }),
+        db.collection('payments').createIndex({ userId: 1, createdAt: -1 }),
       ]);
     },
   },

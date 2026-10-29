@@ -3,7 +3,7 @@ import { normalizePlan, PLAN_IDS, type PlanId } from '@/lib/app';
 import { setUserPlan } from '@/server/billing';
 import { json, readJson, requestUser, sameOrigin } from '@/server/http';
 
-/** Sets the signed-in user's plan. Payment collection is not part of this product yet. */
+/** Switches the signed-in user to the free plan. Paid plans start only after a verified payment. */
 export async function PUT(req: NextRequest) {
   if (!sameOrigin(req)) return json({ error: 'Forbidden' }, 403);
   try {
@@ -12,6 +12,9 @@ export async function PUT(req: NextRequest) {
     const body = (await readJson(req, 1024)) as { plan?: unknown };
     if (!PLAN_IDS.includes(body?.plan as PlanId)) return json({ error: 'طرح نامعتبر است' }, 400);
     const plan = normalizePlan(body.plan);
+    if (plan !== 'beginner') {
+      return json({ error: 'طرح پولی از صفحه تسویه حساب فعال می‌شود' }, 400);
+    }
     await setUserPlan(user._id, plan);
     return json({ plan });
   } catch (e) {

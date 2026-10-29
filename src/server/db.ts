@@ -11,6 +11,7 @@ import type {
 import type { BacktestSession, TradeAction } from '@/lib/backtest';
 import type { AssetClass, HourPreset } from '@/lib/data';
 import type { TimeframeId } from '@/lib/core';
+import type { PaymentGatewayId, PaymentStatus } from '@/lib/app/billing/gateway';
 import type {
   SupportAttachment,
   SupportRole,
@@ -212,6 +213,32 @@ export interface DiscountCodeDoc {
   updatedAt?: Date;
 }
 
+/** One checkout sent to a bank, or a zero-total order that skipped the bank. */
+export interface PaymentDoc {
+  _id: ObjectId;
+  userId: ObjectId;
+  gateway: PaymentGatewayId;
+  planId: 'mid' | 'pro';
+  cycle: 'month' | 'year';
+  /** Empty when the buyer did not use a code. */
+  code: string;
+  subtotal: number;
+  discount: number;
+  /** Toman charged. Zero means the bank was not called. */
+  amount: number;
+  currency: 'IRT';
+  /** Zarinpal authority, or `free-…` when nothing was charged. */
+  authority: string;
+  status: PaymentStatus;
+  refId: string | null;
+  cardPan: string | null;
+  fee: number | null;
+  failureMessage: string | null;
+  discountError: string | null;
+  createdAt: Date;
+  paidAt: Date | null;
+}
+
 /** One successful payment that consumed a discount code. */
 export interface DiscountRedemptionDoc {
   _id: string;
@@ -343,6 +370,7 @@ export interface Collections {
   backtestShots: Collection<BacktestShotDoc>;
   discountCodes: Collection<DiscountCodeDoc>;
   discountRedemptions: Collection<DiscountRedemptionDoc>;
+  payments: Collection<PaymentDoc>;
   supportTickets: Collection<SupportTicketDoc>;
   supportMessages: Collection<SupportMessageDoc>;
   supportFiles: Collection<SupportFileDoc>;
@@ -354,7 +382,7 @@ export interface Collections {
  * Bump when `Collections` gains a field. Dev hot reload keeps the previous promise on
  * globalThis, and that object would not have the new collections.
  */
-const COLLECTIONS_VERSION = 2;
+const COLLECTIONS_VERSION = 3;
 
 const globalForMongo = globalThis as unknown as {
   __mongo?: { version: number; client: Promise<MongoClient>; ready: Promise<Collections> };
@@ -378,6 +406,7 @@ async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
     backtestShots: db.collection<BacktestShotDoc>('backtest_shots'),
     discountCodes: db.collection<DiscountCodeDoc>('discount_codes'),
     discountRedemptions: db.collection<DiscountRedemptionDoc>('discount_redemptions'),
+    payments: db.collection<PaymentDoc>('payments'),
     supportTickets: db.collection<SupportTicketDoc>('support_tickets'),
     supportMessages: db.collection<SupportMessageDoc>('support_messages'),
     supportFiles: db.collection<SupportFileDoc>('support_files'),

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { formatIranianMobile } from '@/auth/phone';
-import type { DiscountQuote } from '@/lib/app';
+import { isPaymentRedirect, type DiscountQuote, type PaymentGatewayId } from '@/lib/app';
 import { faNum } from '@/lib/locale/jalali';
 import { HomeShell, ShellMenuButton, ShellTools } from '../home/HomeShell';
 import type { Me } from '../platform/api';
@@ -15,7 +15,6 @@ import {
   SUBSCRIPTION_SETTINGS_HREF,
   checkoutPath,
   monthlyAmount,
-  paymentGatewayPath,
   subscriptionAmount,
   type BillingCycle,
   type PaidPlanId,
@@ -26,6 +25,29 @@ const CYCLE_LABEL: Record<BillingCycle, string> = {
   year: 'سالانه',
 };
 
+const GATEWAYS: readonly {
+  readonly id: PaymentGatewayId;
+  readonly name: string;
+  readonly detail: string;
+  readonly mark: string;
+  readonly ready: boolean;
+}[] = [
+  {
+    id: 'zarinpal',
+    name: 'زرین‌پال',
+    detail: 'پرداخت با همه کارت‌های شتاب',
+    mark: 'زر',
+    ready: true,
+  },
+  {
+    id: 'sep',
+    name: 'سپ (سامان)',
+    detail: 'پرداخت از درگاه بانک سامان',
+    mark: 'سپ',
+    ready: false,
+  },
+];
+
 export function CheckoutView({
   user,
   planId,
@@ -33,6 +55,7 @@ export function CheckoutView({
   initialCode,
   initialQuote,
   initialError,
+  sandbox,
 }: {
   readonly user: Me;
   readonly planId: PaidPlanId;
@@ -40,6 +63,8 @@ export function CheckoutView({
   readonly initialCode: string;
   readonly initialQuote: DiscountQuote | null;
   readonly initialError: string | null;
+  /** Zarinpal sandbox is on, so a successful test does not charge a card. */
+  readonly sandbox: boolean;
 }) {
   const router = useRouter();
   const activePlan = usePlan();
@@ -58,6 +83,9 @@ export function CheckoutView({
   const [applied, setApplied] = useState(initialQuote);
   const [discountError, setDiscountError] = useState(initialError);
   const [discountPending, setDiscountPending] = useState(false);
+  const [gateway, setGateway] = useState<PaymentGatewayId>('zarinpal');
+  const [payPending, setPayPending] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
   if (serverKey !== seenKey) {
     setSeenKey(serverKey);
     setApplied(initialQuote);
@@ -75,8 +103,37 @@ export function CheckoutView({
   const alreadyOnPlan = planReady && activePlan === planId;
   const quote = alreadyOnPlan || cycle !== cycleFromUrl ? null : applied;
   const payable = quote?.total ?? amount;
-  const payHref = paymentGatewayPath(planId, cycle, quote?.code);
   const holdPay = discountPending && !alreadyOnPlan;
+
+  const startPay = async () => {
+    if (payPending || gateway !== 'zarinpal') return;
+    setPayPending(true);
+    setPayError(null);
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          plan: planId,
+          cycle,
+          code: quote?.code ?? '',
+          gateway,
+        }),
+      });
+      const body = (await res.json()) as { url?: unknown; error?: string };
+      const url = typeof body.url === 'string' ? body.url : '';
+      if (!res.ok || !isPaymentRedirect(url)) {
+        setPayError(body.error ?? 'اتصال به درگاه انجام نشد');
+        setPayPending(false);
+        return;
+      }
+      window.location.assign(url);
+    } catch {
+      setPayError('اتصال به درگاه انجام نشد');
+      setPayPending(false);
+    }
+  };
 
   const pickCycle = (next: BillingCycle) => {
     if (next === cycle) return;
@@ -118,7 +175,7 @@ export function CheckoutView({
           <div className="order-last min-w-0 w-full sm:order-none sm:w-auto sm:flex-1">
             <h1 className="text-[22px] font-bold leading-none sm:text-[26px]">تسویه حساب</h1>
             <p className="mt-1.5 text-[13px] leading-6 text-[var(--h-muted)]">
-              جزئیات طرح را ببینید، بعد برای پرداخت به درگاه بروید.
+              جزئیات طرح را ببینید، روش پرداخت را انتخاب کنید و به درگاه بروید.
             </p>
           </div>
           <div className="ms-auto">
@@ -314,6 +371,17 @@ export function CheckoutView({
                     </p>
                   </div>
 
+                  {alreadyOnPlan ? null : (
+                    <GatewayPicker
+                      gateway={gateway}
+                      sandbox={sandbox}
+                      onPick={(next) => {
+                        setGateway(next);
+                        setPayError(null);
+                      }}
+                    />
+                  )}
+
                   {alreadyOnPlan ? (
                     <p className="mt-4 rounded-xl border border-[var(--h-line)] bg-[var(--h-chip)] px-3 py-2.5 text-[13px] leading-6 text-[var(--h-muted)]">
                       طرح {plan.name} همین حالا روی حساب شماست. برای خرید، طرح دیگری را انتخاب کنید.
@@ -334,21 +402,40 @@ export function CheckoutView({
                     >
                       در حال بررسی کد
                     </span>
-                  ) : (
-                    <Link
-                      href={payHref}
-                      data-testid="checkout-pay"
-                      className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--h-accent)] text-[14.5px] font-bold text-white shadow-lg shadow-accent/40 transition hover:brightness-110 motion-safe:active:scale-[0.99]"
+                  ) : gateway === 'sep' ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="mt-4 inline-flex h-12 w-full cursor-default items-center justify-center rounded-full bg-[var(--h-accent)] text-[14.5px] font-bold text-white opacity-60"
                     >
-                      پرداخت و رفتن به درگاه
-                      <Icon name="chevronRight" size={16} className="rtl:-scale-x-100" />
-                    </Link>
+                      درگاه سپ به‌زودی فعال می‌شود
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      data-testid="checkout-pay"
+                      disabled={payPending}
+                      onClick={() => void startPay()}
+                      className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full bg-[var(--h-accent)] px-4 text-[14.5px] font-bold text-white shadow-lg shadow-accent/40 transition hover:brightness-110 disabled:cursor-default disabled:opacity-70 motion-safe:active:scale-[0.99]"
+                    >
+                      {payPending ? null : <ZarinpalLogo />}
+                      {payPending ? 'در حال اتصال به درگاه' : 'پرداخت با زرین‌پال'}
+                      {payPending ? null : (
+                        <Icon name="chevronRight" size={16} className="rtl:-scale-x-100" />
+                      )}
+                    </button>
                   )}
+
+                  {payError ? (
+                    <p role="alert" className="mt-3 text-[12.5px] leading-5 text-[var(--tc-down)]">
+                      {payError}
+                    </p>
+                  ) : null}
 
                   <ul className="mt-4 flex flex-col gap-2.5 text-[12.5px] leading-5 text-[var(--h-muted)]">
                     <li className="flex items-start gap-2">
                       <Icon name="shield" size={15} className="mt-0.5 shrink-0" />
-                      پرداخت داخل درگاه بانکی انجام می‌شود.
+                      پرداخت داخل درگاه انتخاب‌شده انجام می‌شود.
                     </li>
                     <li className="flex items-start gap-2">
                       <Icon name="lock" size={15} className="mt-0.5 shrink-0" />
@@ -365,70 +452,87 @@ export function CheckoutView({
   );
 }
 
-/** Destination of the pay button. No bank call — the gateway is not connected. */
-export function PaymentGatewayPending({
-  user,
-  planId,
-  cycle,
-  quote,
-}: {
-  readonly user: Me;
-  readonly planId: PaidPlanId | null;
-  readonly cycle: BillingCycle;
-  readonly quote: DiscountQuote | null;
-}) {
-  const back = planId ? checkoutPath(planId, cycle, quote?.code) : SUBSCRIPTION_SETTINGS_HREF;
+/** Official Zarinpal wordmark from their docs. Dark type needs the white chip. */
+function ZarinpalLogo() {
   return (
-    <HomeShell user={user} notices={0} noticeMenu={null}>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex flex-wrap items-center gap-x-2 gap-y-3 px-4 pt-4 sm:px-8 sm:pt-5">
-          <ShellMenuButton />
-          <h1 className="order-last w-full text-[22px] font-bold leading-none sm:order-none sm:w-auto sm:flex-1 sm:text-[26px]">
-            درگاه پرداخت
-          </h1>
-          <div className="ms-auto">
-            <ShellTools />
-          </div>
-        </header>
-        <div className="flex flex-1 items-center justify-center px-4 pb-16">
-          <div className="flex max-w-md flex-col items-center text-center">
-            <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] text-[var(--h-accent)]">
-              <Icon name="lock" size={28} />
-            </span>
-            <span className="mt-5 rounded-md border border-[var(--h-line)] bg-[var(--h-chip)] px-2.5 py-1 text-[12px] font-bold text-[var(--h-muted)]">
-              به‌زودی
-            </span>
-            <h2 className="mt-4 text-[24px] font-extrabold leading-tight sm:text-[28px]">
-              درگاه پرداخت هنوز وصل نشده
-            </h2>
-            {quote ? (
-              <p className="mt-3 text-[15px] leading-8 text-[var(--h-muted)]">
-                کد{' '}
-                <span dir="ltr" className="font-semibold text-[var(--h-text)]">
-                  {quote.code}
-                </span>{' '}
-                اعمال شده و مبلغ قابل پرداخت{' '}
-                <span className="font-semibold tabular-nums text-[var(--h-text)]">
-                  {faNum(quote.total)}
-                </span>{' '}
-                تومان است.
-              </p>
-            ) : null}
-            <p className="mt-3 text-[15px] leading-8 text-[var(--h-muted)]">
-              اینجا همان جایی است که بعد از تسویه حساب به بانک می‌روید. اتصال هنوز برقرار نیست و
-              مبلغی از حساب شما کم نشده.
-            </p>
-            <Link
-              href={back}
-              className="mt-6 inline-flex h-11 items-center gap-1.5 rounded-full bg-[var(--h-accent)] px-5 text-[14px] font-semibold text-white"
+    <span className="inline-flex h-7 shrink-0 items-center rounded-md bg-white px-1.5 ring-1 ring-black/10">
+      <img src="/billing/zarinpal.svg" alt="" className="h-4 w-auto" />
+    </span>
+  );
+}
+
+function GatewayPicker({
+  gateway,
+  sandbox,
+  onPick,
+}: {
+  readonly gateway: PaymentGatewayId;
+  readonly sandbox: boolean;
+  readonly onPick: (gateway: PaymentGatewayId) => void;
+}) {
+  return (
+    <div className="mt-4">
+      <p className="text-[13px] font-medium">روش پرداخت</p>
+      <div role="radiogroup" aria-label="روش پرداخت" className="mt-2 flex flex-col gap-2">
+        {GATEWAYS.map((option) => {
+          const on = gateway === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-testid={`checkout-gateway-${option.id}`}
+              onClick={() => onPick(option.id)}
+              className={`flex items-center gap-3 rounded-xl border px-3.5 py-3 text-start transition ${
+                on
+                  ? 'border-[var(--h-accent)] bg-[color-mix(in_srgb,var(--h-accent)_10%,transparent)]'
+                  : 'border-[var(--h-line)] bg-[var(--h-field)] hover:border-[color-mix(in_srgb,var(--h-accent)_45%,var(--h-line))]'
+              }`}
             >
-              <Icon name="chevronLeft" size={15} className="rtl:-scale-x-100" />
-              بازگشت به تسویه حساب
-            </Link>
-          </div>
-        </div>
+              {option.id === 'zarinpal' ? (
+                <ZarinpalLogo />
+              ) : (
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[12px] font-bold ${
+                    on
+                      ? 'bg-[var(--h-accent)] text-white'
+                      : 'bg-[var(--h-chip)] text-[var(--h-muted)]'
+                  }`}
+                >
+                  {option.mark}
+                </span>
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="text-[14px] font-semibold">{option.name}</span>
+                  {option.ready ? null : (
+                    <span className="rounded-md bg-[var(--h-chip)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--h-muted)]">
+                      به‌زودی
+                    </span>
+                  )}
+                </span>
+                <span className="mt-0.5 block text-[12px] leading-5 text-[var(--h-muted)]">
+                  {option.detail}
+                </span>
+              </span>
+              <span
+                className={`h-4 w-4 shrink-0 rounded-full border ${
+                  on
+                    ? 'border-[var(--h-accent)] bg-[var(--h-accent)] shadow-[inset_0_0_0_3px_var(--h-card)]'
+                    : 'border-[var(--h-line)]'
+                }`}
+              />
+            </button>
+          );
+        })}
       </div>
-    </HomeShell>
+      {sandbox && gateway === 'zarinpal' ? (
+        <p className="mt-2 text-[12px] leading-5 text-[var(--h-muted)]">
+          حالت آزمایشی زرین‌پال روشن است و مبلغی از کارت کم نمی‌شود.
+        </p>
+      ) : null}
+    </div>
   );
 }
 

@@ -11,6 +11,7 @@ import {
 } from '@/components/billing/plans';
 import { quoteDiscountCode } from '@/server/discounts';
 import { requireUser } from '@/server/guard';
+import { zarinpalMode } from '@/server/zarinpal';
 
 export const metadata: Metadata = { title: 'تسویه حساب | Candelo' };
 
@@ -51,6 +52,7 @@ export default async function CheckoutPage({
       initialCode={code}
       initialQuote={initialQuote}
       initialError={initialError}
+      sandbox={zarinpalMode() === 'sandbox'}
     />
   );
 }
