@@ -258,6 +258,31 @@ export function StaffInbox({ initialId }: { readonly initialId: string | null })
   const statusRef = useRef(status);
   const activeRef = useRef(active);
 
+  // A deep link (?id=…) selects that ticket as soon as the prop changes.
+  const [seenInitialId, setSeenInitialId] = useState(initialId);
+  if (seenInitialId !== initialId) {
+    setSeenInitialId(initialId);
+    if (initialId) {
+      setActive(initialId);
+      setMobileView('thread');
+    }
+  }
+
+  const listKey = `${status}:${listNonce}`;
+  const [seenListKey, setSeenListKey] = useState(listKey);
+  if (seenListKey !== listKey) {
+    setSeenListKey(listKey);
+    setListLoading(true);
+    setListError('');
+  }
+
+  const threadKey = `${active ?? ''}:${threadNonce}`;
+  const [seenThreadKey, setSeenThreadKey] = useState(threadKey);
+  if (seenThreadKey !== threadKey) {
+    setSeenThreadKey(threadKey);
+    if (active) setThreadError('');
+  }
+
   const body = active ? (drafts[active] ?? '') : '';
   const setBody = (value: string) => {
     if (!active) return;
@@ -266,19 +291,14 @@ export function StaffInbox({ initialId }: { readonly initialId: string | null })
 
   /* ---------- Data loading ---------- */
 
-  // A deep link (?id=…) selects that ticket straight away.
+  // A deep link wins over the automatic "open the newest ticket" choice.
   useEffect(() => {
-    if (!initialId) return;
-    autoSelect.current = false;
-    setActive(initialId);
-    setMobileView('thread');
+    if (initialId) autoSelect.current = false;
   }, [initialId]);
 
   // List for the current filter. The first load also opens the newest ticket.
   useEffect(() => {
     let live = true;
-    setListLoading(true);
-    setListError('');
     void api<{ tickets: StaffTicket[] }>(`/api/admin/support?status=${status}`)
       .then((data) => {
         if (!live) return;
@@ -304,7 +324,6 @@ export function StaffInbox({ initialId }: { readonly initialId: string | null })
   useEffect(() => {
     if (!active) return;
     let live = true;
-    setThreadError('');
     void api<Thread>(`/api/admin/support/${active}`)
       .then((data) => {
         if (live) setThread(data);

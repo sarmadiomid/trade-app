@@ -291,6 +291,12 @@ export function AdminShell({
   const pathname = usePathname();
   const openTickets = useOpenTickets(pathname);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Close the drawer when the route changes, during render rather than in an effect.
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
+    setMenuOpen(false);
+  }
   const mainRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -298,10 +304,9 @@ export function AdminShell({
 
   const current = NAV_ITEMS.find((item) => isActive(pathname, item.href));
 
-  // Every page change starts at the top and closes the mobile menu.
+  // Every page change starts at the top. The drawer closes while rendering, above.
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0 });
-    setMenuOpen(false);
   }, [pathname]);
 
   // Mobile menu: Escape closes it, focus moves in and returns to the button.
