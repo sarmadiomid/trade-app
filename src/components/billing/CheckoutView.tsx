@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -456,7 +457,14 @@ export function CheckoutView({
 function ZarinpalLogo() {
   return (
     <span className="inline-flex h-7 shrink-0 items-center rounded-md bg-white px-1.5 ring-1 ring-black/10">
-      <img src="/billing/zarinpal.svg" alt="" className="h-4 w-auto" />
+      <Image
+        src="/billing/zarinpal.svg"
+        alt=""
+        width={108}
+        height={24}
+        unoptimized
+        className="h-4 w-auto"
+      />
     </span>
   );
 }

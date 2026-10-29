@@ -35,6 +35,23 @@ function Spinner() {
   return <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />;
 }
 
+/** Candles are decorative. Round once so Node and the browser emit the same SVG numbers. */
+const LOGIN_CANDLES = Array.from({ length: 28 }, (_, i) => {
+  const px = (n: number) => Math.round(n * 100) / 100;
+  const base = px(120 - i * 2.6 + Math.sin(i * 1.3) * 16);
+  const h = px(10 + Math.abs(Math.cos(i * 1.7)) * 18);
+  const x = 10 + i * 14;
+  return {
+    x,
+    h,
+    up: Math.sin(i * 2.1) > -0.3,
+    revealed: i < 20,
+    wickTop: px(base - h - 7),
+    wickBot: px(base + 7),
+    bodyTop: px(base - h),
+  };
+});
+
 function OtpInput({
   value,
   onChange,
@@ -342,19 +359,25 @@ export function LoginView({ next }: { next: string }) {
               </span>
             </div>
             <svg viewBox="0 0 400 170" className="mt-4 h-auto w-full" aria-hidden="true">
-              {Array.from({ length: 28 }, (_, i) => {
-                const revealed = i < 20;
-                const base = 120 - i * 2.6 + Math.sin(i * 1.3) * 16;
-                const up = Math.sin(i * 2.1) > -0.3;
-                const h = 10 + Math.abs(Math.cos(i * 1.7)) * 18;
-                const x = 10 + i * 14;
-                return (
-                  <g key={i} opacity={revealed ? 1 : 0.12}>
-                    <line x1={x} x2={x} y1={base - h - 7} y2={base + 7} stroke={up ? '#4a9dff' : '#ef5b7a'} />
-                    <rect x={x - 4} y={base - h} width="8" height={h} rx="1" fill={up ? '#4a9dff' : '#ef5b7a'} />
-                  </g>
-                );
-              })}
+              {LOGIN_CANDLES.map((candle, i) => (
+                <g key={i} opacity={candle.revealed ? 1 : 0.12}>
+                  <line
+                    x1={candle.x}
+                    x2={candle.x}
+                    y1={candle.wickTop}
+                    y2={candle.wickBot}
+                    stroke={candle.up ? '#4a9dff' : '#ef5b7a'}
+                  />
+                  <rect
+                    x={candle.x - 4}
+                    y={candle.bodyTop}
+                    width="8"
+                    height={candle.h}
+                    rx="1"
+                    fill={candle.up ? '#4a9dff' : '#ef5b7a'}
+                  />
+                </g>
+              ))}
               <line x1="286" x2="286" y1="8" y2="162" stroke="#38d3ff" strokeWidth="1.5" />
               <rect x="200" y="42" width="190" height="38" fill="#4a9dff" opacity=".16" />
               <rect x="200" y="80" width="190" height="28" fill="#ef5b7a" opacity=".16" />
