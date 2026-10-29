@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { JalaliDateField } from '@/components/backtest/JalaliField';
 import { faNum, formatJalaliDateTime } from '@/lib/locale/jalali';
 import { ApiError, api } from '@/components/platform/api';
 import { Notice, PageHead, Panel, fieldClass, labelClass, useAdminQuery } from './ui';
+
+const expiryField =
+  'flex h-11 w-full items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#0c1018] px-3 text-[13.5px] text-[var(--a-text)] outline-none transition hover:border-white/20 focus:border-[#3b78ff] focus:ring-4 focus:ring-[#3b78ff]/15';
 
 interface DiscountRow {
   readonly code: string;
@@ -186,16 +190,27 @@ export function DiscountsDesk() {
               className={fieldClass}
             />
           </label>
-          <label className="sm:col-span-2">
-            <span className={labelClass}>انقضا (میلادی)</span>
-            <input
-              dir="ltr"
-              type="date"
+          <div className="sm:col-span-2">
+            <div className="mb-1.5 flex items-center justify-between gap-3">
+              <span className="text-[12px] font-medium text-[var(--a-muted)]">انقضا</span>
+              {form.expiresAt ? (
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, expiresAt: '' })}
+                  className="text-[12px] text-[var(--a-muted)] transition hover:text-white"
+                >
+                  بدون انقضا
+                </button>
+              ) : null}
+            </div>
+            <JalaliDateField
+              ariaLabel="تاریخ انقضا"
+              className={expiryField}
               value={form.expiresAt}
-              onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
-              className={fieldClass}
+              placeholder="بدون انقضا"
+              onChange={(expiresAt) => setForm({ ...form, expiresAt })}
             />
-          </label>
+          </div>
         </div>
         <button
           type="button"

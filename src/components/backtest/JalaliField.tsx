@@ -64,15 +64,20 @@ export function JalaliDateField({
   onChange,
   ariaLabel,
   className,
+  placeholder,
 }: {
   readonly value: string;
-  readonly min?: string;
-  readonly max?: string;
+  readonly min?: string | undefined;
+  readonly max?: string | undefined;
   readonly onChange: (value: string) => void;
   readonly ariaLabel: string;
-  readonly className?: string;
+  readonly className?: string | undefined;
+  /** Shown instead of a date when `value` is empty. The calendar then opens on today. */
+  readonly placeholder?: string | undefined;
 }) {
-  const current = gregorianInputToJalali(value) ?? { jy: 1403, jm: 1, jd: 1 };
+  const parsed = gregorianInputToJalali(value);
+  const current =
+    parsed ?? (placeholder ? utcToJalali(Date.now()) : { jy: 1403, jm: 1, jd: 1 });
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [view, setView] = useState({ y: current.jy, m: current.jm });
@@ -126,7 +131,9 @@ export function JalaliDateField({
           'flex h-9 w-full items-center justify-between gap-2 rounded-md border border-line bg-chart px-2.5 text-[13px] text-fg outline-none focus:border-accent'
         }
       >
-        <span>{labelOf(current)}</span>
+        <span className={parsed || !placeholder ? undefined : 'text-[#667085]'}>
+          {parsed || !placeholder ? labelOf(current) : placeholder}
+        </span>
         <Icon name="calendar" size={15} className="shrink-0 text-muted" />
       </button>
       {open ? (
@@ -137,6 +144,7 @@ export function JalaliDateField({
             role="dialog"
             aria-label={ariaLabel}
             tabIndex={-1}
+            style={{ fontFamily: 'Vazirmatn, Tahoma, sans-serif' }}
             className="w-[17.5rem] outline-none"
             onKeyDown={(e) => {
               if (mode !== 'days') return;
@@ -189,7 +197,7 @@ export function JalaliDateField({
                   <MonthDays
                     view={view}
                     cursor={cursor}
-                    selected={current}
+                    selected={parsed ?? (placeholder ? null : current)}
                     min={min}
                     max={max}
                     onPick={commit}
@@ -249,7 +257,7 @@ function MonthDays({
 }: {
   readonly view: { y: number; m: number };
   readonly cursor: JalaliDate;
-  readonly selected: JalaliDate;
+  readonly selected: JalaliDate | null;
   readonly min?: string | undefined;
   readonly max?: string | undefined;
   readonly onPick: (j: JalaliDate) => void;
@@ -264,7 +272,11 @@ function MonthDays({
         if (d === null) return <span key={`e${i}`} />;
         const input = jalaliToGregorianInput(view.y, view.m, d);
         const enabled = inRange(input, min, max);
-        const isSelected = selected.jy === view.y && selected.jm === view.m && selected.jd === d;
+        const isSelected =
+          selected !== null &&
+          selected.jy === view.y &&
+          selected.jm === view.m &&
+          selected.jd === d;
         const isCursor = cursor.jy === view.y && cursor.jm === view.m && cursor.jd === d;
         return (
           <button

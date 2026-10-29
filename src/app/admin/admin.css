@@ -1,4 +1,5 @@
 .admin-app {
+  direction: rtl;
   --a-bg: #07090f;
   --a-side: #0b0e16;
   --a-card: #10141e;
@@ -19,6 +20,12 @@
 
 .admin-app input,
 .admin-app select,
-.admin-app textarea {
+.admin-app textarea,
+.admin-app button {
   font-family: inherit;
+}
+
+/* Kept out of the scrolling panel. A directory input inside it grows after the picker opens. */
+.admin-file-input {
+  display: none;
 }

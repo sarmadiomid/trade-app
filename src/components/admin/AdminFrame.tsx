@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useLayoutEffect, type ReactNode } from 'react';
 
 /** Persian RTL while the admin panel is open. */
 export function useAdminLocale(): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const html = document.documentElement;
     const prev = {
       lang: html.lang,
@@ -25,5 +25,9 @@ export function useAdminLocale(): void {
 
 export function AdminFrame({ children }: { readonly children: ReactNode }) {
   useAdminLocale();
-  return <div className="admin-app h-full">{children}</div>;
+  return (
+    <div lang="fa" dir="rtl" className="admin-app h-full">
+      {children}
+    </div>
+  );
 }

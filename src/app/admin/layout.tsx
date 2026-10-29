@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { readonly children: Rea
   if (!user) redirect('/login?next=%2Fadmin');
   const allowed = isAdminPhone(user.phone);
   return (
-    <>
+    <div lang="fa" dir="rtl" className="h-full">
       <link rel="stylesheet" href={VAZIRMATN} precedence="default" />
       <AdminFrame>
         {allowed ? (
@@ -28,6 +28,6 @@ export default async function AdminLayout({ children }: { readonly children: Rea
           <AdminDenied phone={user.phone} />
         )}
       </AdminFrame>
-    </>
+    </div>
   );
 }
