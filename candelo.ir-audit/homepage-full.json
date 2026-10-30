@@ -1,0 +1,17 @@
+{
+  "url": "https://candelo.ir/",
+  "status_code": null,
+  "content": null,
+  "raw_content": "<!DOCTYPE html><html lang=\"en\" class=\"h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"/><link rel=\"stylesheet\" href=\"/_next/static/css/f0740b0a4...",
+  "is_spa": false,
+  "extracted_text": null,
+  "publication_date": null,
+  "accessibility_tree": null,
+  "headers": {},
+  "redirect_chain": [],
+  "console_errors": [],
+  "render_engine": null,
+  "render_ms": 15717.77314600331,
+  "mode_used": "rendered",
+  "error": "playwright navigation timed out after 15000ms"
+}

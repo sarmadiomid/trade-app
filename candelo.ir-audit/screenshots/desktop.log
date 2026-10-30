@@ -1,0 +1,5 @@
+Capturing desktop screenshot...
+  ✗ Failed: Page.goto: net::ERR_TIMED_OUT at https://candelo.ir/
+Call log:
+  - navigating to "https://candelo.ir/", waiting until "networkidle"
+

@@ -1,0 +1,73 @@
+{
+  "category": "Content Quality",
+  "url": "https://candelo.ir/",
+  "content_quality_score": 41,
+  "eeat": {
+    "experience": {
+      "score": 40,
+      "weight": 0.2,
+      "weighted": 8.0
+    },
+    "expertise": {
+      "score": 40,
+      "weight": 0.25,
+      "weighted": 10.0
+    },
+    "authoritativeness": {
+      "score": 20,
+      "weight": 0.25,
+      "weighted": 5.0
+    },
+    "trustworthiness": {
+      "score": 40,
+      "weight": 0.3,
+      "weighted": 12.0
+    },
+    "weighted_total": 35
+  },
+  "ai_citation_readiness": 32,
+  "metrics": {
+    "homepage_persian_tokens": 633,
+    "homepage_chars": 3386,
+    "homepage_h1": 1,
+    "homepage_h2": 9,
+    "homepage_h3": 14,
+    "faq_items": 7,
+    "json_ld_blocks": 0,
+    "og_tags": 0,
+    "canonical": false,
+    "html_lang": "en (mismatch; Persian UI)",
+    "publication_date_detected": "2025-03-18",
+    "public_content_urls": [
+      "https://candelo.ir/"
+    ],
+    "thin_or_empty_public": [
+      "https://candelo.ir/lessons"
+    ],
+    "missing_trust_pages": [
+      "/privacy",
+      "/terms",
+      "/about",
+      "/contact",
+      "/blog"
+    ],
+    "missing_discovery": [
+      "/robots.txt",
+      "/sitemap.xml",
+      "/llms.txt"
+    ]
+  },
+  "who_how_why": {
+    "who": "fail",
+    "how": "partial",
+    "why": "pass"
+  },
+  "flags": [
+    "thin-site-architecture",
+    "ymyl-adjacent-missing-legal-pages",
+    "no-author-or-org-identity",
+    "no-structured-data",
+    "lang-mismatch",
+    "lessons-no-extractable-content"
+  ]
+}

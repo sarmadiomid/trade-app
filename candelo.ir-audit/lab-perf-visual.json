@@ -1,0 +1,737 @@
+{
+  "url": "https://candelo.ir/",
+  "desktop": {
+    "nav_wall_ms": 32779,
+    "status": 200,
+    "metrics": {
+      "nav": {
+        "ttfb_ms": 630,
+        "response_start_ms": 1432,
+        "dcl_ms": 2797,
+        "load_ms": 32086,
+        "dom_interactive_ms": 2797,
+        "transfer_size": 65782,
+        "encoded_body": 65482,
+        "decoded_body": 371204,
+        "protocol": "h2"
+      },
+      "paint": {
+        "first-paint": 2880,
+        "first-contentful-paint": 2880
+      },
+      "lcp_ms": 2880,
+      "lcp_detail": {
+        "time": 2880,
+        "size": 114180,
+        "id": "",
+        "url": null,
+        "tag": "H1"
+      },
+      "cls": 0.001,
+      "resource_count": 22,
+      "resources": [
+        {
+          "name": "https://candelo.ir/_next/static/css/f0740b0a4baf21dc.css",
+          "type": "link",
+          "dur": 641,
+          "transfer": 26264,
+          "decoded": 162025,
+          "start": 1441,
+          "ttfb": 619
+        },
+        {
+          "name": "https://candelo.ir/_next/static/css/f1a0502ba284f315.css",
+          "type": "link",
+          "dur": 573,
+          "transfer": 1633,
+          "decoded": 3447,
+          "start": 1441,
+          "ttfb": 564
+        },
+        {
+          "name": "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap",
+          "type": "link",
+          "dur": 1011,
+          "transfer": 823,
+          "decoded": 3630,
+          "start": 1441,
+          "ttfb": 253
+        },
+        {
+          "name": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css",
+          "type": "link",
+          "dur": 1012,
+          "transfer": 506,
+          "decoded": 1604,
+          "start": 1441,
+          "ttfb": 253
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/webpack-f325e4e4963a592c.js",
+          "type": "link",
+          "dur": 1366,
+          "transfer": 2600,
+          "decoded": 4377,
+          "start": 1441,
+          "ttfb": 724
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/4bd1b696-93bf506b236d6248.js",
+          "type": "script",
+          "dur": 1739,
+          "transfer": 63600,
+          "decoded": 201055,
+          "start": 1441,
+          "ttfb": 652
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/3794-12e66dda6743712f.js",
+          "type": "script",
+          "dur": 1751,
+          "transfer": 65904,
+          "decoded": 240796,
+          "start": 1441,
+          "ttfb": 605
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/main-app-a804abf8e2e363eb.js",
+          "type": "script",
+          "dur": 1608,
+          "transfer": 509,
+          "decoded": 516,
+          "start": 1441,
+          "ttfb": 594
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/8500-f4d7bfbe7500f274.js",
+          "type": "script",
+          "dur": 1607,
+          "transfer": 3854,
+          "decoded": 8632,
+          "start": 1442,
+          "ttfb": 593
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/8064-7e4de57c1434fa7d.js",
+          "type": "script",
+          "dur": 1624,
+          "transfer": 26697,
+          "decoded": 93351,
+          "start": 1442,
+          "ttfb": 595
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/8437-e1cbba6829c02174.js",
+          "type": "script",
+          "dur": 1367,
+          "transfer": 5789,
+          "decoded": 14253,
+          "start": 1442,
+          "ttfb": 353
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/512-6eed34125061a78f.js",
+          "type": "script",
+          "dur": 4161,
+          "transfer": 113277,
+          "decoded": 356905,
+          "start": 1442,
+          "ttfb": 608
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/5576-8f32bfd72af6e850.js",
+          "type": "script",
+          "dur": 3752,
+          "transfer": 4326,
+          "decoded": 10332,
+          "start": 1442,
+          "ttfb": 141
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/4800-b6502e6209631e41.js",
+          "type": "script",
+          "dur": 3753,
+          "transfer": 15555,
+          "decoded": 52586,
+          "start": 1442,
+          "ttfb": 142
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/4005-6b11cf7e16b40a35.js",
+          "type": "script",
+          "dur": 3753,
+          "transfer": 5032,
+          "decoded": 15272,
+          "start": 1442,
+          "ttfb": 142
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/app/(marketing)/page-3c7d974a009877bc.js",
+          "type": "script",
+          "dur": 3955,
+          "transfer": 13553,
+          "decoded": 34960,
+          "start": 1442,
+          "ttfb": 201
+        },
+        {
+          "name": "https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp",
+          "type": "img",
+          "dur": 30468,
+          "transfer": 0,
+          "decoded": 0,
+          "start": 1616,
+          "ttfb": 0
+        },
+        {
+          "name": "https://candelo.ir/_next/image?url=%2Flogo.png&w=48&q=75",
+          "type": "img",
+          "dur": 1487,
+          "transfer": 1696,
+          "decoded": 1396,
+          "start": 2791,
+          "ttfb": 681
+        },
+        {
+          "name": "https://candelo.ir/login?_rsc=5CB68i4pnAekjehf",
+          "type": "fetch",
+          "dur": 459,
+          "transfer": 474,
+          "decoded": 325,
+          "start": 5653,
+          "ttfb": 457
+        },
+        {
+          "name": "https://candelo.ir/?_rsc=tXyZJ52UQVBCVsD3",
+          "type": "fetch",
+          "dur": 459,
+          "transfer": 1185,
+          "decoded": 1498,
+          "start": 5653,
+          "ttfb": 457
+        },
+        {
+          "name": "https://candelo.ir/login?_rsc=tXyZJ52UQVBCVsD3",
+          "type": "fetch",
+          "dur": 807,
+          "transfer": 1157,
+          "decoded": 1455,
+          "start": 6117,
+          "ttfb": 806
+        },
+        {
+          "name": "https://candelo.ir/favicon.ico?587091f21487e6a7",
+          "type": "other",
+          "dur": 178,
+          "transfer": 4909,
+          "decoded": 4615,
+          "start": 32090,
+          "ttfb": 176
+        }
+      ],
+      "total_transfer": 425125
+    },
+    "visual": {
+      "above_fold": {
+        "h1_visible": true,
+        "h1_text": "معامله با اطمینان،\nاز بک‌تست شروع می‌شود",
+        "cta_visible": true,
+        "cta_text": "ورود",
+        "hero_image": "/_next/image?url=%2Flogo.png&w=96&q=75",
+        "cta_candidates": [
+          {
+            "text": "ورود",
+            "y": 14,
+            "tag": "A"
+          },
+          {
+            "text": "شروع کنید",
+            "y": 14,
+            "tag": "A"
+          },
+          {
+            "text": "شروع کنید",
+            "y": 539,
+            "tag": "A"
+          }
+        ]
+      },
+      "fonts": {
+        "body_font_size": 16,
+        "body_font_family": "-apple-system, BlinkMacSystemFont, \"Trebuchet MS\", Roboto, Ubuntu, sans-serif",
+        "h1_font_size": 66,
+        "h1_font_family": "Vazirmatn, \"Vazirmatn FD\", Tahoma, -apple-system, sans-serif",
+        "readable": true
+      },
+      "layout": {
+        "overlapping_sample": [],
+        "text_overflow_sample": []
+      },
+      "images_above_fold": [],
+      "viewport": {
+        "width": 1920,
+        "height": 1080
+      },
+      "mobile": {
+        "viewport_meta": true,
+        "viewport_content": "width=device-width, initial-scale=1",
+        "scroll_width": 1920,
+        "inner_width": 1920,
+        "horizontal_scroll": false
+      },
+      "touch": {
+        "checked": 29,
+        "small_targets": 21,
+        "samples": [
+          {
+            "text": "Candelo\nکندلو",
+            "w": 123,
+            "h": 34
+          },
+          {
+            "text": "محصول",
+            "w": 67,
+            "h": 36
+          },
+          {
+            "text": "نمودار",
+            "w": 56,
+            "h": 36
+          },
+          {
+            "text": "مسابقه و نبرد",
+            "w": 97,
+            "h": 36
+          },
+          {
+            "text": "امکانات",
+            "w": 65,
+            "h": 36
+          },
+          {
+            "text": "قیمت",
+            "w": 56,
+            "h": 36
+          },
+          {
+            "text": "سوالات متداول",
+            "w": 105,
+            "h": 36
+          },
+          {
+            "text": "ورود",
+            "w": 48,
+            "h": 36
+          }
+        ]
+      },
+      "dom_images": [
+        {
+          "src": "https://candelo.ir/_next/image?url=%2Flogo.png&w=48&q=75",
+          "alt": "",
+          "w": 48,
+          "h": 48,
+          "disp_w": 34,
+          "disp_h": 34,
+          "loading": "lazy",
+          "fetchpriority": null,
+          "decoding": "async",
+          "complete": true,
+          "y": 15
+        },
+        {
+          "src": "https://candelo.ir/_next/image?url=%2Flogo.png&w=48&q=75",
+          "alt": "",
+          "w": 48,
+          "h": 48,
+          "disp_w": 34,
+          "disp_h": 34,
+          "loading": "lazy",
+          "fetchpriority": null,
+          "decoding": "async",
+          "complete": false,
+          "y": 9701
+        },
+        {
+          "src": "https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp",
+          "alt": "",
+          "w": 0,
+          "h": 0,
+          "disp_w": 0,
+          "disp_h": 0,
+          "loading": null,
+          "fetchpriority": null,
+          "decoding": null,
+          "complete": true,
+          "y": 10012
+        }
+      ],
+      "bg_images": []
+    }
+  },
+  "mobile": {
+    "nav_wall_ms": 32839,
+    "status": 200,
+    "metrics": {
+      "nav": {
+        "ttfb_ms": 978,
+        "response_start_ms": 1445,
+        "dcl_ms": 2823,
+        "load_ms": 31866,
+        "dom_interactive_ms": 2823,
+        "transfer_size": 65782,
+        "encoded_body": 65482,
+        "decoded_body": 371204,
+        "protocol": "h2"
+      },
+      "paint": {
+        "first-paint": 2860,
+        "first-contentful-paint": 2860
+      },
+      "lcp_ms": 2860,
+      "lcp_detail": {
+        "time": 2860,
+        "size": 40296,
+        "id": "",
+        "url": null,
+        "tag": "H1"
+      },
+      "cls": 0.003,
+      "resource_count": 22,
+      "resources": [
+        {
+          "name": "https://candelo.ir/_next/static/css/f0740b0a4baf21dc.css",
+          "type": "link",
+          "dur": 405,
+          "transfer": 26264,
+          "decoded": 162025,
+          "start": 1459,
+          "ttfb": 396
+        },
+        {
+          "name": "https://candelo.ir/_next/static/css/f1a0502ba284f315.css",
+          "type": "link",
+          "dur": 404,
+          "transfer": 1633,
+          "decoded": 3447,
+          "start": 1460,
+          "ttfb": 396
+        },
+        {
+          "name": "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap",
+          "type": "link",
+          "dur": 982,
+          "transfer": 836,
+          "decoded": 3681,
+          "start": 1460,
+          "ttfb": 201
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/webpack-f325e4e4963a592c.js",
+          "type": "link",
+          "dur": 593,
+          "transfer": 2600,
+          "decoded": 4377,
+          "start": 1460,
+          "ttfb": 187
+        },
+        {
+          "name": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css",
+          "type": "link",
+          "dur": 984,
+          "transfer": 506,
+          "decoded": 1604,
+          "start": 1460,
+          "ttfb": 201
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/4bd1b696-93bf506b236d6248.js",
+          "type": "script",
+          "dur": 824,
+          "transfer": 63600,
+          "decoded": 201055,
+          "start": 1460,
+          "ttfb": 181
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/3794-12e66dda6743712f.js",
+          "type": "script",
+          "dur": 1033,
+          "transfer": 65904,
+          "decoded": 240796,
+          "start": 1460,
+          "ttfb": 158
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/main-app-a804abf8e2e363eb.js",
+          "type": "script",
+          "dur": 1116,
+          "transfer": 509,
+          "decoded": 516,
+          "start": 1460,
+          "ttfb": 130
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/8064-7e4de57c1434fa7d.js",
+          "type": "script",
+          "dur": 1138,
+          "transfer": 26697,
+          "decoded": 93351,
+          "start": 1460,
+          "ttfb": 138
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/8500-f4d7bfbe7500f274.js",
+          "type": "script",
+          "dur": 1139,
+          "transfer": 3854,
+          "decoded": 8632,
+          "start": 1460,
+          "ttfb": 152
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/8437-e1cbba6829c02174.js",
+          "type": "script",
+          "dur": 1143,
+          "transfer": 5789,
+          "decoded": 14253,
+          "start": 1460,
+          "ttfb": 156
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/512-6eed34125061a78f.js",
+          "type": "script",
+          "dur": 1203,
+          "transfer": 113277,
+          "decoded": 356905,
+          "start": 1460,
+          "ttfb": 159
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/5576-8f32bfd72af6e850.js",
+          "type": "script",
+          "dur": 1211,
+          "transfer": 4326,
+          "decoded": 10332,
+          "start": 1460,
+          "ttfb": 224
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/4800-b6502e6209631e41.js",
+          "type": "script",
+          "dur": 1220,
+          "transfer": 15555,
+          "decoded": 52586,
+          "start": 1460,
+          "ttfb": 186
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/4005-6b11cf7e16b40a35.js",
+          "type": "script",
+          "dur": 1225,
+          "transfer": 5032,
+          "decoded": 15272,
+          "start": 1460,
+          "ttfb": 108
+        },
+        {
+          "name": "https://candelo.ir/_next/static/chunks/app/(marketing)/page-3c7d974a009877bc.js",
+          "type": "script",
+          "dur": 1290,
+          "transfer": 13553,
+          "decoded": 34960,
+          "start": 1460,
+          "ttfb": 151
+        },
+        {
+          "name": "https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp",
+          "type": "img",
+          "dur": 30405,
+          "transfer": 0,
+          "decoded": 0,
+          "start": 1460,
+          "ttfb": 0
+        },
+        {
+          "name": "https://candelo.ir/_next/image?url=%2Flogo.png&w=96&q=75",
+          "type": "img",
+          "dur": 1083,
+          "transfer": 2872,
+          "decoded": 2572,
+          "start": 2812,
+          "ttfb": 1080
+        },
+        {
+          "name": "https://candelo.ir/login?_rsc=5CB68i4pnAekjehf",
+          "type": "fetch",
+          "dur": 1644,
+          "transfer": 474,
+          "decoded": 325,
+          "start": 2904,
+          "ttfb": 499
+        },
+        {
+          "name": "https://candelo.ir/?_rsc=tXyZJ52UQVBCVsD3",
+          "type": "fetch",
+          "dur": 1645,
+          "transfer": 1184,
+          "decoded": 1498,
+          "start": 2904,
+          "ttfb": 500
+        },
+        {
+          "name": "https://candelo.ir/login?_rsc=tXyZJ52UQVBCVsD3",
+          "type": "fetch",
+          "dur": 665,
+          "transfer": 1156,
+          "decoded": 1455,
+          "start": 4553,
+          "ttfb": 664
+        },
+        {
+          "name": "https://candelo.ir/favicon.ico?587091f21487e6a7",
+          "type": "other",
+          "dur": 455,
+          "transfer": 4909,
+          "decoded": 4615,
+          "start": 31873,
+          "ttfb": 453
+        }
+      ],
+      "total_transfer": 426312
+    },
+    "visual": {
+      "above_fold": {
+        "h1_visible": true,
+        "h1_text": "معامله با اطمینان،\nاز بک‌تست شروع می‌شود",
+        "cta_visible": true,
+        "cta_text": "شروع کنید",
+        "hero_image": "/_next/image?url=%2Flogo.png&w=96&q=75",
+        "cta_candidates": [
+          {
+            "text": "شروع کنید",
+            "y": 14,
+            "tag": "A"
+          },
+          {
+            "text": "شروع کنید",
+            "y": 514,
+            "tag": "A"
+          }
+        ]
+      },
+      "fonts": {
+        "body_font_size": 16,
+        "body_font_family": "-apple-system, BlinkMacSystemFont, \"Trebuchet MS\", Roboto, Ubuntu, sans-serif",
+        "h1_font_size": 38,
+        "h1_font_family": "Vazirmatn, \"Vazirmatn FD\", Tahoma, -apple-system, sans-serif",
+        "readable": true
+      },
+      "layout": {
+        "overlapping_sample": [],
+        "text_overflow_sample": []
+      },
+      "images_above_fold": [],
+      "viewport": {
+        "width": 375,
+        "height": 812
+      },
+      "mobile": {
+        "viewport_meta": true,
+        "viewport_content": "width=device-width, initial-scale=1",
+        "scroll_width": 375,
+        "inner_width": 375,
+        "horizontal_scroll": false
+      },
+      "touch": {
+        "checked": 28,
+        "small_targets": 20,
+        "samples": [
+          {
+            "text": "Candelo",
+            "w": 123,
+            "h": 34
+          },
+          {
+            "text": "شروع کنید",
+            "w": 111,
+            "h": 36
+          },
+          {
+            "text": "محصول",
+            "w": 65,
+            "h": 32
+          },
+          {
+            "text": "نمودار",
+            "w": 55,
+            "h": 32
+          },
+          {
+            "text": "مسابقه و نبرد",
+            "w": 94,
+            "h": 32
+          },
+          {
+            "text": "امکانات",
+            "w": 62,
+            "h": 32
+          },
+          {
+            "text": "قیمت",
+            "w": 54,
+            "h": 32
+          },
+          {
+            "text": "سوالات متداول",
+            "w": 101,
+            "h": 32
+          }
+        ]
+      },
+      "dom_images": [
+        {
+          "src": "https://candelo.ir/_next/image?url=%2Flogo.png&w=96&q=75",
+          "alt": "",
+          "w": 48,
+          "h": 48,
+          "disp_w": 34,
+          "disp_h": 34,
+          "loading": "lazy",
+          "fetchpriority": null,
+          "decoding": "async",
+          "complete": true,
+          "y": 15
+        },
+        {
+          "src": "https://candelo.ir/_next/image?url=%2Flogo.png&w=96&q=75",
+          "alt": "",
+          "w": 48,
+          "h": 48,
+          "disp_w": 34,
+          "disp_h": 34,
+          "loading": "lazy",
+          "fetchpriority": null,
+          "decoding": "async",
+          "complete": false,
+          "y": 13322
+        },
+        {
+          "src": "https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp",
+          "alt": "",
+          "w": 0,
+          "h": 0,
+          "disp_w": 0,
+          "disp_h": 0,
+          "loading": null,
+          "fetchpriority": null,
+          "decoding": null,
+          "complete": true,
+          "y": 13969
+        }
+      ],
+      "bg_images": []
+    }
+  },
+  "note": "Lab metrics via Playwright Chrome (channel=chrome). PSI/CrUX unavailable (API 403). Scripts needed --no-sandbox to reach ArvanCloud origin."
+}

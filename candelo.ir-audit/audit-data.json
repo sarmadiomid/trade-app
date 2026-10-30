@@ -1,0 +1,238 @@
+{
+  "summary": {
+    "health_score": 39,
+    "business_type": "SaaS (Persian trading backtest / candle-replay practice platform)",
+    "url": "https://candelo.ir",
+    "audited_at": "2026-10-30",
+    "top_findings": [
+      "robots.txt and sitemap.xml return 404 (HTML soft-404)",
+      "/lessons is CSR-bailout with empty crawlable body",
+      "Zero JSON-LD structured data",
+      "html lang=en on Persian RTL product",
+      "No Privacy/Terms/About — trust graph missing"
+    ],
+    "quick_wins": [
+      "Add app/robots.ts + app/sitemap.ts",
+      "Set html lang=fa dir=rtl",
+      "Add canonical + Open Graph + Twitter tags",
+      "noindex /login",
+      "Publish Privacy + Terms pages"
+    ]
+  },
+  "categories": [
+    {
+      "name": "Technical SEO",
+      "score": 42,
+      "what_works": [
+        "Homepage SSR returns 200 with usable Persian copy",
+        "Strong security headers via ArvanCloud (HSTS, XFO, nosniff)",
+        "Auth app routes 307 to login",
+        "True 404 marketing paths emit meta robots noindex"
+      ],
+      "findings": [
+        {
+          "title": "Missing robots.txt",
+          "severity": "Critical",
+          "description": "GET /robots.txt returns 404 HTML soft-404 (~7.7KB) with no crawl policy or sitemap pointer.",
+          "recommendation": "Add Next.js app/robots.ts allowing / and disallowing /home,/backtest,/battle,/chart,/admin,/login,/api/"
+        },
+        {
+          "title": "Missing XML sitemap",
+          "severity": "Critical",
+          "description": "/sitemap.xml returns 404. Only a tiny public URL set exists; discovery is link-only.",
+          "recommendation": "Add app/sitemap.ts listing indexable marketing URLs only; reference from robots.txt"
+        },
+        {
+          "title": "/lessons CSR bailout",
+          "severity": "Critical",
+          "description": "Raw HTML contains BAILOUT_TO_CLIENT_SIDE_RENDERING; crawlable body effectively empty.",
+          "recommendation": "SSR/SSG lesson content or noindex until contentful"
+        },
+        {
+          "title": "Wrong html lang",
+          "severity": "High",
+          "description": "Root layout sets lang=en while product copy and UI are Persian RTL.",
+          "recommendation": "Set <html lang=\"fa\" dir=\"rtl\"> in src/app/layout.tsx"
+        },
+        {
+          "title": "Login pages indexable",
+          "severity": "High",
+          "description": "/login and /login?next=… return 200 with no noindex/canonical.",
+          "recommendation": "robots: { index: false, follow: false } on login metadata; reinforce in robots.txt"
+        },
+        {
+          "title": "Marketing HTML no-store",
+          "severity": "Medium",
+          "description": "Homepage Cache-Control private,no-store; ArvanCloud x-cache BYPASS; ~371KB HTML.",
+          "recommendation": "CDN-cache anonymous marketing responses separately from auth HTML"
+        }
+      ]
+    },
+    {
+      "name": "Content Quality",
+      "score": 41,
+      "what_works": [
+        "Homepage ~633 Persian tokens with clear H1, features, pricing, FAQ",
+        "Virtual-account / not-financial-advice positioning",
+        "eNamad trust seal present"
+      ],
+      "findings": [
+        {
+          "title": "Missing legal and About pages",
+          "severity": "High",
+          "description": "/privacy /terms /about /contact return 404 despite OTP + billing flows.",
+          "recommendation": "Publish Privacy, Terms, About, and public support contact in footer"
+        },
+        {
+          "title": "No topical content cluster",
+          "severity": "Medium",
+          "description": "Public site is essentially one page; /lessons adds no crawlable teaching content.",
+          "recommendation": "Ship 4–6 Persian guides + case studies; fix lessons SSR"
+        },
+        {
+          "title": "Weak E-E-A-T authority",
+          "severity": "Medium",
+          "description": "Weighted E-E-A-T ~35; no expert/org entity pages or proof artifacts.",
+          "recommendation": "About page with org entity + real session case studies"
+        }
+      ]
+    },
+    {
+      "name": "On-Page SEO",
+      "score": 45,
+      "what_works": [
+        "Strong homepage title: Candelo | بک‌تست و بازپخش بازار",
+        "Meta description present",
+        "In-page anchors for product/pricing/FAQ"
+      ],
+      "findings": [
+        {
+          "title": "No canonical or social meta",
+          "severity": "High",
+          "description": "No rel=canonical, og:*, or twitter:* on homepage.",
+          "recommendation": "Add canonical + Open Graph + Twitter Card with 1200x630 image"
+        },
+        {
+          "title": "Weak cross-page internal links",
+          "severity": "Medium",
+          "description": "No footer cluster to legal/about/lessons; brand disambiguation weak vs similar names.",
+          "recommendation": "Footer IA + dedicated /pricing URL"
+        }
+      ]
+    },
+    {
+      "name": "Schema / Structured Data",
+      "score": 8,
+      "what_works": [],
+      "findings": [
+        {
+          "title": "No structured data",
+          "severity": "Critical",
+          "description": "Zero JSON-LD/Microdata/RDFa on public pages; pricing and FAQ unmarked.",
+          "recommendation": "SSR JSON-LD @graph: Organization, WebSite, SoftwareApplication, AggregateOffer (IRR); optional FAQPage for GEO only"
+        }
+      ]
+    },
+    {
+      "name": "Performance (CWV)",
+      "score": 58,
+      "what_works": [
+        "CLS excellent (~0.001–0.003)",
+        "Homepage text LCP element identifiable"
+      ],
+      "findings": [
+        {
+          "title": "LCP ~2.9s lab",
+          "severity": "High",
+          "description": "Desktop/mobile LCP ~2880ms on H1; dual web fonts + large HTML; eNamad third-party hang observed.",
+          "recommendation": "Self-host/subset fonts, defer eNamad, reduce HTML, cache marketing at CDN"
+        }
+      ]
+    },
+    {
+      "name": "AI Search Readiness",
+      "score": 32,
+      "what_works": [
+        "Homepage SSR Persian FAQ/pricing is quotable when fetched"
+      ],
+      "findings": [
+        {
+          "title": "Poor AI discoverability",
+          "severity": "High",
+          "description": "No llms.txt, no schema, no sitemap, Common Crawl domain absent, brand confusion risk.",
+          "recommendation": "Add llms.txt, schema, entity pages; build citability cluster"
+        }
+      ]
+    },
+    {
+      "name": "Images",
+      "score": 38,
+      "what_works": [
+        "Hero product visual is SVG (not a huge raster LCP)"
+      ],
+      "findings": [
+        {
+          "title": "Empty image alts and missing OG image",
+          "severity": "Medium",
+          "description": "All 3 imgs have empty alt; no og:image; logo lazy-loaded in header.",
+          "recommendation": "Meaningful alts, dedicated OG PNG/JPG, eager-load logo, compress + cache"
+        }
+      ]
+    }
+  ],
+  "action_plan": {
+    "phases": [
+      {
+        "name": "Phase 1: Critical Fixes",
+        "timeframe": "Week 1",
+        "items": [
+          "robots.ts + sitemap.ts",
+          "Fix or noindex /lessons SSR bailout",
+          "lang=fa dir=rtl",
+          "noindex /login"
+        ]
+      },
+      {
+        "name": "Phase 2: High-Impact Improvements",
+        "timeframe": "Weeks 2-3",
+        "items": [
+          "Canonical + OG + Twitter + OG image",
+          "JSON-LD SoftwareApplication graph",
+          "Privacy + Terms + About",
+          "CDN-cache anonymous marketing HTML"
+        ]
+      },
+      {
+        "name": "Phase 3: Content & Authority",
+        "timeframe": "Month 2",
+        "items": [
+          "Public /pricing URL",
+          "4–6 Persian guides + case studies",
+          "Repair /lessons education hub",
+          "Image alts + font/LCP work"
+        ]
+      },
+      {
+        "name": "Phase 4: Monitoring & Iteration",
+        "timeframe": "Ongoing",
+        "items": [
+          "drift baseline",
+          "Google API setup (PSI/CrUX/GSC)",
+          "Re-audit in 30 days"
+        ]
+      }
+    ]
+  },
+  "artifacts": {
+    "findings_dir": "findings/",
+    "screenshots_dir": "screenshots/",
+    "report": "FULL-AUDIT-REPORT.md",
+    "action_plan": "ACTION-PLAN.md"
+  },
+  "limitations": [
+    "No Google API credentials (PSI 403)",
+    "No Moz/Bing backlink keys",
+    "Common Crawl: domain not found",
+    "Authenticated product surfaces not audited"
+  ]
+}

@@ -5,7 +5,14 @@ export const BRAND_EN = 'Candelo';
 
 export function LogoMark({ size = 34 }: { size?: number }) {
   return (
-    <Image src="/logo.png" alt="" width={size} height={size} aria-hidden className="shrink-0" />
+    <Image
+      src="/logo.png"
+      alt=""
+      width={size}
+      height={size}
+      priority
+      className="shrink-0"
+    />
   );
 }
 

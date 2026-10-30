@@ -1,5 +1,7 @@
-﻿import Link from 'next/link';
-import type { ReactNode } from 'react';
+﻿'use client';
+
+import Link from 'next/link';
+import { useEffect, useState, type ReactNode } from 'react';
 import { MID_TOMAN, PRO_TOMAN } from '../billing/plans';
 import { HeroChart } from './HeroChart';
 import { LandingChart } from './LandingChart';
@@ -1451,7 +1453,7 @@ const ENAMAD_SEAL =
 function Footer({ signedIn }: { signedIn: boolean }) {
   return (
     <footer className="border-t border-white/[0.07]">
-      <div className={`${WRAP} grid gap-10 py-12 md:grid-cols-[1.4fr_1fr_1fr]`}>
+      <div className={`${WRAP} grid gap-10 py-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]`}>
         <div>
           <Logo />
           <p className="mt-4 max-w-xs text-[13px] leading-7 text-[#7d8bac]">
@@ -1491,6 +1493,29 @@ function Footer({ signedIn }: { signedIn: boolean }) {
             </li>
           </ul>
         </div>
+        <nav aria-label="اطلاعات حقوقی">
+          <div className="text-[13px] font-bold text-white">اطلاعات</div>
+          <ul className="mt-4 space-y-2.5">
+            <li>
+              <Link href="/about" className="text-[13px] text-[#7d8bac] transition hover:text-white">
+                درباره ما
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/privacy"
+                className="text-[13px] text-[#7d8bac] transition hover:text-white"
+              >
+                حریم خصوصی
+              </Link>
+            </li>
+            <li>
+              <Link href="/terms" className="text-[13px] text-[#7d8bac] transition hover:text-white">
+                شرایط استفاده
+              </Link>
+            </li>
+          </ul>
+        </nav>
       </div>
       <div className="border-t border-white/[0.06]">
         <div
@@ -1515,7 +1540,22 @@ function Footer({ signedIn }: { signedIn: boolean }) {
 
 /* ───────────────────────── page ───────────────────────── */
 
-export function Landing({ signedIn }: { signedIn: boolean }) {
+export function Landing() {
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/auth/session', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { signedIn?: boolean } | null) => {
+        if (!cancelled && data?.signedIn) setSignedIn(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="relative overflow-x-clip bg-[#04070f] text-[#e8eefc] antialiased selection:bg-[#2f7bff]/40">
       <Header signedIn={signedIn} />

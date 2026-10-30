@@ -1,0 +1,46 @@
+{
+  "images": [
+    {
+      "src": "/_next/image?url=%2Flogo.png&w=96&q=75",
+      "alt": "",
+      "width": "34",
+      "height": "34",
+      "loading": "lazy",
+      "decoding": "async",
+      "fetchpriority": null,
+      "srcset": "/_next/image?url=%2Flogo.png&w=48&q=75 1x, /_next/image?url=%2Flogo.png&w=96&q=75 2x",
+      "sizes": null,
+      "class": "shrink-0"
+    },
+    {
+      "src": "/_next/image?url=%2Flogo.png&w=96&q=75",
+      "alt": "",
+      "width": "34",
+      "height": "34",
+      "loading": "lazy",
+      "decoding": "async",
+      "fetchpriority": null,
+      "srcset": "/_next/image?url=%2Flogo.png&w=48&q=75 1x, /_next/image?url=%2Flogo.png&w=96&q=75 2x",
+      "sizes": null,
+      "class": "shrink-0"
+    },
+    {
+      "src": "https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp",
+      "alt": "",
+      "width": null,
+      "height": null,
+      "loading": null,
+      "decoding": null,
+      "fetchpriority": null,
+      "srcset": null,
+      "sizes": null,
+      "class": null
+    }
+  ],
+  "bg_sample": [
+    "#eq-step",
+    "#eq-dash",
+    "#eq-step",
+    "#eq-dash"
+  ]
+}

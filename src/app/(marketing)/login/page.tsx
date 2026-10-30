@@ -3,7 +3,10 @@ import { redirect } from 'next/navigation';
 import { LoginView } from '@/components/marketing/LoginView';
 import { currentUser } from '@/server/auth';
 
-export const metadata: Metadata = { title: 'ورود / ثبت‌نام | Candelo' };
+export const metadata: Metadata = {
+  title: 'ورود / ثبت‌نام | Candelo',
+  robots: { index: false, follow: false, nocache: true },
+};
 
 /** Only same-site relative paths are allowed as the post-login destination. */
 function safeNext(next: string | string[] | undefined): string {

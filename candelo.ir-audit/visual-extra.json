@@ -1,0 +1,334 @@
+{
+  "mobile_ui": {
+    "doc_height": 812,
+    "body_overflow": "hidden",
+    "html_overflow": "visible",
+    "hamburger_guess": false,
+    "header_buttons": [
+      "ماهانه",
+      "سالانه"
+    ],
+    "nav_links": [
+      {
+        "t": "Candelo",
+        "w": 123,
+        "h": 34,
+        "y": 15,
+        "x": 232,
+        "visible": true
+      },
+      {
+        "t": "شروع کنید",
+        "w": 111,
+        "h": 36,
+        "y": 14,
+        "x": 20,
+        "visible": true
+      },
+      {
+        "t": "محصول",
+        "w": 65,
+        "h": 32,
+        "y": 73,
+        "x": 294,
+        "visible": true
+      },
+      {
+        "t": "نمودار",
+        "w": 55,
+        "h": 32,
+        "y": 73,
+        "x": 235,
+        "visible": true
+      },
+      {
+        "t": "مسابقه و نبرد",
+        "w": 94,
+        "h": 32,
+        "y": 73,
+        "x": 138,
+        "visible": true
+      },
+      {
+        "t": "امکانات",
+        "w": 62,
+        "h": 32,
+        "y": 73,
+        "x": 71,
+        "visible": true
+      },
+      {
+        "t": "قیمت",
+        "w": 54,
+        "h": 32,
+        "y": 73,
+        "x": 13,
+        "visible": true
+      },
+      {
+        "t": "سوالات متداول",
+        "w": 101,
+        "h": 32,
+        "y": 73,
+        "x": -92,
+        "visible": true
+      },
+      {
+        "t": "محصول",
+        "w": 41,
+        "h": 20,
+        "y": 13506,
+        "x": 314,
+        "visible": true
+      },
+      {
+        "t": "نمودار",
+        "w": 31,
+        "h": 20,
+        "y": 13540,
+        "x": 324,
+        "visible": true
+      },
+      {
+        "t": "مسابقه و نبرد",
+        "w": 70,
+        "h": 20,
+        "y": 13574,
+        "x": 285,
+        "visible": true
+      },
+      {
+        "t": "امکانات",
+        "w": 38,
+        "h": 20,
+        "y": 13608,
+        "x": 317,
+        "visible": true
+      },
+      {
+        "t": "قیمت",
+        "w": 30,
+        "h": 20,
+        "y": 13642,
+        "x": 325,
+        "visible": true
+      },
+      {
+        "t": "سوالات متداول",
+        "w": 77,
+        "h": 20,
+        "y": 13676,
+        "x": 278,
+        "visible": true
+      }
+    ],
+    "h1_contrast": {
+      "color": "rgb(255, 255, 255)",
+      "bg": "rgb(4, 7, 15)",
+      "ratio": 20.14
+    },
+    "sub_contrast": {
+      "color": "rgb(139, 152, 184)",
+      "bg": "rgb(4, 7, 15)",
+      "ratio": 6.98
+    },
+    "dir": "ltr",
+    "lang": "en",
+    "svg_count": 69,
+    "img_count": 3,
+    "canvas_count": 0,
+    "fonts": [
+      {
+        "family": "Poppins",
+        "status": "unloaded",
+        "weight": "400"
+      },
+      {
+        "family": "Poppins",
+        "status": "unloaded",
+        "weight": "400"
+      },
+      {
+        "family": "Poppins",
+        "status": "loaded",
+        "weight": "400"
+      },
+      {
+        "family": "Poppins",
+        "status": "unloaded",
+        "weight": "500"
+      },
+      {
+        "family": "Poppins",
+        "status": "unloaded",
+        "weight": "500"
+      },
+      {
+        "family": "Poppins",
+        "status": "unloaded",
+        "weight": "500"
+      },
+      {
+        "family": "Poppins",
+        "status": "unloaded",
+        "weight": "700"
+      },
+      {
+        "family": "Poppins",
+        "status": "unloaded",
+        "weight": "700"
+      },
+      {
+        "family": "Poppins",
+        "status": "loaded",
+        "weight": "700"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "unloaded",
+        "weight": "100"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "unloaded",
+        "weight": "200"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "unloaded",
+        "weight": "300"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "loaded",
+        "weight": "400"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "loaded",
+        "weight": "500"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "loaded",
+        "weight": "600"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "loaded",
+        "weight": "700"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "loaded",
+        "weight": "800"
+      },
+      {
+        "family": "Vazirmatn",
+        "status": "loaded",
+        "weight": "900"
+      }
+    ]
+  },
+  "waterfall": {
+    "fonts": [
+      {
+        "name": "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap",
+        "type": "link",
+        "start": 1694,
+        "dur": 807,
+        "transfer": 823,
+        "encoded": 523
+      },
+      {
+        "name": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css",
+        "type": "link",
+        "start": 1694,
+        "dur": 808,
+        "transfer": 506,
+        "encoded": 206
+      }
+    ],
+    "css_total": 31826,
+    "js_total": 321202,
+    "css": [
+      {
+        "name": "https://candelo.ir/_next/static/css/f0740b0a4baf21dc.css",
+        "type": "link",
+        "start": 1693,
+        "dur": 212,
+        "transfer": 26264,
+        "encoded": 25964
+      },
+      {
+        "name": "https://candelo.ir/_next/static/css/f1a0502ba284f315.css",
+        "type": "link",
+        "start": 1694,
+        "dur": 211,
+        "transfer": 1633,
+        "encoded": 1333
+      },
+      {
+        "name": "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap",
+        "type": "link",
+        "start": 1694,
+        "dur": 807,
+        "transfer": 823,
+        "encoded": 523
+      },
+      {
+        "name": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css",
+        "type": "link",
+        "start": 1694,
+        "dur": 808,
+        "transfer": 506,
+        "encoded": 206
+      },
+      {
+        "name": "https://candelo.ir/_next/static/chunks/webpack-f325e4e4963a592c.js",
+        "type": "link",
+        "start": 1694,
+        "dur": 599,
+        "transfer": 2600,
+        "encoded": 2300
+      }
+    ],
+    "js_count": 13,
+    "third_party": [
+      {
+        "name": "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap",
+        "type": "link",
+        "start": 1694,
+        "dur": 807,
+        "transfer": 823,
+        "encoded": 523
+      },
+      {
+        "name": "https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css",
+        "type": "link",
+        "start": 1694,
+        "dur": 808,
+        "transfer": 506,
+        "encoded": 206
+      },
+      {
+        "name": "https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp",
+        "type": "img",
+        "start": 1695,
+        "dur": 30218,
+        "transfer": 0,
+        "encoded": 0
+      }
+    ],
+    "enamad": [
+      {
+        "name": "https://trustseal.enamad.ir/logo.aspx?id=8343802&Code=5bo2myaIWwmdvi940YyWJ3fB7dchv2Kp",
+        "type": "img",
+        "start": 1695,
+        "dur": 30218,
+        "transfer": 0,
+        "encoded": 0
+      }
+    ]
+  }
+}

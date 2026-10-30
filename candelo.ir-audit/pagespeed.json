@@ -1,0 +1,39 @@
+{
+  "url": "https://candelo.ir/",
+  "psi": {
+    "mobile": {
+      "url": "https://candelo.ir/",
+      "strategy": "mobile",
+      "lighthouse_scores": {},
+      "lab_metrics": {},
+      "field_metrics": {},
+      "opportunities": [],
+      "diagnostics": [],
+      "failed_audits": [],
+      "passed_audits_count": 0,
+      "seo_audits": [],
+      "accessibility_audits": [],
+      "audit_details": {},
+      "analysis_timestamp": null,
+      "error": "PSI API error 403: 403 Client Error: Forbidden for url: https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fcandelo.ir%2F&strategy=MOBILE&category=PERFORMANCE&category=ACCESSIBILITY&category=BEST_PRACTICES&category=SEO"
+    },
+    "desktop": {
+      "url": "https://candelo.ir/",
+      "strategy": "desktop",
+      "lighthouse_scores": {},
+      "lab_metrics": {},
+      "field_metrics": {},
+      "opportunities": [],
+      "diagnostics": [],
+      "failed_audits": [],
+      "passed_audits_count": 0,
+      "seo_audits": [],
+      "accessibility_audits": [],
+      "audit_details": {},
+      "analysis_timestamp": null,
+      "error": "PSI API error 403: 403 Client Error: Forbidden for url: https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fcandelo.ir%2F&strategy=DESKTOP&category=PERFORMANCE&category=ACCESSIBILITY&category=BEST_PRACTICES&category=SEO"
+    }
+  },
+  "crux": null,
+  "error": "PSI API error 403: 403 Client Error: Forbidden for url: https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=https%3A%2F%2Fcandelo.ir%2F&strategy=DESKTOP&category=PERFORMANCE&category=ACCESSIBILITY&category=BEST_PRACTICES&category=SEO"
+}
