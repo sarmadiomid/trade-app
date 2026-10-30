@@ -107,7 +107,8 @@ describe('quoteDiscount', () => {
       ok: false,
       reason: 'used',
     });
-    expect(discountRejectionMessage('used')).toBe('این کد را قبلاً استفاده کرده‌اید');
+    expect(discountRejectionMessage('used')).toBe('این کد تخفیف معتبر نیست');
+    expect(discountRejectionMessage('empty')).toBe('کد تخفیف را وارد کنید');
   });
 
   it('allows a code with no plan or cycle limit, up to the last unused slot', () => {

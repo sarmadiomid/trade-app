@@ -16,6 +16,14 @@ const OTP_TTL_MS = 2 * 60_000;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_WINDOW_MS = 60 * 60_000;
 const OTP_MAX_PER_WINDOW = 5;
+/** Cap SMS spend across distinct phones from one client IP. */
+const OTP_IP_MAX_PER_WINDOW = 20;
+const WEAK_AUTH_SECRETS = new Set([
+  'dev-only-insecure-auth-secret',
+  'change-me-to-a-long-random-string',
+  'ci-build-placeholder',
+  'dev-only-change-me',
+]);
 
 export interface SessionUser {
   readonly id: string;
@@ -30,8 +38,10 @@ const nameOf = (u: Pick<UserDoc, 'phone' | 'displayName'>) =>
 
 function secret(): string {
   const s = process.env.AUTH_SECRET;
-  if (s && s.length >= 16) return s;
-  if (process.env.NODE_ENV === 'production') throw new Error('AUTH_SECRET must be set');
+  if (s && s.length >= 16 && !WEAK_AUTH_SECRETS.has(s)) return s;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_SECRET must be a unique secret (not a documented placeholder)');
+  }
   return 'dev-only-insecure-auth-secret';
 }
 
@@ -44,10 +54,17 @@ export type RequestOtpResult =
   | { ok: true; resendIn: number; devCode?: string }
   | { ok: false; error: string; status: number; retryIn?: number };
 
-export async function requestOtp(phone: string): Promise<RequestOtpResult> {
+export async function requestOtp(
+  phone: string,
+  clientKey = 'unknown',
+): Promise<RequestOtpResult> {
   const { otps } = await collections();
   const now = new Date();
-  const prev = await otps.findOne({ _id: phone });
+  const ipId = `ip:${clientKey.slice(0, 128)}`;
+  const [prev, ipPrev] = await Promise.all([
+    otps.findOne({ _id: phone }),
+    otps.findOne({ _id: ipId }),
+  ]);
   if (prev) {
     const sinceSent = now.getTime() - prev.sentAt.getTime();
     if (sinceSent < OTP_RESEND_SECONDS * 1000) {
@@ -57,6 +74,14 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
   }
   const inWindow = prev && now.getTime() - prev.windowStart.getTime() < OTP_WINDOW_MS;
   if (inWindow && prev.sendCount >= OTP_MAX_PER_WINDOW) {
+    return {
+      ok: false,
+      status: 429,
+      error: 'تعداد درخواست‌ها بیش از حد مجاز است. یک ساعت دیگر تلاش کنید.',
+    };
+  }
+  const ipInWindow = ipPrev && now.getTime() - ipPrev.windowStart.getTime() < OTP_WINDOW_MS;
+  if (ipInWindow && ipPrev.sendCount >= OTP_IP_MAX_PER_WINDOW) {
     return {
       ok: false,
       status: 429,
@@ -78,9 +103,24 @@ export async function requestOtp(phone: string): Promise<RequestOtpResult> {
     },
     { upsert: true },
   );
+  await otps.updateOne(
+    { _id: ipId },
+    {
+      $set: {
+        codeHash: '',
+        expiresAt: new Date(now.getTime() + OTP_WINDOW_MS),
+        attempts: 0,
+        sentAt: now,
+        windowStart: ipInWindow ? ipPrev.windowStart : now,
+        sendCount: ipInWindow ? ipPrev.sendCount + 1 : 1,
+      },
+    },
+    { upsert: true },
+  );
   const sms = await sendOtpSms(phone, code);
   if (!sms.ok) {
     await otps.updateOne({ _id: phone }, { $set: { sentAt: new Date(0) } });
+    await otps.updateOne({ _id: ipId, sendCount: { $gt: 0 } }, { $inc: { sendCount: -1 } });
     return { ok: false, status: 502, error: 'ارسال پیامک ناموفق بود. دوباره تلاش کنید.' };
   }
   return {

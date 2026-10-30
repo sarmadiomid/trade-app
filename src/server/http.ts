@@ -8,11 +8,12 @@ export const json = (body: unknown, status = 200) =>
 /** Rejects cross-site mutations (the session cookie is SameSite=Lax; this is defence in depth). */
 export function sameOrigin(req: NextRequest): boolean {
   const origin = req.headers.get('origin');
-  if (!origin) return true;
+  // Fail closed when Origin is absent so non-browser clients cannot skip the check.
+  if (!origin) return false;
   try {
-    return (
-      new URL(origin).host === (req.headers.get('x-forwarded-host') ?? req.headers.get('host'))
-    );
+    // Compare to Host only — never trust client-controlled X-Forwarded-Host here.
+    const host = (req.headers.get('host') ?? '').split(',')[0]?.trim() ?? '';
+    return Boolean(host) && new URL(origin).host === host;
   } catch {
     return false;
   }
@@ -29,21 +30,19 @@ export async function readJson(req: NextRequest, maxBytes: number): Promise<unkn
 export const requestUser = (req: NextRequest) =>
   userFromToken(req.cookies.get(SESSION_COOKIE)?.value);
 
-/** Absolute origin for the bank return URL. APP_URL wins when it is set. */
+/**
+ * Absolute origin for the bank return URL.
+ * Production requires APP_URL so clients cannot steer callback/redirect via forwarded headers.
+ */
 export function publicOrigin(req: NextRequest): string | null {
   const fromEnv = originOf(process.env.APP_URL);
   if (fromEnv) return fromEnv;
-  const host = (req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? '')
-    .split(',')[0]
-    ?.trim();
+  if (process.env.NODE_ENV === 'production') return null;
+  // Local/dev only: Host header (never X-Forwarded-Host).
+  const host = (req.headers.get('host') ?? '').split(',')[0]?.trim();
   if (!host) return null;
-  const forwarded = (req.headers.get('x-forwarded-proto') ?? '').split(',')[0]?.trim();
   const proto =
-    forwarded === 'http' || forwarded === 'https'
-      ? forwarded
-      : host.startsWith('localhost') || host.startsWith('127.0.0.1')
-        ? 'http'
-        : 'https';
+    host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https';
   return originOf(`${proto}://${host}`);
 }
 

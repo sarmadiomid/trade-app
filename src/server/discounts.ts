@@ -61,8 +61,11 @@ export async function quoteDiscountCode(input: {
   return quoted;
 }
 
-/** Counts one successful payment against the code. Rolls the counter back if the write fails. */
-export async function redeemDiscountCode(input: {
+/**
+ * Claims one use of a limited code when checkout starts (before payment).
+ * Released on cancel/fail; committed to a redemption row when payment succeeds.
+ */
+export async function reserveDiscountCode(input: {
   readonly userId: ObjectId;
   readonly code: string;
   readonly planId: PaidPlanId;
@@ -71,8 +74,7 @@ export async function redeemDiscountCode(input: {
 }): Promise<DiscountResult> {
   const quoted = await quoteDiscountCode(input);
   if (!quoted.ok) return quoted;
-  const now = input.now ?? Date.now();
-  const { discountCodes, discountRedemptions } = await discountCollections();
+  const { discountCodes } = await discountCollections();
   const code = quoted.quote.code;
   const claimed = await discountCodes.findOneAndUpdate(
     {
@@ -90,12 +92,53 @@ export async function redeemDiscountCode(input: {
     const again = await quoteDiscountCode(input);
     return again.ok ? { ok: false, error: discountRejectionMessage('exhausted') } : again;
   }
+  return quoted;
+}
 
-  const perUser = claimed.perUser ?? null;
+/** Returns a reserved use when checkout is canceled or payment fails. */
+export async function releaseDiscountReserve(code: string): Promise<void> {
+  const normalized = normalizeDiscountCode(code);
+  if (normalized) await releaseUse(normalized);
+}
+
+/** Records a redemption after payment; capacity was already reserved at checkout. */
+export async function commitDiscountRedemption(input: {
+  readonly userId: ObjectId;
+  readonly code: string;
+  readonly planId: PaidPlanId;
+  readonly cycle: BillingCycle;
+  readonly now?: number;
+}): Promise<DiscountResult> {
+  await syncDiscountCatalog();
+  const now = input.now ?? Date.now();
+  const code = normalizeDiscountCode(input.code);
+  if (!code) return { ok: false, error: discountRejectionMessage('invalid') };
+  const loaded = await loadRule(input.code, input.userId);
+  if (!loaded.ok || !loaded.rule) {
+    return { ok: false, error: discountRejectionMessage(loaded.ok ? 'invalid' : loaded.reason) };
+  }
+  const subtotal = subscriptionAmount(input.planId, input.cycle);
+  // `used` already includes this checkout's reserve — quote as if one slot were free.
+  const ruleForQuote: DiscountRule = {
+    ...loaded.rule,
+    used: Math.max(0, loaded.rule.used - 1),
+  };
+  const priced = quoteDiscount({
+    code: input.code,
+    rule: ruleForQuote,
+    subtotal,
+    planId: input.planId,
+    cycle: input.cycle,
+    now,
+  });
+  if (!priced.ok) return { ok: false, error: discountRejectionMessage(priced.reason) };
+
+  const { discountRedemptions } = await discountCollections();
+  const perUser = loaded.rule.perUser;
   try {
     if (perUser === null) {
       await discountRedemptions.insertOne(
-        redemption(quoted.quote, input, now, new ObjectId().toHexString()),
+        redemption(priced.quote, input, now, new ObjectId().toHexString()),
       );
     } else {
       const uses = await discountRedemptions.countDocuments({ code, userId: input.userId });
@@ -104,7 +147,7 @@ export async function redeemDiscountCode(input: {
         return { ok: false, error: discountRejectionMessage('used') };
       }
       await discountRedemptions.insertOne(
-        redemption(quoted.quote, input, now, `${code}:${input.userId.toHexString()}:${uses + 1}`),
+        redemption(priced.quote, input, now, `${code}:${input.userId.toHexString()}:${uses + 1}`),
       );
     }
   } catch (error) {
@@ -112,7 +155,22 @@ export async function redeemDiscountCode(input: {
     if (isDuplicateKey(error)) return { ok: false, error: discountRejectionMessage('used') };
     throw error;
   }
-  return quoted;
+  return priced;
+}
+
+/** Counts one successful payment against the code. Rolls the counter back if the write fails. */
+export async function redeemDiscountCode(input: {
+  readonly userId: ObjectId;
+  readonly code: string;
+  readonly planId: PaidPlanId;
+  readonly cycle: BillingCycle;
+  readonly now?: number;
+}): Promise<DiscountResult> {
+  const reserved = await reserveDiscountCode(input);
+  if (!reserved.ok) return reserved;
+  const committed = await commitDiscountRedemption(input);
+  if (!committed.ok) return committed;
+  return reserved;
 }
 
 async function loadRule(

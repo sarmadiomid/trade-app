@@ -36,7 +36,7 @@ jobs:
       - name: Build Next.js
         run: npm run build
         env:
-          AUTH_SECRET: ci-build-placeholder
+          AUTH_SECRET: ci-only-build-secret-do-not-deploy
 
   compose-config:
     name: Validate docker-compose

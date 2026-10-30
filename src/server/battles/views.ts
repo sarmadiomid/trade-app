@@ -7,14 +7,19 @@ import { clockOf, cursorOf, joinBlocked, liveStandings, refresh } from './servic
 /** What one viewer sees of a battle (only their own actions are included). */
 export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): BattleView {
   const me = b.participants.find((p) => p.userId.equals(viewerId)) ?? null;
-  const host = b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
-  let standings: readonly Standing[];
-  if (b.status === 'completed' && b.results) standings = b.results;
-  else standings = liveStandings(b);
+  const member = me !== null;
+  // Non-members must not learn the private join code, chat, or competitive standings.
+  const host = member && b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
+  let standings: readonly Standing[] = [];
+  if (member) {
+    if (b.status === 'completed' && b.results) standings = b.results;
+    else standings = liveStandings(b);
+  }
   const mine = standings.find((s) => s.userId === viewerId.toHexString());
+  const privateBattle = b.settings.visibility === 'private';
   return {
     id: b._id.toHexString(),
-    code: b.code,
+    code: member || !privateBattle ? b.code : '',
     mode: b.mode,
     format: b.format,
     status: b.status,
@@ -25,7 +30,7 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
     serverNow: now,
     cursor: me ? cursorOf(b, me) : b.marketStart,
     host: host ? { id: host.userId.toHexString(), name: host.name } : null,
-    isHost: b.hostId?.equals(viewerId) ?? false,
+    isHost: Boolean(member && me?.leftT === null && b.hostId?.equals(viewerId)),
     standings,
     me: me
       ? {
@@ -35,16 +40,18 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
           status: mine?.status ?? 'active',
         }
       : null,
-    chat: b.chat.map((c) => ({
-      id: c.id,
-      userId: c.userId?.toHexString() ?? null,
-      name: c.name,
-      text: c.text,
-      at: c.at,
-      system: c.system,
-    })),
-    results: b.results,
-    endReason: b.endReason,
+    chat: member
+      ? b.chat.map((c) => ({
+          id: c.id,
+          userId: c.userId?.toHexString() ?? null,
+          name: c.name,
+          text: c.text,
+          at: c.at,
+          system: c.system,
+        }))
+      : [],
+    results: member ? b.results : null,
+    endReason: member ? b.endReason : null,
     joinBlocked: me ? null : joinBlocked(b, viewerId),
     createdAt: b.createdAt,
   };

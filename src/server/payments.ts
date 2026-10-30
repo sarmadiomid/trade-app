@@ -17,7 +17,13 @@ import {
 } from '@/components/billing/plans';
 import { setUserPlan, planOf } from './billing';
 import { collections, type PaymentDoc } from './db';
-import { quoteDiscountCode, redeemDiscountCode } from './discounts';
+import {
+  commitDiscountRedemption,
+  quoteDiscountCode,
+  redeemDiscountCode,
+  releaseDiscountReserve,
+  reserveDiscountCode,
+} from './discounts';
 import { requestZarinpalPayment, verifyZarinpalPayment } from './zarinpal';
 
 export type CheckoutStart =
@@ -61,6 +67,7 @@ export async function startCheckout(input: {
   let amount = subscriptionAmount(input.planId, input.cycle);
   let discount = 0;
   let code = '';
+  let reserved = false;
   if (input.code) {
     const quoted = await quoteDiscountCode({
       userId: input.userId,
@@ -79,8 +86,25 @@ export async function startCheckout(input: {
 
   const subtotal = subscriptionAmount(input.planId, input.cycle);
   if (charge.kind === 'free') {
-    const url = await fulfillFreeOrder({ ...input, code, subtotal, discount });
-    return { ok: true, url };
+    try {
+      const url = await fulfillFreeOrder({ ...input, code, subtotal, discount });
+      return { ok: true, url };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'ثبت سفارش انجام نشد';
+      return { ok: false, status: 400, error: message };
+    }
+  }
+
+  // Reserve limited-code capacity before the bank redirect so concurrent checkouts cannot oversell.
+  if (code) {
+    const hold = await reserveDiscountCode({
+      userId: input.userId,
+      code,
+      planId: input.planId,
+      cycle: input.cycle,
+    });
+    if (!hold.ok) return { ok: false, status: 400, error: hold.error };
+    reserved = true;
   }
 
   const id = new ObjectId();
@@ -91,7 +115,10 @@ export async function startCheckout(input: {
     mobile: normalizeIranianMobile(input.phone),
     orderId: id.toHexString(),
   });
-  if (!requested.ok) return { ok: false, status: 502, error: requested.message };
+  if (!requested.ok) {
+    if (reserved) await releaseDiscountReserve(code);
+    return { ok: false, status: 502, error: requested.message };
+  }
 
   const now = new Date();
   const doc: PaymentDoc = {
@@ -119,6 +146,7 @@ export async function startCheckout(input: {
     const { payments } = await collections();
     await payments.insertOne(doc);
   } catch (error) {
+    if (reserved) await releaseDiscountReserve(code);
     console.error('[billing] could not store Zarinpal authority', id.toHexString(), error);
     return { ok: false, status: 500, error: 'ثبت پرداخت انجام نشد' };
   }
@@ -146,6 +174,7 @@ export async function settleZarinpalReturn(input: {
         { _id: payment._id, status: 'pending' },
         { $set: { status: 'canceled', failureMessage: 'پرداخت لغو شد' } },
       );
+      if (payment.code) await releaseDiscountReserve(payment.code);
     }
     return { paymentId, outcome: payment.status === 'failed' ? 'failed' : 'canceled' };
   }
@@ -160,12 +189,32 @@ export async function settleZarinpalReturn(input: {
         { _id: payment._id, status: 'pending' },
         { $set: { status: 'failed', failureMessage: verified.message } },
       );
+      if (payment.code) await releaseDiscountReserve(payment.code);
     }
     return { paymentId, outcome: verified.retry ? 'error' : 'failed' };
   }
 
+  let discountError: string | null = null;
+  if (payment.code) {
+    try {
+      const committed = await commitDiscountRedemption({
+        userId: payment.userId,
+        code: payment.code,
+        planId: payment.planId,
+        cycle: payment.cycle,
+      });
+      if (!committed.ok) {
+        console.error('[billing] discount after payment', committed.error);
+        discountError = committed.error;
+      }
+    } catch (error) {
+      console.error('[billing] discount after payment', error);
+      discountError = 'ثبت کد تخفیف انجام نشد';
+    }
+  }
+
   await setUserPlan(payment.userId, payment.planId);
-  const won = await payments.updateOne(
+  await payments.updateOne(
     { _id: payment._id, status: { $in: ['pending', 'failed', 'canceled'] } },
     {
       $set: {
@@ -175,29 +224,10 @@ export async function settleZarinpalReturn(input: {
         fee: verified.fee,
         paidAt: new Date(),
         failureMessage: null,
+        ...(discountError ? { discountError } : {}),
       },
     },
   );
-  if (won.modifiedCount === 1 && payment.code) {
-    try {
-      const redeemed = await redeemDiscountCode({
-        userId: payment.userId,
-        code: payment.code,
-        planId: payment.planId,
-        cycle: payment.cycle,
-      });
-      if (!redeemed.ok) {
-        console.error('[billing] discount after payment', redeemed.error);
-        await payments.updateOne({ _id: payment._id }, { $set: { discountError: redeemed.error } });
-      }
-    } catch (error) {
-      console.error('[billing] discount after payment', error);
-      await payments.updateOne(
-        { _id: payment._id },
-        { $set: { discountError: 'ثبت کد تخفیف انجام نشد' } },
-      );
-    }
-  }
   return { paymentId, outcome: 'paid' };
 }
 
@@ -255,23 +285,19 @@ async function fulfillFreeOrder(input: {
     createdAt: now,
     paidAt: now,
   };
+  if (input.code) {
+    const redeemed = await redeemDiscountCode({
+      userId: input.userId,
+      code: input.code,
+      planId: input.planId,
+      cycle: input.cycle,
+    });
+    if (!redeemed.ok) {
+      throw new Error(redeemed.error);
+    }
+  }
   await setUserPlan(input.userId, input.planId);
   const { payments } = await collections();
   await payments.insertOne(doc);
-  if (input.code) {
-    try {
-      const redeemed = await redeemDiscountCode({
-        userId: input.userId,
-        code: input.code,
-        planId: input.planId,
-        cycle: input.cycle,
-      });
-      if (!redeemed.ok) {
-        await payments.updateOne({ _id: id }, { $set: { discountError: redeemed.error } });
-      }
-    } catch (error) {
-      console.error('[billing] discount after free order', error);
-    }
-  }
   return checkoutResultPath(id.toHexString());
 }

@@ -69,7 +69,8 @@ export async function GET(request: NextRequest) {
   };
 
   const now = Date.now();
-  const key = request.nextUrl.search;
+  // Canonical key from normalized BarsRequest only — ignore junk query params / casing.
+  const key = klinesQuery(req).toString();
   const hit = cache.get(key);
   if (hit && hit.expires > now) {
     return NextResponse.json(hit.body, {

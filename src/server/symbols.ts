@@ -62,6 +62,7 @@ export interface StoredSeries {
 }
 
 const seriesCache = new Map<string, CachedBook>();
+const MAX_SERIES_CACHE = 32;
 
 export type MarketLookup =
   | { readonly kind: 'builtin' }
@@ -302,7 +303,8 @@ async function findInstrument(symbol: string): Promise<InstrumentDoc | null> {
 
 async function loadBook(symbol: string): Promise<CachedBook | null> {
   const doc = await findInstrument(symbol);
-  if (!doc || doc.barCount <= 0) return null;
+  // Unpublished / inactive instruments must not be readable via bars (catalog already filters active).
+  if (!doc || !doc.active || doc.barCount <= 0) return null;
   const stamp = doc.updatedAt.getTime();
   const hit = seriesCache.get(doc._id);
   if (hit && hit.stamp === stamp) return hit;
@@ -315,6 +317,7 @@ async function loadBook(symbol: string): Promise<CachedBook | null> {
     frames.set(chunk.timeframe, bars);
   }
   const book = { stamp, frames };
+  if (seriesCache.size >= MAX_SERIES_CACHE) seriesCache.delete(seriesCache.keys().next().value!);
   seriesCache.set(doc._id, book);
   return book;
 }

@@ -395,29 +395,41 @@ async function recordResults(b: BattleDoc): Promise<void> {
     const delta = deltas?.get(r.userId) ?? 0;
     const elo = prof.elo + delta;
     out.push({ ...r, xp, eloBefore: ranked ? prof.elo : null, eloAfter: ranked ? elo : null });
-    await battleProfiles.updateOne(
-      { _id: prof._id },
+    // Elo uses $inc (pipeline) so concurrent ranked completions cannot drop a delta via absolute $set.
+    await battleProfiles.updateOne({ _id: prof._id }, [
       {
-        $inc: {
-          battles: 1,
-          wins: won ? 1 : 0,
-          podiums: n >= 3 && r.place <= 3 ? 1 : 0,
-          xp,
-          trades: r.trades,
-          winningTrades: r.wins,
-          returnSum: r.returnPct,
-          ...(ranked ? { rankedGames: 1, rankedWins: won ? 1 : 0, rankedLosses: won ? 0 : 1 } : {}),
-        },
         $set: {
+          battles: { $add: ['$battles', 1] },
+          wins: { $add: ['$wins', won ? 1 : 0] },
+          podiums: { $add: ['$podiums', n >= 3 && r.place <= 3 ? 1 : 0] },
+          xp: { $add: ['$xp', xp] },
+          trades: { $add: ['$trades', r.trades] },
+          winningTrades: { $add: ['$winningTrades', r.wins] },
+          returnSum: { $add: ['$returnSum', r.returnPct] },
           winStreak: streak,
-          bestStreak: Math.max(prof.bestStreak, streak),
+          bestStreak: { $max: ['$bestStreak', streak] },
+          bestReturn: {
+            $cond: [
+              { $eq: [{ $ifNull: ['$bestReturn', null] }, null] },
+              r.returnPct,
+              { $max: ['$bestReturn', r.returnPct] },
+            ],
+          },
           updatedAt: Date.now(),
-          ...(ranked ? { elo, peakElo: Math.max(prof.peakElo, elo) } : {}),
-          bestReturn:
-            prof.bestReturn === null ? r.returnPct : Math.max(prof.bestReturn, r.returnPct),
+          ...(ranked
+            ? {
+                elo: { $add: ['$elo', delta] },
+                rankedGames: { $add: ['$rankedGames', 1] },
+                rankedWins: { $add: ['$rankedWins', won ? 1 : 0] },
+                rankedLosses: { $add: ['$rankedLosses', won ? 0 : 1] },
+              }
+            : {}),
         },
       },
-    );
+      ...(ranked
+        ? ([{ $set: { peakElo: { $max: ['$peakElo', '$elo'] } } }] as const)
+        : []),
+    ]);
   }
   await battles.updateOne({ _id: b._id }, { $set: { results: out } });
   await syncBattleAccounts(b, true);
@@ -505,7 +517,17 @@ export async function leaveBattle(id: string, user: Player): Promise<BattleDoc> 
     if (me.leftT !== null) return null;
     // Forfeit: the account is closed at the trader's market time and ranks below everyone trading.
     const i = b.participants.indexOf(me);
-    return { $set: { [`participants.${i}.leftT`]: cursorOf(b, me) }, $push: { chat: msg } };
+    const stillActive = b.participants.filter(
+      (p) => p.leftT === null && !p.userId.equals(user._id),
+    );
+    const hostPatch =
+      b.hostId?.equals(user._id) ?
+        { hostId: stillActive[0]?.userId ?? null }
+      : {};
+    return {
+      $set: { [`participants.${i}.leftT`]: cursorOf(b, me), ...hostPatch },
+      $push: { chat: msg },
+    };
   });
   if (after.participants.some((p) => p.userId.equals(user._id))) await syncTrader(after, user._id);
   else {
@@ -520,7 +542,10 @@ export type ControlOp = 'start' | 'pause' | 'resume' | 'restart' | 'end' | 'canc
 /** Host controls: start, pause / resume, restart (resets every account), end early, close. */
 export async function controlBattle(id: string, user: Player, op: ControlOp): Promise<BattleDoc> {
   const target = await loadBattle(id);
-  if (!target.hostId?.equals(user._id)) throw new BattleError('Only the host can do that', 403);
+  const seat = target.participants.find((p) => p.userId.equals(user._id));
+  if (!target.hostId?.equals(user._id) || !seat || seat.leftT !== null) {
+    throw new BattleError('Only the host can do that', 403);
+  }
   const battle = await mutate(target._id, (b, now) => {
     const say = (text: string) => ({ $each: [systemMessage(text, now)], $slice: -MAX_CHAT });
     switch (op) {
