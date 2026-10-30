@@ -336,13 +336,11 @@ export function AdminShell({
         پرش به محتوا
       </a>
 
-      {/* Desktop sidebar */}
       <aside className="hidden w-[256px] shrink-0 flex-col border-e border-[var(--a-line)] bg-[var(--a-side)] md:flex">
         <SidebarContent pathname={pathname} name={name} phone={phone} openTickets={openTickets} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile top bar */}
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--a-line)] bg-[var(--a-side)] px-3 md:hidden">
           <button
             ref={menuButtonRef}
@@ -391,7 +389,6 @@ export function AdminShell({
         </main>
       </div>
 
-      {/* Mobile drawer */}
       <div className={`md:hidden ${menuOpen ? '' : 'pointer-events-none'}`} aria-hidden={!menuOpen}>
         <div
           onClick={() => setMenuOpen(false)}

@@ -236,7 +236,6 @@ export function UsersDesk() {
         text="جستجو با شماره یا نام، و تغییر طرح اشتراک. سقف جلسه و نبرد از روی طرح تازه محاسبه می‌شود."
       />
 
-      {/* Search */}
       <form
         role="search"
         className="mb-3 flex gap-2"
@@ -274,7 +273,6 @@ export function UsersDesk() {
         </button>
       </form>
 
-      {/* Result summary */}
       <div className="mb-3 flex min-h-7 flex-wrap items-center gap-2 text-[12.5px] text-[var(--a-muted)]">
         {data ? (
           <span>
@@ -309,7 +307,6 @@ export function UsersDesk() {
       ) : null}
 
       <Panel className="overflow-hidden">
-        {/* Desktop table */}
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[720px] text-right text-[13px]">
             <thead className="border-b border-[var(--a-line)] bg-white/[0.03] text-[12px] text-[var(--a-muted)]">
@@ -394,7 +391,6 @@ export function UsersDesk() {
           </table>
         </div>
 
-        {/* Mobile cards */}
         <ul className="divide-y divide-[var(--a-line)] md:hidden">
           {showSkeleton ? (
             Array.from({ length: 3 }, (_, i) => (

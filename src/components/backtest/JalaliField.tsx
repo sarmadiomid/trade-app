@@ -79,7 +79,7 @@ export function JalaliDateField({
   readonly onBlocked?: (() => void) | undefined;
 }) {
   const parsed = gregorianInputToJalali(value);
-  const current = parsed ?? utcToJalali(Date.now());
+  const current = parsed ?? utcToJalali(0);
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [view, setView] = useState({ y: current.jy, m: current.jm });
@@ -92,8 +92,6 @@ export function JalaliDateField({
   }, [open, mode]);
 
   const openCalendar = () => {
-    // Today is read here, on click, so render stays pure. An empty field with a
-    // placeholder opens on today; a chosen date opens on that date.
     const base = parsed ?? utcToJalali(Date.now());
     setView({ y: base.jy, m: base.jm });
     setCursor(base);

@@ -16,7 +16,6 @@ const OTP_TTL_MS = 2 * 60_000;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_WINDOW_MS = 60 * 60_000;
 const OTP_MAX_PER_WINDOW = 5;
-/** Cap SMS spend across distinct phones from one client IP. */
 const OTP_IP_MAX_PER_WINDOW = 20;
 const WEAK_AUTH_SECRETS = new Set([
   'dev-only-insecure-auth-secret',

@@ -405,7 +405,6 @@ async function recordResults(b: BattleDoc): Promise<void> {
     const delta = deltas?.get(r.userId) ?? 0;
     const elo = prof.elo + delta;
     out.push({ ...r, xp, eloBefore: ranked ? prof.elo : null, eloAfter: ranked ? elo : null });
-    // Elo uses $inc (pipeline) so concurrent ranked completions cannot drop a delta via absolute $set.
     await battleProfiles.updateOne({ _id: prof._id }, [
       {
         $set: {

@@ -384,7 +384,6 @@ export function StaffInbox({ initialId }: { readonly initialId: string | null })
     };
   }, [status, listNonce]);
 
-  // Thread for the active ticket.
   useEffect(() => {
     if (!active) return;
     let live = true;
@@ -444,7 +443,6 @@ export function StaffInbox({ initialId }: { readonly initialId: string | null })
     };
   }, []);
 
-  // Keep the newest message in view.
   useEffect(() => {
     if (!thread || thread.ticket.id !== active) return;
     const el = messagesRef.current;

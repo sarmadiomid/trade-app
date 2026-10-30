@@ -56,6 +56,8 @@ export default defineConfig([
     'coverage/**',
     'next-env.d.ts',
     '.cursor/**',
+    '.agents/**',
   ]),
 ]);
+
 

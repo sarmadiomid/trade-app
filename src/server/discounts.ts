@@ -34,10 +34,7 @@ export function syncDiscountCatalog(): Promise<void> {
   return pending;
 }
 
-/**
- * Price after the code, without consuming a use. An abandoned checkout must not
- * burn a limited code; {@link redeemDiscountCode} runs when payment succeeds.
- */
+/** Prices a code without consuming a use. */
 export async function quoteDiscountCode(input: {
   readonly userId: ObjectId;
   readonly code: string;
@@ -61,10 +58,7 @@ export async function quoteDiscountCode(input: {
   return quoted;
 }
 
-/**
- * Claims one use of a limited code when checkout starts (before payment).
- * Released on cancel/fail; committed to a redemption row when payment succeeds.
- */
+/** Claims one use at checkout start; release on cancel/fail, commit on pay. */
 export async function reserveDiscountCode(input: {
   readonly userId: ObjectId;
   readonly code: string;
@@ -95,13 +89,12 @@ export async function reserveDiscountCode(input: {
   return quoted;
 }
 
-/** Returns a reserved use when checkout is canceled or payment fails. */
 export async function releaseDiscountReserve(code: string): Promise<void> {
   const normalized = normalizeDiscountCode(code);
   if (normalized) await releaseUse(normalized);
 }
 
-/** Records a redemption after payment; capacity was already reserved at checkout. */
+/** Writes the redemption row after payment (capacity already reserved). */
 export async function commitDiscountRedemption(input: {
   readonly userId: ObjectId;
   readonly code: string;
@@ -118,7 +111,6 @@ export async function commitDiscountRedemption(input: {
     return { ok: false, error: discountRejectionMessage(loaded.ok ? 'invalid' : loaded.reason) };
   }
   const subtotal = subscriptionAmount(input.planId, input.cycle);
-  // `used` already includes this checkout's reserve — quote as if one slot were free.
   const ruleForQuote: DiscountRule = {
     ...loaded.rule,
     used: Math.max(0, loaded.rule.used - 1),
@@ -158,7 +150,7 @@ export async function commitDiscountRedemption(input: {
   return priced;
 }
 
-/** Counts one successful payment against the code. Rolls the counter back if the write fails. */
+/** Reserve + commit in one step (e.g. free checkout). */
 export async function redeemDiscountCode(input: {
   readonly userId: ObjectId;
   readonly code: string;

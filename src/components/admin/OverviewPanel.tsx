@@ -464,7 +464,6 @@ export function OverviewPanel() {
         </div>
       ) : null}
 
-      {/* KPI cards */}
       <section aria-label="آمار کلی" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {CARDS.map((card) => (
           <StatCard
@@ -476,7 +475,6 @@ export function OverviewPanel() {
         ))}
       </section>
 
-      {/* Loading skeleton for lower sections */}
       {loading && !data ? (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <Panel className="p-5 lg:col-span-2">
@@ -504,7 +502,6 @@ export function OverviewPanel() {
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           <RevenueBox revenue={data.revenue} />
 
-          {/* Plans distribution */}
           <Panel className="p-5">
             <SectionHead
               title="طرح‌ها"
@@ -557,7 +554,6 @@ export function OverviewPanel() {
             </div>
           </Panel>
 
-          {/* Waiting tickets */}
           <Panel className="p-5">
             <SectionHead
               title="در انتظار پاسخ"
@@ -601,7 +597,6 @@ export function OverviewPanel() {
             )}
           </Panel>
 
-          {/* Recent signups */}
           <Panel className="p-5 lg:col-span-2">
             <SectionHead
               title="عضویت‌های تازه"

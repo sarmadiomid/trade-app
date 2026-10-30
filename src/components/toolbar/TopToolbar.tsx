@@ -107,7 +107,6 @@ export function TopToolbar({
     >
       {start}
 
-      {/* Symbol Capsule */}
       {symbolLocked ? (
         <span
           dir="ltr"
@@ -146,7 +145,6 @@ export function TopToolbar({
       <Divider />
       <ChartTypeMenu />
 
-      {/* Indicators Dropdown */}
       <Tooltip label={t('Indicators')}>
         <button
           type="button"
@@ -190,7 +188,6 @@ export function TopToolbar({
         </Popover>
       ) : null}
 
-      {/* Order Flow Quick Menu */}
       <Tooltip label={t('Order Flow')}>
         <button
           type="button"
@@ -258,7 +255,6 @@ export function TopToolbar({
         </>
       )}
 
-      {/* Undo / Redo Pill Group */}
       <div className="flex items-center rounded-lg bg-chart/50 p-0.5 ring-1 ring-inset ring-line/70">
         <IconButton
           icon="undo"
@@ -282,7 +278,6 @@ export function TopToolbar({
 
       <div className="min-w-0 flex-1" />
 
-      {/* Data Source Pill */}
       {source ? (
         <span
           className={`hidden shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset @min-[1240px]/bar:inline-flex ${
@@ -309,7 +304,6 @@ export function TopToolbar({
         </span>
       ) : null}
 
-      {/* Utility Actions */}
       <div className="flex items-center gap-0.5">
         <span className="hidden @min-[1080px]/bar:contents">
           <IconButton icon="camera" label={t('Save chart image')} onClick={shoot} size={16} />

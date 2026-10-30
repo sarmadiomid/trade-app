@@ -109,7 +109,6 @@ export function BacktestTopBar({
       dir="ltr"
       className="@container/bar flex h-11 shrink-0 items-center gap-1 overflow-clip border-b border-line bg-panel/95 px-2 text-[13px] text-fg backdrop-blur-md"
     >
-      {/* Back to Sessions */}
       <Tooltip label={homeLabel}>
         <Link
           href={homeHref}
@@ -120,7 +119,6 @@ export function BacktestTopBar({
         </Link>
       </Tooltip>
 
-      {/* Instrument + Play + Quick Order Capsule */}
       <div className="flex h-8 shrink-0 items-center gap-0.5 rounded-lg bg-chart/70 p-0.5 ring-1 ring-inset ring-line/80">
         <Tooltip label={playing ? 'مکث بازپخش' : 'پخش بازپخش'} shortcut={chordLabel('Alt+1')}>
           <button
@@ -170,15 +168,12 @@ export function BacktestTopBar({
 
       <Divider />
 
-      {/* Timeframes */}
       <TimeframeBar />
 
       <Divider />
 
-      {/* Chart Type */}
       <ChartTypeMenu />
 
-      {/* Indicators Dropdown */}
       <Drop
         label="اندیکاتورها"
         active={volumeOn}
@@ -221,7 +216,6 @@ export function BacktestTopBar({
 
       {end}
 
-      {/* Session Navigation & Quick Links */}
       {sessionLinks && snap ? (
         <div className="hidden items-center gap-1 @min-[1120px]/bar:flex">
           <Tooltip label="دفتر معاملات">
@@ -246,7 +240,6 @@ export function BacktestTopBar({
         </div>
       ) : null}
 
-      {/* Session Dropdown Capsule */}
       <Drop
         label="جلسه"
         className="min-w-0 max-w-32 gap-1.5 overflow-hidden rounded-lg bg-chart/65 px-2 text-fg ring-1 ring-inset ring-line/80 @min-[1200px]/bar:max-w-44"
@@ -352,7 +345,6 @@ export function BacktestTopBar({
 
       <Divider />
 
-      {/* Undo / Redo Pill Group */}
       <div className="flex items-center rounded-lg bg-chart/50 p-0.5 ring-1 ring-inset ring-line/70">
         <IconButton
           icon="undo"
@@ -374,7 +366,6 @@ export function BacktestTopBar({
         />
       </div>
 
-      {/* Layout Switcher & Save */}
       <LayoutControl
         snapshot={() => ({
           chartType,
@@ -395,7 +386,6 @@ export function BacktestTopBar({
 
       <Divider />
 
-      {/* Utility Icons */}
       <div className="flex shrink-0 items-center gap-0.5">
         <span className="hidden @min-[1200px]/bar:contents">
           <IconButton

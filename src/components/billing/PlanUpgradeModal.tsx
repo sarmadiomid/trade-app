@@ -187,7 +187,6 @@ function PlanUpgradeModal() {
     };
   }, [message]);
 
-  // Focus trap + Escape.
   useEffect(() => {
     if (!message) return;
     const root = ref.current;
@@ -245,7 +244,6 @@ function PlanUpgradeModal() {
         aria-describedby="plan-upgrade-message"
         className="relative max-h-[94dvh] w-full max-w-[920px] animate-pop overflow-y-auto overflow-x-hidden rounded-t-3xl border border-line bg-panel text-fg shadow-[0_32px_120px_rgba(0,0,0,0.9)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl"
       >
-        {/* ambient glow */}
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-28 left-1/2 h-56 w-[28rem] -translate-x-1/2 rounded-full bg-accent/20 blur-3xl"
@@ -255,7 +253,6 @@ function PlanUpgradeModal() {
           className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/70 to-transparent"
         />
 
-        {/* close */}
         <button
           type="button"
           onClick={closePlanPrompt}
@@ -266,7 +263,6 @@ function PlanUpgradeModal() {
         </button>
 
         <div className="relative p-5 sm:p-6">
-          {/* header */}
           <header className="flex flex-col sm:flex-row sm:items-start sm:gap-4 sm:pe-12">
             <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent ring-1 ring-accent/30">
               <span
@@ -285,7 +281,6 @@ function PlanUpgradeModal() {
             </div>
           </header>
 
-          {/* plans */}
           <div
             role="radiogroup"
             aria-label="انتخاب طرح"
@@ -397,7 +392,6 @@ function PlanUpgradeModal() {
             })}
           </div>
 
-          {/* actions */}
           <div className="mt-5 flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-center text-[12px] leading-6 text-muted sm:max-w-[320px] sm:text-start">
               جزئیات مبلغ و دکمه پرداخت در صفحه تسویه حساب است.

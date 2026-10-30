@@ -24,7 +24,6 @@ const NAV_FA: ReadonlyArray<{ href: string; label: string; icon: IconName }> = [
   { href: '/battle', label: 'نبردها', icon: 'bolt' },
 ];
 
-/** First letters of a display name, for the avatar. */
 export const initials = (name: string) =>
   name
     .split(/\s+/)

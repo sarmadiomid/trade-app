@@ -303,7 +303,6 @@ async function findInstrument(symbol: string): Promise<InstrumentDoc | null> {
 
 async function loadBook(symbol: string): Promise<CachedBook | null> {
   const doc = await findInstrument(symbol);
-  // Unpublished / inactive instruments must not be readable via bars (catalog already filters active).
   if (!doc || !doc.active || doc.barCount <= 0) return null;
   const stamp = doc.updatedAt.getTime();
   const hit = seriesCache.get(doc._id);

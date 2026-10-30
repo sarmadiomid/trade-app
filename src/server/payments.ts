@@ -95,7 +95,6 @@ export async function startCheckout(input: {
     }
   }
 
-  // Reserve limited-code capacity before the bank redirect so concurrent checkouts cannot oversell.
   if (code) {
     const hold = await reserveDiscountCode({
       userId: input.userId,

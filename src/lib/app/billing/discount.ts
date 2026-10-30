@@ -82,7 +82,6 @@ const MESSAGES: Readonly<Record<DiscountRejection, string>> = {
 };
 
 export function discountRejectionMessage(reason: DiscountRejection): string {
-  // Opaque to callers so quote responses cannot classify unpublished codes.
   if (reason === 'empty') return MESSAGES.empty;
   return MESSAGES.invalid;
 }

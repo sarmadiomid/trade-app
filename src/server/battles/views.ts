@@ -8,7 +8,6 @@ import { clockOf, cursorOf, joinBlocked, liveStandings, refresh } from './servic
 export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): BattleView {
   const me = b.participants.find((p) => p.userId.equals(viewerId)) ?? null;
   const member = me !== null;
-  // Non-members must not learn the private join code, chat, or competitive standings.
   const host = member && b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
   let standings: readonly Standing[] = [];
   if (member) {

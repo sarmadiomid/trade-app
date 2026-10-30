@@ -8,7 +8,6 @@ import { ShortcutsDialog } from './ShortcutsDialog';
 import { SymbolSearchDialog } from './SymbolSearchDialog';
 import { ThemeEditorDialog } from './ThemeEditorDialog';
 
-/** Renders the single open dialog, if any. */
 export function DialogHost() {
   const dialog = useUiStore((s) => s.dialog);
   const close = useUiStore((s) => s.closeDialog);

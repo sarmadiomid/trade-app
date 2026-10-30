@@ -5,13 +5,11 @@ import { SESSION_COOKIE, userFromToken } from './auth';
 export const json = (body: unknown, status = 200) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
-/** Rejects cross-site mutations (the session cookie is SameSite=Lax; this is defence in depth). */
+/** Rejects cross-site mutations (session cookie is SameSite=Lax). */
 export function sameOrigin(req: NextRequest): boolean {
   const origin = req.headers.get('origin');
-  // Fail closed when Origin is absent so non-browser clients cannot skip the check.
   if (!origin) return false;
   try {
-    // Compare to Host only — never trust client-controlled X-Forwarded-Host here.
     const host = (req.headers.get('host') ?? '').split(',')[0]?.trim() ?? '';
     return Boolean(host) && new URL(origin).host === host;
   } catch {
@@ -30,15 +28,11 @@ export async function readJson(req: NextRequest, maxBytes: number): Promise<unkn
 export const requestUser = (req: NextRequest) =>
   userFromToken(req.cookies.get(SESSION_COOKIE)?.value);
 
-/**
- * Absolute origin for the bank return URL.
- * Production requires APP_URL so clients cannot steer callback/redirect via forwarded headers.
- */
+/** Absolute origin for payment return URLs. Production requires `APP_URL`. */
 export function publicOrigin(req: NextRequest): string | null {
   const fromEnv = originOf(process.env.APP_URL);
   if (fromEnv) return fromEnv;
   if (process.env.NODE_ENV === 'production') return null;
-  // Local/dev only: Host header (never X-Forwarded-Host).
   const host = (req.headers.get('host') ?? '').split(',')[0]?.trim();
   if (!host) return null;
   const proto =

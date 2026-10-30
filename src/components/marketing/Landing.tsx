@@ -299,7 +299,6 @@ function PlatformFrame() {
       dir="ltr"
       className="overflow-hidden rounded-2xl border border-white/10 bg-[#070b16] shadow-[0_60px_140px_-40px_rgba(30,90,255,0.65)]"
     >
-      {/* top toolbar */}
       <div className="flex h-11 items-center gap-3 border-b border-white/[0.08] bg-[#0a1020] px-3">
         <span className="hidden items-center gap-1.5 sm:flex">
           <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
@@ -328,7 +327,6 @@ function PlatformFrame() {
       </div>
 
       <div className="flex">
-        {/* drawing rail */}
         <div className="hidden w-11 shrink-0 flex-col items-center gap-1 border-r border-white/[0.08] bg-[#0a1020] py-2 sm:flex">
           {rail.map((d, i) => (
             <span
@@ -342,12 +340,10 @@ function PlatformFrame() {
           ))}
         </div>
 
-        {/* chart */}
         <div className="min-w-0 flex-1">
           <HeroChart />
         </div>
 
-        {/* order ticket */}
         <aside className="hidden w-[228px] shrink-0 flex-col border-l border-white/[0.08] bg-[#0a1020] p-3 lg:flex">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-[#6f82b3]">
             Order
@@ -382,7 +378,6 @@ function PlatformFrame() {
         </aside>
       </div>
 
-      {/* replay controls */}
       <div className="flex h-12 items-center gap-3 border-t border-white/[0.08] bg-[#0a1020] px-3">
         <span className="flex items-center gap-1 text-[#9cb3e6]">
           <span className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/5">
@@ -732,14 +727,12 @@ function Battle({ signedIn }: { signedIn: boolean }) {
           </p>
         </div>
 
-        {/* arena */}
         <div className="relative mx-auto mt-14 max-w-[1080px]">
           <div className="absolute -inset-x-8 -top-8 bottom-8 rounded-[48px] bg-[radial-gradient(50%_60%_at_50%_40%,rgba(245,196,81,0.14),transparent_72%)] blur-3xl" />
           <div
             dir="ltr"
             className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#070b16] shadow-[0_60px_140px_-40px_rgba(47,123,255,0.55),0_30px_90px_-50px_rgba(245,196,81,0.35)]"
           >
-            {/* toolbar */}
             <div className="flex h-11 items-center gap-3 border-b border-white/[0.08] bg-[#0a1020] px-3">
               <span className="flex items-center gap-1.5 rounded-md bg-[#f5c451]/15 px-2 py-1 text-[11px] font-black tracking-wider text-[#f5c451]">
                 <Svg d={I.swords} className="h-3.5 w-3.5" />
@@ -835,7 +828,6 @@ function Battle({ signedIn }: { signedIn: boolean }) {
               </div>
             </div>
 
-            {/* progress */}
             <div className="flex h-11 items-center gap-3 border-t border-white/[0.08] bg-[#0a1020] px-3">
               <span className="font-mono text-[11px] text-[#7d93c9]">44 / 60</span>
               <div className="relative h-1 flex-1 rounded-full bg-white/10">
