@@ -65,6 +65,7 @@ export function JalaliDateField({
   ariaLabel,
   className,
   placeholder,
+  onBlocked,
 }: {
   readonly value: string;
   readonly min?: string | undefined;
@@ -74,9 +75,11 @@ export function JalaliDateField({
   readonly className?: string | undefined;
   /** Shown instead of a date when `value` is empty. The calendar then opens on today. */
   readonly placeholder?: string | undefined;
+  /** Fired when the trader tries a day/month outside `min`/`max` (e.g. plan upgrade). */
+  readonly onBlocked?: (() => void) | undefined;
 }) {
   const parsed = gregorianInputToJalali(value);
-  const current = parsed ?? { jy: 1403, jm: 1, jd: 1 };
+  const current = parsed ?? utcToJalali(Date.now());
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<HTMLButtonElement | null>(null);
   const [view, setView] = useState({ y: current.jy, m: current.jm });
@@ -91,16 +94,23 @@ export function JalaliDateField({
   const openCalendar = () => {
     // Today is read here, on click, so render stays pure. An empty field with a
     // placeholder opens on today; a chosen date opens on that date.
-    const base = parsed ?? (placeholder ? utcToJalali(Date.now()) : current);
+    const base = parsed ?? utcToJalali(Date.now());
     setView({ y: base.jy, m: base.jm });
     setCursor(base);
     setMode('days');
     setOpen(true);
   };
 
+  const blockOrIgnore = () => {
+    onBlocked?.();
+  };
+
   const commit = (j: JalaliDate) => {
     const input = jalaliToGregorianInput(j.jy, j.jm, j.jd);
-    if (!inRange(input, min, max)) return;
+    if (!inRange(input, min, max)) {
+      blockOrIgnore();
+      return;
+    }
     onChange(input);
     setOpen(false);
   };
@@ -173,8 +183,11 @@ export function JalaliDateField({
                 <div className="mb-2 flex items-center gap-1">
                   <NavButton
                     label="ماه قبل"
-                    disabled={!monthIntersects(prev.y, prev.m, min, max)}
-                    onClick={() => setView(prev)}
+                    disabled={!monthIntersects(prev.y, prev.m, min, max) && !onBlocked}
+                    onClick={() => {
+                      if (!monthIntersects(prev.y, prev.m, min, max)) return blockOrIgnore();
+                      setView(prev);
+                    }}
                     flip
                   />
                   <button
@@ -186,8 +199,11 @@ export function JalaliDateField({
                   </button>
                   <NavButton
                     label="ماه بعد"
-                    disabled={!monthIntersects(next.y, next.m, min, max)}
-                    onClick={() => setView(next)}
+                    disabled={!monthIntersects(next.y, next.m, min, max) && !onBlocked}
+                    onClick={() => {
+                      if (!monthIntersects(next.y, next.m, min, max)) return blockOrIgnore();
+                      setView(next);
+                    }}
                   />
                 </div>
                 <div className="grid grid-cols-7 gap-0.5 text-center">
@@ -203,6 +219,7 @@ export function JalaliDateField({
                     min={min}
                     max={max}
                     onPick={commit}
+                    onBlocked={onBlocked}
                   />
                 </div>
               </>
@@ -216,6 +233,7 @@ export function JalaliDateField({
                   setView({ y: view.y, m });
                   setMode('days');
                 }}
+                onBlocked={onBlocked}
               />
             )}
           </div>
@@ -256,6 +274,7 @@ function MonthDays({
   min,
   max,
   onPick,
+  onBlocked,
 }: {
   readonly view: { y: number; m: number };
   readonly cursor: JalaliDate;
@@ -263,6 +282,7 @@ function MonthDays({
   readonly min?: string | undefined;
   readonly max?: string | undefined;
   readonly onPick: (j: JalaliDate) => void;
+  readonly onBlocked?: (() => void) | undefined;
 }) {
   const count = jalaliMonthLength(view.y, view.m);
   const lead = (new Date(jalaliToUtc(view.y, view.m, 1)).getUTCDay() + 1) % 7;
@@ -284,10 +304,17 @@ function MonthDays({
           <button
             key={input}
             type="button"
-            disabled={!enabled}
+            disabled={!enabled && !onBlocked}
             aria-pressed={isSelected}
             aria-label={`${faNum(d)} ${JALALI_MONTHS[view.m - 1]} ${faDigits(view.y)}`}
-            onClick={() => onPick({ jy: view.y, jm: view.m, jd: d })}
+            title={enabled ? undefined : 'خارج از بازهٔ مجاز این طرح'}
+            onClick={() => {
+              if (!enabled) {
+                onBlocked?.();
+                return;
+              }
+              onPick({ jy: view.y, jm: view.m, jd: d });
+            }}
             className={`mx-auto flex h-8 w-8 items-center justify-center rounded-full text-[12.5px] tabular-nums ${
               isSelected
                 ? 'bg-accent font-bold text-accent-fg'
@@ -310,12 +337,14 @@ function MonthPicker({
   max,
   onYear,
   onPick,
+  onBlocked,
 }: {
   readonly year: number;
   readonly min?: string | undefined;
   readonly max?: string | undefined;
   readonly onYear: (year: number) => void;
   readonly onPick: (month: number) => void;
+  readonly onBlocked?: (() => void) | undefined;
 }) {
   const minY = min ? (gregorianInputToJalali(min)?.jy ?? year) : year - 20;
   const maxY = max ? (gregorianInputToJalali(max)?.jy ?? year) : year + 1;
@@ -324,14 +353,30 @@ function MonthPicker({
       <div className="mb-2 flex items-center gap-1">
         <NavButton
           label="سال قبل"
-          disabled={year - 1 < minY}
-          onClick={() => onYear(year - 1)}
+          disabled={year - 1 < minY && !onBlocked}
+          onClick={() => {
+            if (year - 1 < minY) {
+              onBlocked?.();
+              return;
+            }
+            onYear(year - 1);
+          }}
           flip
         />
         <div className="h-8 flex-1 text-center text-[13px] font-semibold leading-8">
           {faDigits(year)}
         </div>
-        <NavButton label="سال بعد" disabled={year + 1 > maxY} onClick={() => onYear(year + 1)} />
+        <NavButton
+          label="سال بعد"
+          disabled={year + 1 > maxY && !onBlocked}
+          onClick={() => {
+            if (year + 1 > maxY) {
+              onBlocked?.();
+              return;
+            }
+            onYear(year + 1);
+          }}
+        />
       </div>
       <div className="grid grid-cols-3 gap-1">
         {JALALI_MONTHS.map((name, i) => {
@@ -341,9 +386,18 @@ function MonthPicker({
             <button
               key={name}
               type="button"
-              disabled={!enabled}
-              onClick={() => onPick(m)}
-              className="h-9 rounded-md text-[12.5px] hover:bg-hover disabled:text-muted/40"
+              disabled={!enabled && !onBlocked}
+              title={enabled ? undefined : 'خارج از بازهٔ مجاز این طرح'}
+              onClick={() => {
+                if (!enabled) {
+                  onBlocked?.();
+                  return;
+                }
+                onPick(m);
+              }}
+              className={`h-9 rounded-md text-[12.5px] ${
+                enabled ? 'hover:bg-hover' : 'text-muted/40'
+              }`}
             >
               {name}
             </button>

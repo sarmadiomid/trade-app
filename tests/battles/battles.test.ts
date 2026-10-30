@@ -51,6 +51,14 @@ describe('battle settings', () => {
     ).toMatch(/profit target/);
     expect(validateBattleSettings(settings({ maxDrawdownPct: 0.1 }))).toMatch(/drawdown/);
     expect(validateBattleSettings(settings({ maxParticipants: 1 }))).toMatch(/Participants/);
+    expect(
+      validateBattleSettings(settings({ historyStart: Date.UTC(2025, 0, 1), historyEnd: null })),
+    ).toMatch(/incomplete/);
+    expect(
+      validateBattleSettings(
+        settings({ historyStart: Date.UTC(2025, 5, 1), historyEnd: Date.UTC(2025, 0, 1) }),
+      ),
+    ).toMatch(/End date/);
   });
 
   it('keeps every battle inside one trading week', () => {

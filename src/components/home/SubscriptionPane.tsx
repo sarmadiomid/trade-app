@@ -264,63 +264,85 @@ export function SubscriptionPane() {
       </div>
 
       <div id="subscription-plans" className="mt-6 grid scroll-mt-6 gap-4 lg:grid-cols-3">
-        {SUBSCRIPTION_PLANS.map((plan) => (
-          <article
-            key={plan.id}
-            className="relative flex flex-col overflow-hidden rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] p-6"
-          >
-            {plan.id === 'pro' ? (
-              <>
-                <span className="pointer-events-none absolute -end-8 top-16 h-36 w-36 rounded-full bg-[#3b78ff]/45 blur-3xl" />
-                <span className="pointer-events-none absolute -end-4 bottom-20 h-24 w-24 rounded-full bg-[#2ad4c0]/35 blur-3xl" />
-              </>
-            ) : null}
-            <h2 className="relative text-[15px] font-semibold">{plan.name}</h2>
-            {plan.id === 'beginner' ? (
-              <p className="relative mt-4 text-[40px] font-bold leading-none">رایگان</p>
-            ) : (
-              <div className="relative mt-4 flex items-start gap-1.5">
-                <span className="text-[40px] font-bold leading-none tracking-tight tabular-nums">
-                  {faNum(subscriptionAmount(plan.id === 'mid' ? 'mid' : 'pro', cycle))}
-                </span>
-                <span className="mt-1.5 text-[13px] text-[var(--h-muted)]">تومان</span>
+        {SUBSCRIPTION_PLANS.map((plan) => {
+          const isCurrent = plan.id === activePlan;
+          const isFeatured = plan.id === 'pro';
+          return (
+            <article
+              key={plan.id}
+              aria-current={isCurrent ? 'true' : undefined}
+              className={`relative flex flex-col overflow-hidden rounded-2xl border p-6 ${
+                isCurrent
+                  ? 'border-[color-mix(in_srgb,var(--h-accent)_42%,var(--h-line))] bg-[color-mix(in_srgb,var(--h-accent)_5%,var(--h-card))]'
+                  : 'border-[var(--h-line)] bg-[var(--h-card)]'
+              }`}
+            >
+              {isFeatured ? (
+                <>
+                  <span className="pointer-events-none absolute -end-8 top-16 h-36 w-36 rounded-full bg-[#3b78ff]/45 blur-3xl" />
+                  <span className="pointer-events-none absolute -end-4 bottom-20 h-24 w-24 rounded-full bg-[#2ad4c0]/35 blur-3xl" />
+                </>
+              ) : null}
+              {isCurrent ? (
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[color-mix(in_srgb,var(--h-accent)_55%,transparent)]"
+                />
+              ) : null}
+              <div className="relative flex items-center justify-between gap-2">
+                <h2 className="text-[15px] font-semibold">{plan.name}</h2>
+                {isCurrent ? (
+                  <span className="rounded-full bg-[color-mix(in_srgb,var(--h-accent)_14%,transparent)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--h-accent)]">
+                    فعلی
+                  </span>
+                ) : null}
               </div>
-            )}
-            {plan.id === 'beginner' ? (
-              <p className="relative mt-2 text-[12.5px] text-[var(--h-muted)]">برای شروع</p>
-            ) : (
-              <p className="relative mt-2 text-[12.5px] text-[var(--h-muted)]">
-                {cycle === 'month' ? 'ماهانه' : 'سالانه'}
+              {plan.id === 'beginner' ? (
+                <p className="relative mt-4 text-[40px] font-bold leading-none">رایگان</p>
+              ) : (
+                <div className="relative mt-4 flex items-start gap-1.5">
+                  <span className="text-[40px] font-bold leading-none tracking-tight tabular-nums">
+                    {faNum(subscriptionAmount(plan.id === 'mid' ? 'mid' : 'pro', cycle))}
+                  </span>
+                  <span className="mt-1.5 text-[13px] text-[var(--h-muted)]">تومان</span>
+                </div>
+              )}
+              {plan.id === 'beginner' ? (
+                <p className="relative mt-2 text-[12.5px] text-[var(--h-muted)]">برای شروع</p>
+              ) : (
+                <p className="relative mt-2 text-[12.5px] text-[var(--h-muted)]">
+                  {cycle === 'month' ? 'ماهانه' : 'سالانه'}
+                </p>
+              )}
+              <p className="relative mt-3 text-[13.5px] leading-6 text-[var(--h-muted)]">
+                {plan.blurb}
               </p>
-            )}
-            <p className="relative mt-3 text-[13.5px] leading-6 text-[var(--h-muted)]">
-              {plan.blurb}
-            </p>
-            <ul className="relative mt-5 flex flex-col gap-2.5">
-              {plan.points.map((point) => (
-                <li key={point} className="flex items-center gap-2.5 text-[13.5px]">
-                  {plan.unlimited ? (
-                    <span className="w-4 shrink-0 text-center text-[16px] leading-none text-[var(--h-accent)]">
-                      ∞
-                    </span>
-                  ) : (
-                    <Icon name="check" size={15} className="shrink-0" />
-                  )}
-                  {point}
-                </li>
-              ))}
-            </ul>
-            <div className="relative mt-auto pt-6">
-              <PlanAction
-                planId={plan.id}
-                activePlan={activePlan}
-                cycle={cycle}
-                busy={busy !== null}
-                onChoose={() => void choose(plan.id)}
-              />
-            </div>
-          </article>
-        ))}
+              <ul className="relative mt-5 flex flex-col gap-2.5">
+                {plan.points.map((point) => (
+                  <li key={point} className="flex items-center gap-2.5 text-[13.5px]">
+                    {plan.unlimited ? (
+                      <span className="w-4 shrink-0 text-center text-[16px] leading-none text-[var(--h-accent)]">
+                        ∞
+                      </span>
+                    ) : (
+                      <Icon name="check" size={15} className="shrink-0" />
+                    )}
+                    {point}
+                  </li>
+                ))}
+              </ul>
+              <div className="relative mt-auto pt-6">
+                <PlanAction
+                  planId={plan.id}
+                  activePlan={activePlan}
+                  cycle={cycle}
+                  busy={busy !== null}
+                  onChoose={() => void choose(plan.id)}
+                />
+              </div>
+            </article>
+          );
+        })}
       </div>
       <p className="mt-4 text-[13px] leading-6 text-[var(--h-muted)]">
         طرح پولی به صفحه تسویه حساب می‌رود و از آنجا وارد درگاه می‌شود. طرح رایگان همان لحظه فعال
@@ -359,7 +381,9 @@ export function SubscriptionPane() {
 }
 
 const ACTION =
-  'inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--h-line)] text-[14px] font-medium transition hover:bg-[var(--h-chip)] disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent';
+  'inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--h-line)] text-[14px] font-medium transition hover:bg-[var(--h-chip)] disabled:cursor-default disabled:hover:bg-transparent';
+const ACTION_CURRENT =
+  'inline-flex h-11 w-full cursor-default items-center justify-center rounded-full border border-[color-mix(in_srgb,var(--h-accent)_28%,var(--h-line))] bg-[color-mix(in_srgb,var(--h-accent)_10%,transparent)] text-[14px] font-medium text-[var(--h-accent)]';
 
 function PlanAction({
   planId,
@@ -374,14 +398,14 @@ function PlanAction({
   readonly busy: boolean;
   readonly onChoose: () => void;
 }) {
-  const label =
-    planId === activePlan
-      ? 'طرح فعلی'
-      : PLAN_RANK[planId] > PLAN_RANK[activePlan]
-        ? 'ارتقا'
-        : 'تغییر طرح';
+  const isCurrent = planId === activePlan;
+  const label = isCurrent
+    ? 'طرح فعلی'
+    : PLAN_RANK[planId] > PLAN_RANK[activePlan]
+      ? 'ارتقا'
+      : 'تغییر طرح';
 
-  if (planId !== 'beginner' && planId !== activePlan) {
+  if (planId !== 'beginner' && !isCurrent) {
     return (
       <Link href={checkoutPath(planId, cycle)} className={ACTION}>
         {label}
@@ -392,9 +416,9 @@ function PlanAction({
   return (
     <button
       type="button"
-      disabled={planId === activePlan || busy}
+      disabled={isCurrent || busy}
       onClick={onChoose}
-      className={ACTION}
+      className={isCurrent ? ACTION_CURRENT : `${ACTION} disabled:opacity-60`}
     >
       {label}
     </button>

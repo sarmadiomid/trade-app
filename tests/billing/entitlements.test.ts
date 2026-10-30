@@ -101,22 +101,29 @@ describe('plan entitlements', () => {
     expect(sessionSettingsDenial('mid', gate({ strategyTag: 'ICT' }))).toBeNull();
   });
 
-  it('lets a beginner start only within one month of the market end', () => {
+  it('lets a beginner start only within one month of today (clamped to the market)', () => {
     const range = { start: Date.UTC(2019, 0, 1), end: Date.UTC(2026, 0, 1) };
+    const afterMarket = Date.UTC(2026, 5, 15);
+    const midMarket = Date.UTC(2025, 6, 15);
     expect(entitlements('beginner').historyMonths).toBe(1);
     expect(entitlements('mid').historyMonths).toBeNull();
-    expect(selectableHistoryStart('beginner', range)).toBe(Date.UTC(2025, 10, 30));
-    expect(selectableHistoryStart('mid', range)).toBe(range.start);
-    expect(selectableHistoryStart('pro', range)).toBe(range.start);
+    expect(selectableHistoryStart('beginner', range, afterMarket)).toBe(Date.UTC(2025, 10, 30));
+    expect(selectableHistoryStart('beginner', range, midMarket)).toBe(Date.UTC(2025, 5, 15));
+    expect(selectableHistoryStart('mid', range, afterMarket)).toBe(range.start);
+    expect(selectableHistoryStart('pro', range, afterMarket)).toBe(range.start);
     expect(
-      selectableHistoryStart('beginner', { start: Date.UTC(2025, 11, 20), end: range.end }),
+      selectableHistoryStart(
+        'beginner',
+        { start: Date.UTC(2025, 11, 20), end: range.end },
+        afterMarket,
+      ),
     ).toBe(Date.UTC(2025, 11, 20));
 
-    const denied = historyDenial('beginner', Date.UTC(2024, 0, 1), range);
+    const denied = historyDenial('beginner', Date.UTC(2024, 0, 1), range, afterMarket);
     expect(denied).toBe(requiresPlan('تاریخ قبل از یک ماه گذشتهٔ بازار', 'mid'));
     expect(isPlanLimitMessage(denied ?? '')).toBe(true);
-    expect(historyDenial('beginner', Date.UTC(2025, 11, 1), range)).toBeNull();
-    expect(historyDenial('pro', Date.UTC(2020, 0, 1), range)).toBeNull();
+    expect(historyDenial('beginner', Date.UTC(2025, 11, 1), range, afterMarket)).toBeNull();
+    expect(historyDenial('pro', Date.UTC(2020, 0, 1), range, afterMarket)).toBeNull();
     expect(
       sessionSettingsDenial('beginner', gate({ startDate: Date.UTC(2024, 0, 1) }), range),
     ).not.toBeNull();

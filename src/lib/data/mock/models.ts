@@ -17,7 +17,7 @@ export interface MockModel {
 const d = (y: number, m: number, day: number) => Date.UTC(y, m - 1, day);
 
 /**
- * Gold, 2019–2025. The anchors follow the broad shape of the real market (the 2020 rally, the
+ * Gold, 2019–2026. The anchors follow the broad shape of the real market (the 2020 rally, the
  * 2022 dip, the 2024–25 bull run) so levels and volatility feel familiar; everything in between
  * is seeded noise.
  */
@@ -25,7 +25,7 @@ export const GOLD_MODEL: MockModel = {
   symbol: 'XAUUSD',
   seed: 0x60_1d,
   start: d(2019, 1, 1),
-  end: d(2026, 1, 1),
+  end: d(2027, 1, 1),
   dailyVol: 0.0092,
   garch: { alpha: 0.07, beta: 0.9 },
   tickSize: 0.01,
@@ -49,15 +49,17 @@ export const GOLD_MODEL: MockModel = {
     [d(2025, 4, 22), 3420],
     [d(2025, 10, 20), 4310],
     [d(2025, 12, 31), 4260],
+    [d(2026, 4, 22), 3550],
+    [d(2026, 10, 30), 4020],
   ],
 };
 
-/** Euro / U.S. Dollar, 2019–2025. */
+/** Euro / U.S. Dollar, 2019–2026. */
 export const EURUSD_MODEL: MockModel = {
   symbol: 'EURUSD',
   seed: 0xe0_05,
   start: d(2019, 1, 1),
-  end: d(2026, 1, 1),
+  end: d(2027, 1, 1),
   dailyVol: 0.0045,
   garch: { alpha: 0.06, beta: 0.91 },
   tickSize: 0.00001,
@@ -77,15 +79,17 @@ export const EURUSD_MODEL: MockModel = {
     [d(2025, 1, 13), 1.02],
     [d(2025, 7, 1), 1.18],
     [d(2025, 12, 31), 1.165],
+    [d(2026, 6, 15), 1.14],
+    [d(2026, 10, 30), 1.155],
   ],
 };
 
-/** British Pound / U.S. Dollar, 2019–2025. */
+/** British Pound / U.S. Dollar, 2019–2026. */
 export const GBPUSD_MODEL: MockModel = {
   symbol: 'GBPUSD',
   seed: 0x6b_9d,
   start: d(2019, 1, 1),
-  end: d(2026, 1, 1),
+  end: d(2027, 1, 1),
   dailyVol: 0.005,
   garch: { alpha: 0.07, beta: 0.9 },
   tickSize: 0.00001,
@@ -102,15 +106,17 @@ export const GBPUSD_MODEL: MockModel = {
     [d(2025, 1, 13), 1.211],
     [d(2025, 7, 1), 1.375],
     [d(2025, 12, 31), 1.34],
+    [d(2026, 6, 15), 1.31],
+    [d(2026, 10, 30), 1.325],
   ],
 };
 
-/** Australian Dollar / U.S. Dollar, 2019–2025. */
+/** Australian Dollar / U.S. Dollar, 2019–2026. */
 export const AUDUSD_MODEL: MockModel = {
   symbol: 'AUDUSD',
   seed: 0xa0_d5,
   start: d(2019, 1, 1),
-  end: d(2026, 1, 1),
+  end: d(2027, 1, 1),
   dailyVol: 0.0055,
   garch: { alpha: 0.07, beta: 0.9 },
   tickSize: 0.00001,
@@ -124,15 +130,17 @@ export const AUDUSD_MODEL: MockModel = {
     [d(2024, 9, 30), 0.694],
     [d(2025, 4, 8), 0.597],
     [d(2025, 12, 31), 0.665],
+    [d(2026, 6, 15), 0.645],
+    [d(2026, 10, 30), 0.655],
   ],
 };
 
-/** Nasdaq 100 index CFD, 2019–2025. */
+/** Nasdaq 100 index CFD, 2019–2026. */
 export const NAS100_MODEL: MockModel = {
   symbol: 'NAS100',
   seed: 0x4a_51,
   start: d(2019, 1, 1),
-  end: d(2026, 1, 1),
+  end: d(2027, 1, 1),
   dailyVol: 0.013,
   garch: { alpha: 0.09, beta: 0.88 },
   tickSize: 0.1,
@@ -148,6 +156,8 @@ export const NAS100_MODEL: MockModel = {
     [d(2025, 4, 7), 16540],
     [d(2025, 10, 29), 26100],
     [d(2025, 12, 31), 25200],
+    [d(2026, 4, 15), 22800],
+    [d(2026, 10, 30), 24800],
   ],
 };
 

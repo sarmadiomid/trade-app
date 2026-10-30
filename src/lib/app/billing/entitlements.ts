@@ -260,7 +260,7 @@ export interface SessionGate {
 }
 
 /** UTC midnight `months` before `ms`, clamped to a real day of that month. */
-function addUtcMonths(ms: number, months: number): number {
+export function addUtcMonths(ms: number, months: number): number {
   const date = new Date(ms);
   const day = date.getUTCDate();
   const index = date.getUTCMonth() + months;
@@ -271,26 +271,45 @@ function addUtcMonths(ms: number, months: number): number {
 }
 
 /**
+ * Default practice window: end on today (or the market's last day, whichever is
+ * earlier), start one calendar month before that.
+ */
+export function defaultHistoryWindow(
+  range: { readonly start: number; readonly end: number },
+  now = Date.now(),
+): { readonly start: number; readonly end: number } {
+  const lastDay = range.end - DAY_MS;
+  const today = Math.floor(now / DAY_MS) * DAY_MS;
+  const end = Math.max(range.start, Math.min(today, lastDay));
+  const start = Math.max(range.start, addUtcMonths(end, -1));
+  return { start, end: Math.max(start, end) };
+}
+
+/**
  * Earliest day a session on `plan` may start. Beginner is one calendar month
- * before the market's last day; higher plans use the whole stored range.
+ * before today (clamped to the market); higher plans use the whole stored range.
  */
 export function selectableHistoryStart(
   plan: PlanId,
   range: { readonly start: number; readonly end: number },
+  now = Date.now(),
 ): number {
   const months = entitlements(plan).historyMonths;
   if (months === null) return range.start;
   const lastDay = range.end - DAY_MS;
-  return Math.max(range.start, addUtcMonths(lastDay, -months));
+  const today = Math.floor(now / DAY_MS) * DAY_MS;
+  const anchor = Math.min(today, lastDay);
+  return Math.max(range.start, addUtcMonths(anchor, -months));
 }
 
 export function historyDenial(
   plan: PlanId,
   startDate: number,
   range: { readonly start: number; readonly end: number },
+  now = Date.now(),
 ): string | null {
   if (entitlements(plan).historyMonths === null) return null;
-  if (startDate >= selectableHistoryStart(plan, range)) return null;
+  if (startDate >= selectableHistoryStart(plan, range, now)) return null;
   return requiresPlan('تاریخ قبل از یک ماه گذشتهٔ بازار', 'mid');
 }
 

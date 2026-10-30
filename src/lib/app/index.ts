@@ -44,6 +44,8 @@ export {
   checkoutCharge,
   discountRejectionMessage,
   entitlements,
+  addUtcMonths,
+  defaultHistoryWindow,
   historyDenial,
   installPlan,
   isPaymentGateway,

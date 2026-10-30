@@ -20,6 +20,7 @@ import {
   type WinCondition,
 } from '@/lib/battles';
 import { faNum } from '@/lib/locale/jalali';
+import { instrumentSpec } from '@/lib/data';
 import { isPlanLimitMessage } from '@/lib/app';
 import { api } from '../platform/api';
 import { Button } from '../ui/Button';
@@ -27,7 +28,13 @@ import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
 import { duration } from '../backtest/format';
+import { SymbolField } from '../market/SymbolField';
 import { ASSET_COLORS, WIN_FA, compactMoney, faMessage, minutes } from './format';
+
+const BATTLE_INSTRUMENTS = BATTLE_ASSETS.map((symbol) => ({
+  symbol,
+  description: instrumentSpec(symbol)?.description ?? symbol,
+}));
 
 const STEPS = ['نوع نبرد', 'بازار', 'قانون‌ها', 'بازبینی'] as const;
 
@@ -228,27 +235,36 @@ export function NewBattleDialog({
                   کشیده می‌شود
                 </span>
               </span>
-              <div className="flex flex-wrap gap-2">
-                {BATTLE_ASSETS.map((a) => {
-                  const on = s.assets.includes(a);
-                  const color = ASSET_COLORS[a] ?? '#5b8cff';
-                  return (
-                    <button
-                      key={a}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => toggleAsset(a)}
-                      className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 font-semibold transition ${
-                        on ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'
-                      }`}
-                    >
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-                      <bdi dir="ltr">{a}</bdi>
-                      {on ? <Icon name="check" size={13} /> : null}
-                    </button>
-                  );
-                })}
-              </div>
+              {s.assets.length > 0 ? (
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {s.assets.map((a) => {
+                    const color = ASSET_COLORS[a] ?? '#5b8cff';
+                    return (
+                      <button
+                        key={a}
+                        type="button"
+                        aria-label={`حذف ${a}`}
+                        onClick={() => toggleAsset(a)}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-accent bg-accent/10 px-2.5 text-[12.5px] font-semibold"
+                      >
+                        <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                        <bdi dir="ltr">{a}</bdi>
+                        <Icon name="close" size={12} />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <SymbolField
+                tone="battle"
+                multiple
+                instruments={BATTLE_INSTRUMENTS}
+                picked={s.assets}
+                onChange={toggleAsset}
+                listId="battle-symbols"
+                placeholder="جستجوی نماد..."
+                ariaLabel="جستجوی نماد"
+              />
             </div>
             <div>
               <span className="mb-1.5 block font-medium">موجودی اولیه</span>

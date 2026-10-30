@@ -2,7 +2,8 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { ObjectId, type Filter, type UpdateFilter } from 'mongodb';
 import { tradeActionSchema, type TradeAction } from '@/lib/backtest';
-import { PlanDenied, assertBattleChat, releaseBattleSlot, takeBattleSlot } from '../billing';
+import { historyDenial } from '@/lib/app/billing/entitlements';
+import { PlanDenied, assertBattleChat, planOf, releaseBattleSlot, takeBattleSlot } from '../billing';
 import {
   COUNTDOWN_MS,
   MAX_ACTIONS,
@@ -24,10 +25,10 @@ import {
   type RankedFormat,
   type Standing,
 } from '@/lib/battles';
-import { MINUTE_MS } from '@/lib/core';
+import { DAY_MS, MINUTE_MS } from '@/lib/core';
 import { deletePositionEvents, deleteScopeEvents, replacePositionEvents } from '../backtest/positions';
 import { collections, type BattleChatDoc, type BattleDoc, type BattleParticipantDoc } from '../db';
-import { bidBefore, pick, pickMarketStart, randomUnit } from './market';
+import { battleDataRange, bidBefore, pick, pickMarketStart, randomUnit } from './market';
 import { simulateParticipant, validateAction } from './simulate';
 import { ensureProfile } from './profiles';
 
@@ -144,9 +145,18 @@ export async function createBattle(host: Player, input: BattleSettings): Promise
   const settings = normalizeSettings(input);
   const error = validateBattleSettings(settings);
   if (error) throw new BattleError(error);
+  const symbol = pick(settings.assets);
+  const range = battleDataRange(symbol);
+  const lastDay = range.end - DAY_MS;
+  if (settings.historyStart !== null && settings.historyEnd !== null) {
+    if (settings.historyStart < range.start || settings.historyEnd > lastDay)
+      throw new BattleError('History range is outside available data');
+    const plan = await planOf(host._id);
+    const denial = historyDenial(plan, settings.historyStart, range);
+    if (denial) throw new PlanDenied(denial);
+  }
   const { battles } = await collections();
   const now = Date.now();
-  const symbol = pick(settings.assets);
   const marketStart = pickMarketStart(symbol, settings);
   const profile = await ensureProfile(host._id);
   const doc: BattleDoc = {

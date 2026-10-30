@@ -8,11 +8,12 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
-import { faNum, formatJalaliDateTime } from '@/lib/locale/jalali';
+import { faDigits, faNum, formatJalaliDateTime } from '@/lib/locale/jalali';
 import {
   subjectById,
   supportErrorText,
   SUPPORT_STATUS_LABEL,
+  type SupportAttachment,
   type SupportMessage,
   type SupportStatus,
 } from '@/lib/support/catalog';
@@ -97,12 +98,68 @@ function ticketTitle(ticket: StaffTicket): string {
   return ticket.title || subjectById(ticket.subject)?.label || '';
 }
 
+function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${faDigits(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${faDigits(Math.max(1, Math.round(bytes / 1024)))} KB`;
+  return `${faDigits((bytes / (1024 * 1024)).toFixed(1))} MB`;
+}
+
+function AttachmentList({ items }: { readonly items: readonly SupportAttachment[] }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {items.map((item) => {
+        const href = `/api/admin/support/files/${item.id}`;
+        return item.image ? (
+          <a
+            key={item.id}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="block overflow-hidden rounded-xl border border-white/10 bg-black/20"
+          >
+            {/* The file route checks the admin session cookie; next/image cannot send it. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={href}
+              alt={item.name}
+              className="max-h-60 max-w-full object-contain"
+            />
+          </a>
+        ) : (
+          <a
+            key={item.id}
+            href={href}
+            className="inline-flex max-w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] text-[#c9d3ea] transition hover:bg-white/[0.07]"
+          >
+            <Icon name="download" className="h-3.5 w-3.5 shrink-0 text-[#9db9ff]" />
+            <span className="min-w-0 truncate">{item.name}</span>
+            <span className="shrink-0 text-[11px] text-[var(--a-muted)]">
+              {fileSize(item.size)}
+            </span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Icons                                                               */
 /* ------------------------------------------------------------------ */
 
 type IconName =
-  'search' | 'close' | 'refresh' | 'copy' | 'check' | 'send' | 'inbox' | 'lock' | 'alert' | 'back';
+  | 'search'
+  | 'close'
+  | 'refresh'
+  | 'copy'
+  | 'check'
+  | 'send'
+  | 'inbox'
+  | 'lock'
+  | 'alert'
+  | 'back'
+  | 'download';
 
 const ICONS: Record<IconName, ReactNode> = {
   search: (
@@ -146,6 +203,13 @@ const ICONS: Record<IconName, ReactNode> = {
   ),
   // Points toward the start side in RTL (visually right).
   back: <path d="m9.5 6 6 6-6 6" />,
+  download: (
+    <>
+      <path d="M12 4v12" />
+      <path d="m7 11 5 5 5-5" />
+      <path d="M5 19h14" />
+    </>
+  ),
 };
 
 function Icon({ name, className = 'h-4 w-4' }: { name: IconName; className?: string }) {
@@ -820,9 +884,12 @@ export function StaffInbox({ initialId }: { readonly initialId: string | null })
                           {' · '}
                           {formatJalaliDateTime(message.createdAt)}
                         </p>
-                        <p className="mt-1 whitespace-pre-wrap break-words text-[13.5px] leading-6">
-                          {message.body}
-                        </p>
+                        {message.body ? (
+                          <p className="mt-1 whitespace-pre-wrap break-words text-[13.5px] leading-6">
+                            {message.body}
+                          </p>
+                        ) : null}
+                        <AttachmentList items={message.attachments ?? []} />
                       </article>
                     </div>
                   );

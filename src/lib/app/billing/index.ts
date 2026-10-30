@@ -11,6 +11,8 @@ export {
   drawingToolAllowed,
   drawingToolDenial,
   entitlements,
+  addUtcMonths,
+  defaultHistoryWindow,
   historyDenial,
   isGoldSymbol,
   isPlanLimitMessage,

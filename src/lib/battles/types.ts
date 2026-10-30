@@ -27,6 +27,12 @@ export interface BattleSettings {
   readonly startingBalance: number;
   /** 1–5 symbols; the battle's market is drawn from this pool when the battle is created. */
   readonly assets: readonly string[];
+  /**
+   * Inclusive UTC midnight range the battle's market is drawn from.
+   * `null` means the full stored history (ranked formats).
+   */
+  readonly historyStart: number | null;
+  readonly historyEnd: number | null;
   /** Battle length on the clock, 1–99 minutes. */
   readonly durationMin: number;
   /** Market minutes replayed per real minute (30 = one 1-minute candle every 2 seconds). */

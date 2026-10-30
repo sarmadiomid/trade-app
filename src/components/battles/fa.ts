@@ -111,6 +111,10 @@ const EXACT: Readonly<Record<string, string>> = {
     'موجودی اولیه باید بین ۱٬۰۰۰ و ۱۰٬۰۰۰٬۰۰۰ باشد',
   'Pick at least one asset': 'دست‌کم یک نماد انتخاب کن',
   'Assets must be unique': 'نمادها نباید تکراری باشند',
+  'History range is incomplete': 'بازه تاریخ کامل نیست',
+  'History range is invalid': 'بازه تاریخ معتبر نیست',
+  'History range is outside available data': 'بازه تاریخ بیرون از دادهٔ موجود است',
+  'End date must be on or after the start date': 'تاریخ پایان باید همان روز شروع یا بعد از آن باشد',
   'Unknown replay speed': 'سرعت بازپخش شناخته نشد',
   'This duration at this speed replays more than one trading week':
     'با این مدت و این سرعت، بازپخش از یک هفته معاملاتی بیشتر می‌شود',

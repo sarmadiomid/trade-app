@@ -468,6 +468,17 @@ export async function readSupportFile(
   return { name: file.name, type: file.type, image: file.image, data: fileBytes(file.data) };
 }
 
+/** Any attached support file — for the staff inbox only. */
+export async function readStaffSupportFile(
+  id: string,
+): Promise<{ name: string; type: string; image: boolean; data: Uint8Array } | null> {
+  if (!ObjectId.isValid(id)) return null;
+  const { supportFiles } = await collections();
+  const file = await supportFiles.findOne({ _id: new ObjectId(id) });
+  if (!file) return null;
+  return { name: file.name, type: file.type, image: file.image, data: fileBytes(file.data) };
+}
+
 function fileBytes(data: unknown): Uint8Array {
   if (data instanceof Uint8Array) return data;
   if (typeof data === 'object' && data !== null && 'buffer' in data) {

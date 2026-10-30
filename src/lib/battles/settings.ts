@@ -32,6 +32,8 @@ export const DEFAULT_SETTINGS: BattleSettings = {
   winCondition: 'time-trial',
   startingBalance: 100_000,
   assets: ['XAUUSD'],
+  historyStart: null,
+  historyEnd: null,
   durationMin: 15,
   speed: 30,
   profitTargetPct: null,
@@ -41,6 +43,9 @@ export const DEFAULT_SETTINGS: BattleSettings = {
   visibility: 'public',
   allowLateJoin: true,
 };
+
+/** UTC midnight of `ms`. */
+export const utcDay = (ms: number) => Math.floor(ms / DAY_MS) * DAY_MS;
 
 /** Market time a battle replays. */
 export const marketSpanMs = (s: Pick<BattleSettings, 'durationMin' | 'speed'>) =>
@@ -64,6 +69,15 @@ export function validateBattleSettings(s: BattleSettings): string | null {
   if (new Set(s.assets).size !== s.assets.length) return 'Assets must be unique';
   for (const a of s.assets)
     if (!(BATTLE_ASSETS as readonly string[]).includes(a)) return `${a} is not available`;
+  if ((s.historyStart === null) !== (s.historyEnd === null))
+    return 'History range is incomplete';
+  if (s.historyStart !== null && s.historyEnd !== null) {
+    if (!Number.isFinite(s.historyStart) || !Number.isFinite(s.historyEnd))
+      return 'History range is invalid';
+    if (s.historyStart !== utcDay(s.historyStart) || s.historyEnd !== utcDay(s.historyEnd))
+      return 'History range is invalid';
+    if (s.historyEnd < s.historyStart) return 'End date must be on or after the start date';
+  }
   if (
     !Number.isInteger(s.durationMin) ||
     s.durationMin < MIN_DURATION ||
@@ -119,6 +133,8 @@ export const RANKED_FORMATS: readonly RankedFormat[] = [
       winCondition: 'time-trial',
       startingBalance: 100_000,
       assets: [...BATTLE_ASSETS],
+      historyStart: null,
+      historyEnd: null,
       durationMin: 10,
       speed: 30,
       profitTargetPct: null,
@@ -138,6 +154,8 @@ export const RANKED_FORMATS: readonly RankedFormat[] = [
       winCondition: 'profit-target',
       startingBalance: 100_000,
       assets: [...BATTLE_ASSETS],
+      historyStart: null,
+      historyEnd: null,
       durationMin: 5,
       speed: 60,
       profitTargetPct: 2,
