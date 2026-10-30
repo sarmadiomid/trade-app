@@ -95,19 +95,22 @@ Each item includes dependency, effort, and how you’d know it failed.
 
 ## Phase 4 — Monitoring (ongoing)
 
-### 14. Capture drift baseline
-```bash
-~/.claude/skills/seo/.venv/bin/python ~/.claude/skills/seo/scripts/drift_baseline.py https://candelo.ir
-```
+**Status (2026-10-30):** Live Phase 1–3 verified. Drift baselines captured. Google/Moz/Bing keys still need you.
 
-### 15. Connect Google APIs
-- `/seo google setup` — PSI, CrUX, GSC for field CWV + index coverage.
+### 14. Capture drift baseline — DONE
+Baselines for `/`, `/pricing`, `/guides`, `/lessons`, `/about`, `/guides/backtest-chist`  
+Artifacts: `candelo.ir-audit/phase4/` · DB: `~/.cache/claude-seo/drift/baselines.db`  
+Compare: `candelo.ir-audit/phase4/compare.sh`
 
-### 16. Optional Moz / Bing Webmaster
-- Backlink tier upgrade beyond Common Crawl.
+### 15. Connect Google APIs — WAITING ON KEYS
+Copy `phase4/google-api.json.example` → `~/.config/claude-seo/google-api.json`  
+Then `/seo google setup` / `google_auth.py --check`. Enables PSI, CrUX, GSC, GA4.
 
-### 17. Re-audit in 30 days
-- Expect Health ≥ 60 if Phases 1–2 complete.
+### 16. Optional Moz / Bing — WAITING ON KEYS
+Copy `phase4/backlinks-api.json.example` → `~/.config/claude-seo/backlinks-api.json`
+
+### 17. Re-audit in 30 days — SCHEDULED ~2026-11-29
+Checklist in `candelo.ir-audit/phase4/MONITORING.md`. Target Health ≥ 60.
 
 ---
 

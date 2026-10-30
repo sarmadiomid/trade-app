@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "baseline_id": 1,
+  "url": "https://candelo.ir/",
+  "timestamp": "2026-10-30T15:54:33.780082+00:00",
+  "summary": {
+    "title": "Candelo | \u0628\u06a9\u200c\u062a\u0633\u062a \u0648 \u0628\u0627\u0632\u067e\u062e\u0634 \u0628\u0627\u0632\u0627\u0631",
+    "meta_description": "\u0628\u0627\u0632\u0627\u0631 \u0631\u0627 \u06a9\u0646\u062f\u0644\u200c\u0628\u0647\u200c\u06a9\u0646\u062f\u0644 \u0628\u0627\u0632\u067e\u062e\u0634 \u06a9\u0646\u06cc\u062f\u060c \u0628\u0627 \u062d\u0633\u0627\u0628 \u0645\u062c\u0627\u0632\u06cc \u0645\u0639\u0627\u0645\u0644\u0647 \u06a9\u0646\u06cc\u062f \u0648 \u0627\u0633\u062a\u0631\u0627\u062a\u0698\u06cc \u0631\u0627 \u0642\u0628\u0644 \u0627...",
+    "canonical": "https://candelo.ir",
+    "robots": "index, follow",
+    "h1": "\u0645\u0639\u0627\u0645\u0644\u0647 \u0628\u0627 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646\u060c\u0627\u0632 \u0628\u06a9\u200c\u062a\u0633\u062a \u0634\u0631\u0648\u0639 \u0645\u06cc\u200c\u0634\u0648\u062f",
+    "h2_count": 9,
+    "h3_count": 14,
+    "schema_count": 4,
+    "og_tag_count": 10,
+    "cwv_captured": false,
+    "status_code": 200,
+    "html_hash": "1ee10a35b841..."
+  }
+}

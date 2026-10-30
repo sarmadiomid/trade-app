@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "baseline_id": 5,
+  "url": "https://candelo.ir/about",
+  "timestamp": "2026-10-30T15:54:37.964313+00:00",
+  "summary": {
+    "title": "\u062f\u0631\u0628\u0627\u0631\u0647 \u0645\u0627 | Candelo",
+    "meta_description": "Candelo (\u06a9\u0646\u062f\u0644\u0648) \u0645\u062d\u06cc\u0637 \u062a\u0645\u0631\u06cc\u0646 \u0645\u0639\u0627\u0645\u0644\u0647 \u0628\u0647 \u0632\u0628\u0627\u0646 \u0641\u0627\u0631\u0633\u06cc \u0627\u0633\u062a: \u0628\u0627\u0632\u067e\u062e\u0634 \u0628\u0627\u0632\u0627\u0631\u060c \u062d\u0633\u0627\u0628 \u0645\u062c\u0627\u0632\u06cc\u060c \u0698...",
+    "canonical": "https://candelo.ir/about",
+    "robots": null,
+    "h1": "\u062f\u0631\u0628\u0627\u0631\u0647 Candelo (\u06a9\u0646\u062f\u0644\u0648)",
+    "h2_count": 4,
+    "h3_count": 0,
+    "schema_count": 0,
+    "og_tag_count": 7,
+    "cwv_captured": false,
+    "status_code": 200,
+    "html_hash": "100320128921..."
+  }
+}

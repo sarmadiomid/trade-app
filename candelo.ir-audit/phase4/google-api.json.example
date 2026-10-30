@@ -1,0 +1,6 @@
+{
+  "api_key": "PASTE_GOOGLE_API_KEY_FOR_PSI_AND_CRUX",
+  "service_account_path": "/home/ubuntu/.config/claude-seo/service_account.json",
+  "default_property": "sc-domain:candelo.ir",
+  "ga4_property_id": "properties/PASTE_GA4_PROPERTY_ID"
+}

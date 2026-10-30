@@ -1,0 +1,166 @@
+[
+  {
+    "path": "/robots.txt",
+    "status": 200,
+    "content_type": "text/plain",
+    "cache_control": "public, max-age=0, must-revalidate",
+    "lang": null,
+    "title": null,
+    "robots": [],
+    "canonical": null,
+    "has_jsonld": false,
+    "has_og": false,
+    "body_start": "User-Agent: * Allow: / Allow: /about Allow: /privacy Allow: /terms Allow: /pricing Allow: /guides Allow: /lessons Disall"
+  },
+  {
+    "path": "/sitemap.xml",
+    "status": 200,
+    "content_type": "application/xml",
+    "cache_control": "public, max-age=0, must-revalidate",
+    "lang": null,
+    "title": null,
+    "robots": [],
+    "canonical": null,
+    "has_jsonld": false,
+    "has_og": false,
+    "body_start": "<?xml version=\"1.0\" encoding=\"UTF-8\"?> <urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"> <url> <loc>https://c"
+  },
+  {
+    "path": "/",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "Candelo | بک‌تست و بازپخش بازار",
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": "https://candelo.ir",
+    "has_jsonld": true,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/pricing",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "قیمت و طرح‌های اشتراک | Candelo",
+    "robots": [],
+    "canonical": "https://candelo.ir/pricing",
+    "has_jsonld": false,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/guides",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "راهنما و مقالات | Candelo",
+    "robots": [],
+    "canonical": "https://candelo.ir/guides",
+    "has_jsonld": false,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/lessons",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "آموزش معامله و بک‌تست | Candelo",
+    "robots": [
+      "index, follow"
+    ],
+    "canonical": "https://candelo.ir/lessons",
+    "has_jsonld": true,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/about",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "درباره ما | Candelo",
+    "robots": [],
+    "canonical": "https://candelo.ir/about",
+    "has_jsonld": false,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/privacy",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "حریم خصوصی | Candelo",
+    "robots": [],
+    "canonical": "https://candelo.ir/privacy",
+    "has_jsonld": false,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/terms",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "شرایط استفاده | Candelo",
+    "robots": [],
+    "canonical": "https://candelo.ir/terms",
+    "has_jsonld": false,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/login",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "private, no-cache, no-store, max-age=0, must-revalidate",
+    "lang": "fa",
+    "title": "ورود / ثبت‌نام | Candelo",
+    "robots": [
+      "noindex, nofollow, nocache"
+    ],
+    "canonical": null,
+    "has_jsonld": false,
+    "has_og": false,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/guides/backtest-chist",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "public, s-maxage=600, stale-while-revalidate=86400",
+    "lang": "fa",
+    "title": "بک‌تست چیست و چرا قبل از ریسک واقعی لازم است؟ | Candelo",
+    "robots": [],
+    "canonical": "https://candelo.ir/guides/backtest-chist",
+    "has_jsonld": true,
+    "has_og": true,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  },
+  {
+    "path": "/lessons/studio",
+    "status": 200,
+    "content_type": "text/html",
+    "cache_control": "s-maxage=31536000",
+    "lang": "fa",
+    "title": "کارگاه درس | Candelo",
+    "robots": [
+      "noindex, nofollow"
+    ],
+    "canonical": null,
+    "has_jsonld": false,
+    "has_og": false,
+    "body_start": "<!DOCTYPE html><html lang=\"fa\" dir=\"rtl\" class=\"__variable_97ec3b h-full\"><head><meta charSet=\"utf-8\"/><meta name=\"viewp"
+  }
+]
