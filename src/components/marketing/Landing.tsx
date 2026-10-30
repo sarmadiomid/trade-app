@@ -38,7 +38,8 @@ const NAV = [
   { href: '#chart', label: 'نمودار' },
   { href: '#battle', label: 'مسابقه و نبرد' },
   { href: '#features', label: 'امکانات' },
-  { href: '#pricing', label: 'قیمت' },
+  { href: '/pricing', label: 'قیمت' },
+  { href: '/guides', label: 'راهنماها' },
   { href: '#faq', label: 'سوالات متداول' },
 ];
 
@@ -1349,6 +1350,12 @@ function Pricing({ signedIn }: { signedIn: boolean }) {
           desc="همان طرح‌های تنظیمات حساب. مبتدی برای شروع، متوسط برای تمرین منظم، و حرفه‌ای برای جلسه و نبرد نامحدود."
         />
         <LandingPricing signedIn={signedIn} />
+        <p className="mt-8 text-center text-[13px] text-[#7d8bac]">
+          صفحه مستقل قیمت‌ها:{' '}
+          <Link href="/pricing" className="font-semibold text-[#8cbcff] hover:text-white">
+            candelo.ir/pricing
+          </Link>
+        </p>
       </div>
     </section>
   );
@@ -1493,9 +1500,22 @@ function Footer({ signedIn }: { signedIn: boolean }) {
             </li>
           </ul>
         </div>
-        <nav aria-label="اطلاعات حقوقی">
+        <nav aria-label="اطلاعات و آموزش">
           <div className="text-[13px] font-bold text-white">اطلاعات</div>
           <ul className="mt-4 space-y-2.5">
+            <li>
+              <Link
+                href="/lessons"
+                className="text-[13px] text-[#7d8bac] transition hover:text-white"
+              >
+                مرکز آموزش
+              </Link>
+            </li>
+            <li>
+              <Link href="/guides" className="text-[13px] text-[#7d8bac] transition hover:text-white">
+                راهنماها
+              </Link>
+            </li>
             <li>
               <Link href="/about" className="text-[13px] text-[#7d8bac] transition hover:text-white">
                 درباره ما

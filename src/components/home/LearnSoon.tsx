@@ -26,17 +26,31 @@ export function LearnSoon({ user }: { readonly user: Me }) {
             <span className="mt-5 rounded-md border border-[var(--h-line)] bg-[var(--h-chip)] px-2.5 py-1 text-[12px] font-bold text-[var(--h-muted)]">
               به زودی
             </span>
-            <h2 className="mt-4 text-[28px] font-extrabold leading-tight">آموزش هنوز فعال نشده</h2>
+            <h2 className="mt-4 text-[28px] font-extrabold leading-tight">درس نموداری به‌زودی</h2>
             <p className="mt-3 text-[15px] leading-8 text-[var(--h-muted)]">
-              درس‌ها و تمرین روی نمودار به زودی همین‌جا باز می‌شود. تا آن روز از بخش تمرین روی
-              گذشتهٔ بازار کار کنید.
+              درس‌های تعاملی روی نمودار هنوز داخل حساب باز نشده‌اند. فعلاً راهنماهای عمومی و مرکز
+              آموزش را بخوانید، یا از بخش تمرین روی گذشتهٔ بازار کار کنید.
             </p>
-            <Link
-              href="/home"
-              className="mt-6 inline-flex h-10 items-center rounded-lg bg-[var(--h-accent)] px-4 text-[13.5px] font-semibold text-white"
-            >
-              برگشت به تمرین
-            </Link>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/lessons"
+                className="inline-flex h-10 items-center rounded-lg bg-[var(--h-accent)] px-4 text-[13.5px] font-semibold text-white"
+              >
+                مرکز آموزش
+              </Link>
+              <Link
+                href="/guides"
+                className="inline-flex h-10 items-center rounded-lg border border-[var(--h-line)] px-4 text-[13.5px] font-semibold text-[var(--h-text)]"
+              >
+                راهنماها
+              </Link>
+              <Link
+                href="/home"
+                className="inline-flex h-10 items-center rounded-lg px-4 text-[13.5px] font-semibold text-[var(--h-muted)]"
+              >
+                برگشت به تمرین
+              </Link>
+            </div>
           </div>
         </div>
       </div>

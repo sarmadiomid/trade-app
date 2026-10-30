@@ -1,0 +1,11 @@
+/* Public lessons hub typography (studio route keeps chart chrome). */
+.lessons-public {
+  font-family:
+    var(--font-vazirmatn),
+    Vazirmatn,
+    'Vazirmatn FD',
+    Tahoma,
+    -apple-system,
+    sans-serif;
+  color-scheme: dark;
+}

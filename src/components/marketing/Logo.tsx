@@ -6,7 +6,7 @@ export const BRAND_EN = 'Candelo';
 export function LogoMark({ size = 34 }: { size?: number }) {
   return (
     <Image
-      src="/logo.png"
+      src="/logo-192.png"
       alt=""
       width={size}
       height={size}

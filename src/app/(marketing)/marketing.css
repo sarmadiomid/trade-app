@@ -9,6 +9,7 @@
   --mk-cyan: #38d3ff;
   --mk-deep: #0b2a7a;
   font-family:
+    var(--font-vazirmatn),
     Vazirmatn,
     'Vazirmatn FD',
     Tahoma,

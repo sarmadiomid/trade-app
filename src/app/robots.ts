@@ -6,7 +6,15 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: '*',
-        allow: ['/', '/about', '/privacy', '/terms'],
+        allow: [
+          '/',
+          '/about',
+          '/privacy',
+          '/terms',
+          '/pricing',
+          '/guides',
+          '/lessons',
+        ],
         disallow: [
           '/home',
           '/backtest',
@@ -14,7 +22,7 @@ export default function robots(): MetadataRoute.Robots {
           '/chart',
           '/admin',
           '/login',
-          '/lessons',
+          '/lessons/studio',
           '/api/',
         ],
       },

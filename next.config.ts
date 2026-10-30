@@ -13,16 +13,20 @@ const nextConfig: NextConfig = {
         value: 'public, s-maxage=600, stale-while-revalidate=86400',
       },
     ];
+    const day = [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }];
     return [
       { source: '/', headers: marketingCache },
       { source: '/about', headers: marketingCache },
       { source: '/privacy', headers: marketingCache },
       { source: '/terms', headers: marketingCache },
-      { source: '/og.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=86400' }] },
-      {
-        source: '/logo.png',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
-      },
+      { source: '/pricing', headers: marketingCache },
+      { source: '/guides', headers: marketingCache },
+      { source: '/guides/:path*', headers: marketingCache },
+      { source: '/lessons', headers: marketingCache },
+      { source: '/og.png', headers: day },
+      { source: '/logo.png', headers: day },
+      { source: '/logo.webp', headers: day },
+      { source: '/logo-192.png', headers: day },
     ];
   },
 };

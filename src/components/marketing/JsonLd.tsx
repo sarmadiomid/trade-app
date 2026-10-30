@@ -71,7 +71,7 @@ export function HomeJsonLd() {
         publisher: { '@id': `${SITE_URL}/#organization` },
         offers: {
           '@type': 'AggregateOffer',
-          url: `${SITE_URL}/#pricing`,
+          url: absoluteUrl('/pricing'),
           priceCurrency: 'IRR',
           lowPrice: '0',
           highPrice: tomanToIrr(PRO_TOMAN),

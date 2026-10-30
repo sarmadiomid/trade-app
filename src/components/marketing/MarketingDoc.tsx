@@ -39,6 +39,15 @@ export function MarketingDoc({
           <Link href="/" className="hover:text-white">
             خانه
           </Link>
+          <Link href="/lessons" className="hover:text-white">
+            آموزش
+          </Link>
+          <Link href="/guides" className="hover:text-white">
+            راهنماها
+          </Link>
+          <Link href="/pricing" className="hover:text-white">
+            قیمت
+          </Link>
           <Link href="/about" className="hover:text-white">
             درباره ما
           </Link>
