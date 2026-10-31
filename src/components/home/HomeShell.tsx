@@ -25,6 +25,7 @@ import { initials } from '../platform/AppHeader';
 import { api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
+import { useAccountAvatar } from './account-prefs';
 
 const VERSION = faDigits('0.1.0');
 
@@ -266,8 +267,9 @@ export function HomeShell({
 
           <div className={`flex flex-col items-center px-4 pb-4 ${collapsed ? 'lg:px-2' : ''}`}>
             <span className="relative">
-              <span
-                className={`flex items-center justify-center rounded-full border font-bold ${
+              <ShellAvatar
+                user={user}
+                className={`rounded-full border font-bold ${
                   palette === 'theme'
                     ? 'border-line bg-hover text-fg'
                     : 'border-[var(--h-line)] bg-[radial-gradient(circle_at_32%_28%,#252832,#121419)] text-white'
@@ -276,9 +278,7 @@ export function HomeShell({
                     ? 'h-11 w-11 text-[14px] lg:h-11 lg:w-11'
                     : 'h-[72px] w-[72px] text-[22px]'
                 }`}
-              >
-                {initials(user.name)}
-              </span>
+              />
               <span
                 className={`absolute -bottom-1 end-0 rounded-md bg-[var(--h-accent)] font-bold text-white ${
                   collapsed ? 'px-1 py-px text-[8px] lg:hidden' : 'px-1.5 py-0.5 text-[10px]'
@@ -566,9 +566,10 @@ function ProfileMenu() {
         onClick={() => openMenu('profile')}
         className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full py-1 pe-1 ps-1 text-[13px] font-semibold transition hover:bg-[var(--h-chip)] sm:h-9 sm:pe-1.5"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--h-accent)] text-[11px] font-bold text-white">
-          {initials(user.name)}
-        </span>
+        <ShellAvatar
+          user={user}
+          className="h-7 w-7 rounded-full bg-[var(--h-accent)] text-[11px] font-bold text-white"
+        />
         <span className="hidden max-w-28 truncate sm:inline">{user.name}</span>
         <Icon name="chevronDown" size={14} className="hidden text-[var(--h-muted)] sm:block" />
       </button>
@@ -616,6 +617,26 @@ function ProfileMenu() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function ShellAvatar({
+  user,
+  className,
+}: {
+  readonly user: Me;
+  readonly className: string;
+}) {
+  const avatar = useAccountAvatar(user.id);
+  return (
+    <span className={`flex items-center justify-center overflow-hidden ${className}`}>
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatar} alt="" className="h-full w-full object-cover" />
+      ) : (
+        initials(user.name)
+      )}
+    </span>
   );
 }
 

@@ -15,6 +15,13 @@ import { BrandName } from '../marketing/Logo';
 import { ApiError, api, type Me } from '../platform/api';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
+import {
+  accountAvatarKey,
+  readAccountPref,
+  subscribeAccountPrefs,
+  useAccountAvatar,
+  writeAccountPref,
+} from './account-prefs';
 import { HomeShell, ShellMenuButton, ShellTools } from './HomeShell';
 import { SubscriptionPane } from './SubscriptionPane';
 
@@ -61,7 +68,6 @@ type Tone = 'ok' | 'err';
 
 const tzKey = (id: string) => `chartix-tz:${id}`;
 const handleKey = (id: string) => `chartix-username:${id}`;
-const avatarKey = (id: string) => `chartix-avatar:${id}`;
 const betaKey = (id: string) => `chartix-beta:${id}`;
 
 function defaultHandle(name: string, phone: string): string {
@@ -76,31 +82,6 @@ function profileError(message: string): string {
   }
   if (message === 'Unauthorized') return 'نشست شما تمام شده. دوباره وارد شوید.';
   return 'ذخیره انجام نشد. دوباره تلاش کنید.';
-}
-
-const prefListeners = new Set<() => void>();
-
-function subscribePrefs(onStoreChange: () => void) {
-  prefListeners.add(onStoreChange);
-  return () => prefListeners.delete(onStoreChange);
-}
-
-function readLocal(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function store(key: string, value: string): boolean {
-  try {
-    localStorage.setItem(key, value);
-    prefListeners.forEach((listener) => listener());
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function readZone(raw: string | null): string {
@@ -168,33 +149,32 @@ export function AccountSettings({ user }: { readonly user: Me }) {
     router.replace(query ? `/home/settings?${query}` : '/home/settings', { scroll: false });
   };
   const savedTz = useSyncExternalStore(
-    subscribePrefs,
-    () => readZone(readLocal(tzKey(user.id))),
+    subscribeAccountPrefs,
+    () => readZone(readAccountPref(tzKey(user.id))),
     () => 'Asia/Tehran',
   );
   const savedUsername = useSyncExternalStore(
-    subscribePrefs,
+    subscribeAccountPrefs,
     () => {
-      const handle = readLocal(handleKey(user.id));
+      const handle = readAccountPref(handleKey(user.id));
       return handle && HANDLE_RE.test(handle) ? handle : defaultHandle(user.name, user.phone);
     },
     () => defaultHandle(user.name, user.phone),
   );
-  const avatar = useSyncExternalStore(
-    subscribePrefs,
-    () => readLocal(avatarKey(user.id)),
-    () => null,
-  );
+  const savedAvatar = useAccountAvatar(user.id);
   const beta = useSyncExternalStore(
-    subscribePrefs,
-    () => readLocal(betaKey(user.id)) === '1',
+    subscribeAccountPrefs,
+    () => readAccountPref(betaKey(user.id)) === '1',
     () => false,
   );
   const [timezone, setTimezone] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState(user.name);
   const [username, setUsername] = useState<string | null>(null);
+  /** Pending avatar data-URL; `null` means keep the saved one. */
+  const [avatarDraft, setAvatarDraft] = useState<string | null>(null);
   const zone = timezone ?? savedTz;
   const handleValue = username ?? savedUsername;
+  const avatar = avatarDraft ?? savedAvatar;
   const [tzMsg, setTzMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ tone: Tone; text: string } | null>(null);
   const [avatarMsg, setAvatarMsg] = useState<string | null>(null);
@@ -209,12 +189,14 @@ export function AccountSettings({ user }: { readonly user: Me }) {
   const [resetDone, setResetDone] = useState<string | null>(null);
 
   const cleanName = displayName.replace(/\s+/g, ' ').trim();
-  const profileDirty = cleanName !== user.name || handleValue.trim() !== savedUsername;
+  const avatarDirty = avatarDraft !== null && avatarDraft !== savedAvatar;
+  const profileDirty =
+    cleanName !== user.name || handleValue.trim() !== savedUsername || avatarDirty;
 
   const saveTimezone = (e: FormEvent) => {
     e.preventDefault();
     setSavingTz(true);
-    const ok = store(tzKey(user.id), zone);
+    const ok = writeAccountPref(tzKey(user.id), zone);
     if (ok) setTimezone(null);
     setTzMsg(
       ok
@@ -248,12 +230,25 @@ export function AccountSettings({ user }: { readonly user: Me }) {
       if (name !== user.name) {
         await api('/api/battles/profile', { method: 'PATCH', body: { name } });
       }
-      if (!store(handleKey(user.id), handle)) {
+      if (avatarDirty && avatarDraft) {
+        if (!writeAccountPref(accountAvatarKey(user.id), avatarDraft)) {
+          setProfileMsg({
+            tone: 'err',
+            text:
+              name !== user.name
+                ? 'نام ذخیره شد، ولی تصویر پروفایل در این مرورگر نماند.'
+                : 'تصویر پروفایل در این مرورگر ذخیره نشد.',
+          });
+          return;
+        }
+        setAvatarDraft(null);
+      }
+      if (!writeAccountPref(handleKey(user.id), handle)) {
         setProfileMsg({
           tone: 'err',
           text:
-            name !== user.name
-              ? 'نام ذخیره شد، ولی نام کاربری در این مرورگر نماند.'
+            name !== user.name || avatarDirty
+              ? 'بقیه تغییرات ذخیره شد، ولی نام کاربری در این مرورگر نماند.'
               : 'نام کاربری در این مرورگر ذخیره نشد.',
         });
       } else {
@@ -278,6 +273,7 @@ export function AccountSettings({ user }: { readonly user: Me }) {
   const onAvatar = async (file: File | undefined) => {
     if (!file) return;
     setAvatarMsg(null);
+    setProfileMsg(null);
     if (!file.type.startsWith('image/')) {
       setAvatarMsg('یک فایل تصویری انتخاب کنید.');
       return;
@@ -288,10 +284,7 @@ export function AccountSettings({ user }: { readonly user: Me }) {
     }
     try {
       const data = await squareAvatar(file);
-      if (!store(avatarKey(user.id), data)) {
-        setAvatarMsg('ذخیره تصویر در این مرورگر ممکن نیست.');
-        return;
-      }
+      setAvatarDraft(data);
     } catch {
       setAvatarMsg('این تصویر خوانده نشد.');
     }
@@ -533,7 +526,7 @@ export function AccountSettings({ user }: { readonly user: Me }) {
                     aria-checked={beta}
                     aria-label="امکانات آزمایشی"
                     onClick={() => {
-                      store(betaKey(user.id), beta ? '0' : '1');
+                      writeAccountPref(betaKey(user.id), beta ? '0' : '1');
                     }}
                     className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition disabled:opacity-50 ${
                       beta ? 'bg-[var(--h-accent)]' : 'bg-[var(--h-soft)]'
