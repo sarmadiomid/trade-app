@@ -19,15 +19,8 @@ import { AppContext } from '../state/app-context';
 import { connectBridge } from '../state/bridge';
 import { TopToolbar } from '../toolbar/TopToolbar';
 
-const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'NAS100'] as const;
-const TIMEFRAMES: readonly TimeframeId[] = ['15m', '1h', '4h'];
-
 function pickDemo(): { symbol: string; timeframe: TimeframeId } {
-  const n = Math.floor(Math.random() * SYMBOLS.length);
-  return {
-    symbol: SYMBOLS[n]!,
-    timeframe: TIMEFRAMES[n % TIMEFRAMES.length]!,
-  };
+  return { symbol: 'EURUSD', timeframe: '1h' };
 }
 
 function formatPx(symbol: string, n: number): string {
