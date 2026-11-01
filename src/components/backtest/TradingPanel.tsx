@@ -129,7 +129,7 @@ export function TradingPanel({ sheet = false }: { readonly sheet?: boolean }) {
           className={
             sheet
               ? 'min-h-0 flex-1 overflow-auto border-t border-line'
-              : 'h-44 overflow-auto border-t border-line'
+              : 'h-80 overflow-auto border-t border-line'
           }
         >
           {tab === 'positions' ? (

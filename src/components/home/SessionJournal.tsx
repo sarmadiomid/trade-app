@@ -121,22 +121,20 @@ export function SessionJournal({
       }
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="session-journal">
-        <header className="px-4 pb-2 pt-4 sm:px-8 sm:pt-5">
+        <header className="px-4 pb-1 pt-3 sm:px-8 sm:pt-4">
           <div className="flex items-center gap-2">
             <div className="flex shrink-0 items-center gap-1.5">
               <ShellMenuButton />
               <h1 className="text-[22px] font-bold leading-none sm:text-[30px]">تمرین</h1>
             </div>
-            <div className="ms-auto min-w-0">
+            <div className="ms-auto flex min-w-0 items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] px-2.5 py-1.5 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.8)] sm:px-3">
+                <span className="text-[12.5px] font-semibold sm:text-[13px]">
+                  {sessions === null ? '…' : faNum(streak)} روز پیاپی
+                </span>
+                <Icon path={HOME_ICONS.flame} size={16} className="text-[#ff8a3d]" />
+              </div>
               <ShellTools />
-            </div>
-          </div>
-          <div className="mt-3 flex justify-end">
-            <div className="inline-flex items-center gap-2 rounded-2xl border border-[var(--h-line)] bg-[var(--h-card)] px-3 py-2 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.8)] sm:px-4 sm:py-2.5">
-              <span className="text-[13px] font-semibold sm:text-[14px]">
-                {sessions === null ? '…' : faNum(streak)} روز پیاپی
-              </span>
-              <Icon path={HOME_ICONS.flame} size={18} className="text-[#ff8a3d]" />
             </div>
           </div>
         </header>

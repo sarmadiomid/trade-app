@@ -160,8 +160,8 @@ export default function JournalView({
 
   return (
     <div className="an-embed flex h-full min-h-0 flex-col" data-testid="journal">
-      <div className="flex shrink-0 flex-col gap-4 px-4 pb-3 pt-4 sm:px-8">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex shrink-0 flex-col gap-2.5 px-4 pb-2 pt-2 sm:px-8">
+        <div className="flex flex-wrap items-end justify-between gap-2">
           <div className="min-w-0">
             <h2 className="an-title truncate">{session.settings.name}</h2>
             <p className="an-sub">
@@ -221,7 +221,7 @@ export default function JournalView({
         </div>
 
         <div className={current ? 'max-lg:hidden' : ''}>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-4">
             <Metric
               label="سود خالص"
               value={signedMoney(summary.netPnl)}
@@ -254,7 +254,7 @@ export default function JournalView({
             <div
               role="group"
               aria-label="فیلتر معاملات"
-              className="mt-3 flex flex-wrap items-center gap-2"
+              className="mt-2 flex flex-wrap items-center gap-2"
             >
               <div className="relative min-w-[min(100%,220px)] flex-1">
                 <Icon
@@ -330,7 +330,7 @@ export default function JournalView({
             <button
               type="button"
               onClick={() => openPlanPrompt(requiresPlan('جستجو و فیلتر دفتر معاملات', 'mid'))}
-              className="mt-3 text-start text-[13px] text-muted hover:text-fg"
+              className="mt-2 text-start text-[13px] text-muted hover:text-fg"
             >
               {requiresPlan('جستجو و فیلتر دفتر معاملات', 'mid')}
             </button>
@@ -338,7 +338,7 @@ export default function JournalView({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-3 px-4 pb-4 sm:px-8">
+      <div className="flex min-h-0 flex-1 gap-3 px-4 pb-3 sm:px-8">
         <div
           className={`min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl border border-line bg-[var(--h-card)] ${
             current ? 'hidden lg:block' : ''
@@ -406,7 +406,7 @@ export default function JournalView({
                 })}
               </ul>
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[960px] text-[12.5px]" data-testid="journal-table">
+                <table className="w-full  text-[12.5px]" data-testid="journal-table">
                   <caption className="sr-only">معاملات دفتر</caption>
                   <thead className="sticky top-0 z-10 bg-[var(--h-card)] text-muted">
                     <tr>
@@ -548,10 +548,10 @@ function Metric({
   readonly tone?: string;
 }) {
   return (
-    <div className="rounded-2xl border border-line bg-[var(--h-card)] px-4 py-3">
-      <p className="text-[12px] text-muted">{label}</p>
-      <p className={`mt-1 text-[18px] font-bold tabular-nums sm:text-[20px] ${tone}`}>{value}</p>
-      <p className="mt-0.5 text-[12px] text-muted">{hint}</p>
+    <div className="rounded-2xl border border-line bg-[var(--h-card)] px-3 py-2">
+      <p className="text-[11.5px] text-muted">{label}</p>
+      <p className={`mt-0.5 text-[16px] font-bold tabular-nums sm:text-[18px] ${tone}`}>{value}</p>
+      <p className="text-[11.5px] text-muted">{hint}</p>
     </div>
   );
 }
