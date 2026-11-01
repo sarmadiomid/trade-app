@@ -93,10 +93,11 @@ replay (`duration × speed`, at most one trading week) never crosses a weekend.
 
 ### No background worker
 
-Time-driven transitions (countdown → live, timer expiry, profit target, everyone out) are
-applied on read by `refresh()`; every write uses optimistic concurrency (`version`), and the
-request whose completion write wins records Elo and stats exactly once. Live standings are
-memoised per battle version and cursor.
+Time-driven transitions (standby lobby older than 24h → cancelled, countdown → live, timer
+expiry, profit target, everyone out) are applied on read by `refresh()`; every write uses
+optimistic concurrency (`version`), and the request whose completion write wins records Elo
+and stats exactly once. Live standings are memoised per battle version and cursor. Public
+browse also hides lobbies older than 24h.
 
 ## API
 

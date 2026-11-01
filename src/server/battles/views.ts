@@ -1,6 +1,12 @@
 import 'server-only';
 import type { ObjectId } from 'mongodb';
-import { durationMs, type BattleSummary, type BattleView, type Standing } from '@/lib/battles';
+import {
+  durationMs,
+  LOBBY_MAX_AGE_MS,
+  type BattleSummary,
+  type BattleView,
+  type Standing,
+} from '@/lib/battles';
 import { collections, type BattleDoc } from '../db';
 import { clockOf, cursorOf, joinBlocked, liveStandings, refresh } from './service';
 
@@ -97,8 +103,9 @@ export function battleSummary(b: BattleDoc, viewerId: ObjectId): BattleSummary {
   };
 }
 
-/** A battle whose countdown or timer has run out but that nobody has read since. */
+/** A battle whose lobby, countdown or timer has run out but that nobody has read since. */
 function stale(b: BattleDoc, now: number): boolean {
+  if (b.status === 'standby') return now - b.createdAt >= LOBBY_MAX_AGE_MS;
   if (b.status === 'countdown') return b.countdownEndsAt !== null && now >= b.countdownEndsAt;
   if (b.status === 'live' || b.status === 'paused') {
     const c = clockOf(b);
@@ -106,8 +113,6 @@ function stale(b: BattleDoc, now: number): boolean {
   }
   return false;
 }
-
-const LOBBY_MAX_AGE_MS = 24 * 3600_000;
 
 /** Public battles that can still be joined or watched: in the lobby or in progress. */
 export async function browseBattles(viewerId: ObjectId): Promise<BattleSummary[]> {
@@ -143,6 +148,7 @@ export async function myBattles(viewerId: ObjectId): Promise<BattleSummary[]> {
   const out: BattleSummary[] = [];
   for (let b of docs) {
     if (stale(b, now)) b = await refresh(b);
+    if (b.status === 'cancelled') continue;
     out.push(battleSummary(b, viewerId));
   }
   return out;

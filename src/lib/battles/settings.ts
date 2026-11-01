@@ -13,6 +13,8 @@ export const MAX_DURATION = 99;
 export const MIN_PARTICIPANTS = 2;
 export const MAX_PARTICIPANTS = 20;
 export const COUNTDOWN_MS = 10_000;
+/** Standby lobbies older than this are cancelled on read and hidden from browse. */
+export const LOBBY_MAX_AGE_MS = 24 * HOUR_MS;
 export const MAX_CHAT = 200;
 export const MAX_ACTIONS = 2_000;
 

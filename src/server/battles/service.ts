@@ -6,6 +6,7 @@ import { historyDenial } from '@/lib/app/billing/entitlements';
 import { PlanDenied, assertBattleChat, planOf, releaseBattleSlot, takeBattleSlot } from '../billing';
 import {
   COUNTDOWN_MS,
+  LOBBY_MAX_AGE_MS,
   MAX_ACTIONS,
   MAX_CHAT,
   START_ELO,
@@ -269,9 +270,9 @@ export function liveStandings(b: BattleDoc): Standing[] {
 }
 
 /**
- * Applies time-driven transitions: the countdown ending, the timer running out, a profit target
- * being reached or every trader being out. Called on every read, so battles advance without a
- * background worker.
+ * Applies time-driven transitions: lobby expiry, the countdown ending, the timer running out, a
+ * profit target being reached or every trader being out. Called on every read, so battles
+ * advance without a background worker.
  */
 export async function refresh(b: BattleDoc): Promise<BattleDoc> {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -281,6 +282,8 @@ export async function refresh(b: BattleDoc): Promise<BattleDoc> {
     const out = await commit(b, update.set);
     if (out) {
       if (update.completed) await recordResults(out);
+      else if (out.status === 'cancelled')
+        await Promise.all(out.participants.map((p) => releaseBattleSlot(p.userId)));
       // A countdown that ended may be followed by an immediate completion check.
       b = out;
       continue;
@@ -294,6 +297,17 @@ function transition(
   b: BattleDoc,
   now: number,
 ): { set: UpdateFilter<BattleDoc>; completed: boolean } | null {
+  if (b.status === 'standby' && now - b.createdAt >= LOBBY_MAX_AGE_MS) {
+    return {
+      completed: false,
+      set: {
+        $set: { status: 'cancelled', endReason: 'Lobby expired' },
+        $push: {
+          chat: { $each: [systemMessage('Lobby expired', now)], $slice: -MAX_CHAT },
+        },
+      },
+    };
+  }
   if (b.status === 'countdown' && b.countdownEndsAt !== null && now >= b.countdownEndsAt) {
     return {
       completed: false,
