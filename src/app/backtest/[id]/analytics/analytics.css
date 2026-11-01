@@ -530,6 +530,547 @@
   background: rgba(59, 120, 255, 0.12);
 }
 
+/* Risk-reward simulator ---------------------------------------------------- */
+
+.rr-sim-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rr-sim-banner-ideal {
+  border-color: color-mix(in srgb, var(--tc-accent) 28%, transparent);
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--tc-accent) 16%, transparent),
+      transparent 58%
+    ),
+    rgba(255, 255, 255, 0.03);
+}
+
+.rr-sim-banner-busy {
+  border-style: dashed;
+}
+
+.rr-sim-banner-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--tc-accent) 18%, transparent);
+  color: var(--tc-accent);
+}
+
+.rr-sim-banner-metric-label {
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.rr-sim-banner-metric-value {
+  margin-top: 2px;
+  font-size: 18px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.rr-sim-banner-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--tc-text);
+}
+
+.rr-sim-banner-body {
+  margin: 3px 0 0;
+  color: var(--tc-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.rr-sim-pulse {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 99px;
+  background: var(--tc-accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--tc-accent) 55%, transparent);
+  animation: rr-sim-pulse 1.6s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rr-sim-pulse {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+@keyframes rr-sim-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--tc-accent) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.rr-sim-stage {
+  display: grid;
+  gap: 12px;
+  align-items: stretch;
+}
+
+@media (min-width: 1024px) {
+  .rr-sim-stage {
+    grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.72fr);
+  }
+}
+
+.rr-sim-chart-panel,
+.rr-sim-detail {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  background: rgba(7, 11, 20, 0.35);
+}
+
+.rr-sim-chart-panel {
+  padding: 12px 12px 8px;
+  min-width: 0;
+}
+
+.rr-sim-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 4px;
+  padding: 0 4px;
+}
+
+.rr-sim-kicker {
+  margin: 0;
+  color: var(--tc-muted);
+  font-size: 11.5px;
+}
+
+.rr-sim-panel-title {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.rr-sim-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--tc-muted);
+  font-size: 11.5px;
+}
+
+.rr-sim-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rr-sim-swatch {
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.rr-sim-swatch-line {
+  width: 14px;
+  height: 2px;
+  border-radius: 99px;
+  background: var(--tc-accent);
+}
+
+.rr-sim-swatch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  border: 2px solid var(--tc-accent);
+  background: transparent;
+}
+
+.rr-sim-swatch-peak {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--tc-accent);
+}
+
+.rr-sim-curve {
+  margin-top: 2px;
+}
+
+.rr-sim-svg {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+}
+
+.rr-sim-detail {
+  display: flex;
+  flex-direction: column;
+  padding: 14px;
+}
+
+.rr-sim-detail-head {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.rr-sim-target-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.rr-sim-target-value {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.rr-sim-target-sep {
+  margin-inline: 2px;
+  color: var(--tc-muted);
+  font-weight: 500;
+}
+
+.rr-sim-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tc-accent) 18%, transparent);
+  color: var(--tc-accent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rr-sim-jump {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--tc-muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.rr-sim-jump:hover {
+  border-color: color-mix(in srgb, var(--tc-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--tc-accent) 10%, transparent);
+  color: var(--tc-accent);
+}
+
+.rr-sim-jump:focus-visible {
+  outline: 2px solid var(--tc-accent);
+  outline-offset: 2px;
+}
+
+.rr-sim-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.rr-sim-stat {
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.rr-sim-stat-em {
+  grid-column: 1 / -1;
+  border-color: color-mix(in srgb, var(--tc-accent) 22%, transparent);
+  background: color-mix(in srgb, var(--tc-accent) 8%, transparent);
+}
+
+.rr-sim-stat dt {
+  color: var(--tc-muted);
+  font-size: 11.5px;
+}
+
+.rr-sim-stat dd {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.rr-sim-stat-em dd {
+  font-size: 20px;
+  font-weight: 750;
+}
+
+.rr-sim-stat-hint {
+  margin-top: 3px !important;
+  color: var(--tc-muted);
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+.rr-sim-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rr-sim-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--tc-text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.rr-sim-chip:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rr-sim-chip:focus-visible {
+  outline: 2px solid var(--tc-accent);
+  outline-offset: 2px;
+}
+
+.rr-sim-chip-on {
+  border-color: transparent;
+  background: var(--tc-accent);
+  color: var(--tc-accent-text);
+  font-weight: 700;
+}
+
+.rr-sim-chip-ideal:not(.rr-sim-chip-on) {
+  border-color: color-mix(in srgb, var(--tc-accent) 45%, transparent);
+  color: var(--tc-accent);
+}
+
+.rr-sim-chip-num {
+  font-weight: 650;
+}
+
+.rr-sim-chip-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.rr-sim-list {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.rr-sim-list-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rr-sim-list-head,
+.rr-sim-list-row {
+  display: grid;
+  grid-template-columns:
+    minmax(7.75rem, 1.35fr)
+    repeat(6, minmax(4.75rem, 1fr));
+  align-items: center;
+  column-gap: 8px;
+  min-width: 44rem;
+  padding: 0 14px;
+  box-sizing: border-box;
+}
+
+.rr-sim-list-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 40px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--tc-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.rr-sim-list-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.rr-sim-list-row {
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.rr-sim-list-row:last-child {
+  border-bottom: 0;
+}
+
+.rr-sim-list-row:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.rr-sim-list-row:focus-visible {
+  outline: 2px solid var(--tc-accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+
+.rr-sim-list-row.is-on {
+  background: color-mix(in srgb, var(--tc-accent) 12%, transparent);
+}
+
+.rr-sim-list-row.is-ideal {
+  background: color-mix(in srgb, var(--tc-accent) 16%, transparent);
+  box-shadow: inset -3px 0 0 var(--tc-accent);
+}
+
+.rr-sim-list-row.is-ideal.is-on {
+  background: color-mix(in srgb, var(--tc-accent) 22%, transparent);
+}
+
+.rr-sim-cell {
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rr-sim-cell-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.rr-sim-cell-num {
+  text-align: end;
+  font-size: 12.5px;
+  font-weight: 550;
+}
+
+.rr-sim-list-head .rr-sim-cell-num {
+  font-weight: 600;
+}
+
+.rr-sim-target-label {
+  flex: 0 0 auto;
+}
+
+.rr-sim-row-tag {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tc-accent) 18%, transparent);
+  color: var(--tc-accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.home-shell .an-embed .rr-sim-chart-panel,
+.home-shell .an-embed .rr-sim-detail,
+.home-shell .an-embed .rr-sim-banner,
+.home-shell .an-embed .rr-sim-list,
+.home-shell .an-embed .rr-sim-stat,
+.home-shell .an-embed .rr-sim-chip {
+  border-color: var(--h-line);
+  background: var(--h-chip);
+}
+
+.home-shell .an-embed .rr-sim-list-head {
+  background: color-mix(in srgb, var(--h-soft) 55%, transparent);
+  border-bottom-color: var(--h-line);
+}
+
+.home-shell .an-embed .rr-sim-list-row {
+  border-bottom-color: var(--h-line);
+}
+
+.home-shell .an-embed .rr-sim-banner-ideal {
+  background:
+    linear-gradient(
+      105deg,
+      color-mix(in srgb, var(--h-accent) 14%, transparent),
+      transparent 58%
+    ),
+    var(--h-chip);
+}
+
+.home-shell .an-embed .rr-sim-chip-on {
+  background: var(--h-accent);
+  color: #fff;
+  border-color: transparent;
+}
+
+.home-shell .an-embed .rr-sim-stat-em {
+  border-color: color-mix(in srgb, var(--h-accent) 24%, transparent);
+  background: color-mix(in srgb, var(--h-accent) 8%, transparent);
+}
+
+.home-shell .an-embed .rr-sim-detail-head {
+  border-bottom-color: var(--h-line);
+}
+
 @media (min-width: 768px) {
   .an-tiles {
     grid-template-columns: repeat(3, minmax(0, 1fr));

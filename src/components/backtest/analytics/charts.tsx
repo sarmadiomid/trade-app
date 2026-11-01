@@ -399,8 +399,14 @@ export function RadarChart({
   const cx = 120;
   const cy = 108;
   const radius = 64;
-  const plotted = axes.map((axis) => Math.max(0, axis.value));
-  const cap = ceiling ?? Math.max(...plotted, 0);
+  const raw = axes.map((axis) => axis.value);
+  // Signed series (avg R, P&L) map onto a bipolar 0…1 ring so negatives still draw a shape.
+  const signed = ceiling === undefined && raw.some((v) => v < 0);
+  const peak = Math.max(...raw.map((v) => Math.abs(v)), 0);
+  const plotted = signed
+    ? raw.map((v) => (peak > 0 ? 0.5 + (0.5 * v) / peak : 0.5))
+    : raw.map((v) => Math.max(0, v));
+  const cap = ceiling ?? (signed ? 1 : Math.max(...plotted, 0));
   const at = (i: number, mag: number) => {
     const ang = -Math.PI / 2 + (i * 2 * Math.PI) / n;
     return [cx + Math.cos(ang) * radius * mag, cy + Math.sin(ang) * radius * mag] as const;
@@ -413,7 +419,9 @@ export function RadarChart({
           .join(','),
       )
       .join(' ');
-  const hasShape = cap > 0 && plotted.some((value) => value > 0);
+  const hasShape = signed
+    ? peak > 0
+    : cap > 0 && plotted.some((value) => value > 0);
   const poly = hasShape
     ? axes.map((_, i) => at(i, Math.min(1, plotted[i]! / cap)).join(',')).join(' ')
     : '';

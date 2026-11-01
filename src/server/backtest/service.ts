@@ -14,6 +14,7 @@ import {
   ExecutionEngine,
   accountConfig,
   createSession,
+  hydrateInitialLevels,
   parseSession,
   sessionEnd,
   summarize,
@@ -278,7 +279,10 @@ export async function loadSession(userId: ObjectId, id: string): Promise<Backtes
   if (!ID_RE.test(id)) return null;
   const { backtestSessions } = await collections();
   const doc = await backtestSessions.findOne({ _id: id, userId });
-  return doc?.session ?? null;
+  if (!doc?.session) return null;
+  // Mutates in place: backfills initialSl/Tp for sessions saved before modify captured them.
+  hydrateInitialLevels(doc.session);
+  return doc.session;
 }
 
 /** Inserts a new session or reconciles a saved one. The client's balance is never trusted. */

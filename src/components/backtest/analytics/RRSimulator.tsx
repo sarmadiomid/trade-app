@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { RRSimRow } from '@/lib/backtest';
 import { faNum, plainPct, pnlClass } from '../format';
 
 /**
  * What-if take-profit curve. The line is total R at each target; the marked peak is the
- * target that maximises it. A chip group and the table carry the same numbers without the chart.
+ * target that maximises it. Chips and the table keep the same numbers without the chart.
  */
 export function RRSimulator({
   rows,
@@ -22,6 +22,7 @@ export function RRSimulator({
   const [picked, setPicked] = useState<number | null>(null);
   const focusTarget = useRef<number | null>(null);
   const current = rows?.find((r) => r.target === picked) ?? ideal ?? rows?.[0] ?? null;
+  const statusId = useId();
 
   useEffect(() => {
     if (focusTarget.current === null) return;
@@ -31,7 +32,20 @@ export function RRSimulator({
   }, [picked]);
 
   if (!rows || !current) {
-    return <p className="an-note">در حال محاسبه{progress ? ` ${progress}` : '…'}</p>;
+    return (
+      <div className="rr-sim mt-3" aria-busy="true">
+        <div className="rr-sim-banner rr-sim-banner-busy">
+          <span className="rr-sim-pulse" aria-hidden="true" />
+          <div>
+            <p className="rr-sim-banner-title">در حال محاسبهٔ منحنی</p>
+            <p className="rr-sim-banner-body" role="status" aria-atomic="true">
+              معاملات روی دادهٔ یک‌دقیقه‌ای دوباره اجرا می‌شوند
+              {progress ? ` — ${progress}` : '…'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const blank = rows.every((r) => r.trades === 0);
@@ -43,56 +57,78 @@ export function RRSimulator({
     setPicked(next.target);
   };
 
+  const statusText = blank
+    ? 'معامله‌ای با حد ضرر اولیه نیست.'
+    : ideal?.target === current.target
+      ? `هدف ایده‌آل ۱ به ${faNum(current.target)} انتخاب شده؛ مجموع ${faNum(current.totalR, 2)}R.`
+      : `هدف ۱ به ${faNum(current.target)} انتخاب شده؛ مجموع ${faNum(current.totalR, 2)}R.`;
+
   return (
-    <div className="mt-3 flex flex-col gap-4">
-      <p className="an-note">
-        {ready
-          ? ideal
-            ? `هدف ایده‌آل ۱ به ${faNum(ideal.target)} است و مجموع ${faNum(ideal.totalR, 2)}R می‌سازد. حد ضرر همان می‌ماند و فقط حد سود عوض می‌شود.`
-            : 'معامله‌ای با حد ضرر اولیه نیست، پس هدفی برای مقایسه ساخته نشد.'
-          : `معاملات روی دادهٔ یک‌دقیقه‌ای دوباره اجرا می‌شوند — در حال محاسبه ${progress}`}
+    <div className="rr-sim mt-3 flex flex-col gap-4">
+      <InsightBanner ready={ready} ideal={ideal} blank={blank} progress={progress} />
+
+      <p id={statusId} className="sr-only" role="status" aria-atomic="true">
+        {statusText}
       </p>
 
       {blank ? null : (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(240px,0.7fr)]">
-          <div>
-            <p className="an-label mb-2">مجموع R برای هر هدف</p>
+        <div className="rr-sim-stage">
+          <div className="rr-sim-chart-panel">
+            <div className="rr-sim-panel-head">
+              <div>
+                <p className="rr-sim-kicker">منحنی مجموع R</p>
+                <p className="rr-sim-panel-title">هر نقطه یک هدف حد سود است</p>
+              </div>
+              <ul className="rr-sim-legend" aria-hidden="true">
+                <li>
+                  <span className="rr-sim-swatch rr-sim-swatch-line" />
+                  مجموع R
+                </li>
+                <li>
+                  <span className="rr-sim-swatch rr-sim-swatch-dot" />
+                  انتخاب‌شده
+                </li>
+                <li>
+                  <span className="rr-sim-swatch rr-sim-swatch-peak" />
+                  ایده‌آل
+                </li>
+              </ul>
+            </div>
             <RRCurve
               rows={rows}
               idealTarget={ideal?.target ?? null}
               selected={current.target}
               onPick={setPicked}
             />
-            <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-0.5 w-4 rounded bg-accent" />
-                مجموع R
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full border-2 border-accent" />
-                هدف انتخاب‌شده
-              </span>
-              <span>برچسب «ایده‌آل» روی قلهٔ منحنی است.</span>
-            </p>
           </div>
 
-          <div className="rounded-2xl border border-line bg-chart p-4">
-            <p className="text-[12px] text-muted">هدف انتخاب‌شده</p>
-            <p className="mt-1 flex flex-wrap items-center gap-2">
-              <span className="text-[26px] font-bold tabular-nums">
-                ۱ : {faNum(current.target)}
-              </span>
-              {ideal?.target === current.target ? (
-                <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[11px] font-semibold text-accent">
-                  ایده‌آل
-                </span>
-              ) : null}
-            </p>
-            <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">
+          <aside className="rr-sim-detail" aria-labelledby={statusId}>
+            <div className="rr-sim-detail-head">
+              <p className="rr-sim-kicker">هدف انتخاب‌شده</p>
+              <div className="rr-sim-target-row">
+                <p className="rr-sim-target-value">
+                  ۱<span className="rr-sim-target-sep">:</span>
+                  {faNum(current.target)}
+                </p>
+                {ideal?.target === current.target ? (
+                  <span className="rr-sim-badge">ایده‌آل</span>
+                ) : ideal ? (
+                  <button
+                    type="button"
+                    className="rr-sim-jump"
+                    onClick={() => setPicked(ideal.target)}
+                  >
+                    برو به ایده‌آل ۱:{faNum(ideal.target)}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            <dl className="rr-sim-stats">
               <Stat
                 label="مجموع R"
                 value={`${faNum(current.totalR, 2)}R`}
                 tone={pnlClass(current.totalR)}
+                emphasize
               />
               <Stat
                 label="نرخ برد"
@@ -107,12 +143,16 @@ export function RRSimulator({
               <Stat label="میانگین افت سودده‌ها" value={`${faNum(current.avgDrawdownR, 2)}R`} />
               <Stat label="ضررها" value={faNum(current.losses)} />
             </dl>
-          </div>
+          </aside>
         </div>
       )}
 
       {blank ? null : (
-        <div role="radiogroup" aria-label="هدف ریسک به ریوارد" className="flex flex-wrap gap-1.5">
+        <div
+          role="radiogroup"
+          aria-label="هدف ریسک به ریوارد"
+          className="rr-sim-chips"
+        >
           {rows.map((r) => {
             const on = r.target === current.target;
             const isIdeal = ideal?.target === r.target;
@@ -135,20 +175,26 @@ export function RRSimulator({
                   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
                     e.preventDefault();
                     move(-1);
+                  } else if (e.key === 'Home') {
+                    e.preventDefault();
+                    const first = rows[0];
+                    if (first) {
+                      focusTarget.current = first.target;
+                      setPicked(first.target);
+                    }
+                  } else if (e.key === 'End') {
+                    e.preventDefault();
+                    const last = rows[rows.length - 1];
+                    if (last) {
+                      focusTarget.current = last.target;
+                      setPicked(last.target);
+                    }
                   }
                 }}
-                className={`inline-flex h-9 cursor-pointer items-center gap-1 rounded-lg border px-2.5 text-[12.5px] tabular-nums transition-colors duration-200 motion-reduce:transition-none ${
-                  on
-                    ? 'border-accent bg-accent font-semibold text-accent-fg'
-                    : 'border-line text-fg hover:bg-hover'
-                }`}
+                className={`rr-sim-chip ${on ? 'rr-sim-chip-on' : ''} ${isIdeal ? 'rr-sim-chip-ideal' : ''}`}
               >
-                {faNum(r.target)}
-                {isIdeal ? (
-                  <span className={`text-[10px] font-semibold ${on ? '' : 'text-accent'}`}>
-                    ایده‌آل
-                  </span>
-                ) : null}
+                <span className="rr-sim-chip-num">{faNum(r.target)}</span>
+                {isIdeal ? <span className="rr-sim-chip-tag">ایده‌آل</span> : null}
               </button>
             );
           })}
@@ -156,61 +202,157 @@ export function RRSimulator({
       )}
 
       {blank ? null : (
-        <div className="overflow-x-auto">
-          <table className="an-table w-full min-w-[640px]">
-            <caption className="sr-only">
-              نتیجهٔ هر هدف ریسک به ریوارد. ردیف ایده‌آل بیشترین مجموع R را دارد.
-            </caption>
-            <thead>
-              <tr className="text-muted">
-                {[
-                  'هدف',
-                  'معاملات',
-                  'نرخ برد',
-                  'مجموع R',
-                  'امید ریاضی',
-                  'ضریب سود',
-                  'میانگین افت سودده‌ها',
-                ].map((h) => (
-                  <th key={h} className="text-end font-medium first:text-start">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const on = r.target === current.target;
-                const isIdeal = ideal?.target === r.target;
-                return (
-                  <tr
-                    key={r.target}
-                    aria-selected={on}
-                    onClick={() => setPicked(r.target)}
-                    className={`cursor-pointer tabular-nums ${isIdeal ? 'an-ideal font-semibold' : ''} ${
-                      on && !isIdeal ? 'bg-accent/10' : ''
-                    }`}
-                  >
-                    <td>
-                      ۱ : {faNum(r.target)}
-                      {isIdeal ? ' · ایده‌آل' : ''}
-                      {on && !isIdeal ? ' · انتخاب‌شده' : ''}
-                    </td>
-                    <td className="text-end">{faNum(r.trades)}</td>
-                    <td className="text-end">{plainPct(r.winRate)}</td>
-                    <td className={`text-end ${pnlClass(r.totalR)}`}>{faNum(r.totalR, 2)}R</td>
-                    <td className="text-end">{faNum(r.expectancyR, 2)}R</td>
-                    <td className="text-end">
-                      {r.profitFactor === null ? '—' : faNum(r.profitFactor, 2)}
-                    </td>
-                    <td className="text-end">{faNum(r.avgDrawdownR, 2)}R</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <RRResultsList
+          rows={rows}
+          idealTarget={ideal?.target ?? null}
+          selected={current.target}
+          onPick={setPicked}
+        />
       )}
+    </div>
+  );
+}
+
+const RR_COLS = [
+  { key: 'target', label: 'هدف' },
+  { key: 'trades', label: 'معاملات' },
+  { key: 'winRate', label: 'نرخ برد' },
+  { key: 'totalR', label: 'مجموع R' },
+  { key: 'expectancyR', label: 'امید ریاضی' },
+  { key: 'profitFactor', label: 'ضریب سود' },
+  { key: 'avgDrawdownR', label: 'میانگین افت' },
+] as const;
+
+function RRResultsList({
+  rows,
+  idealTarget,
+  selected,
+  onPick,
+}: {
+  readonly rows: readonly RRSimRow[];
+  readonly idealTarget: number | null;
+  readonly selected: number;
+  readonly onPick: (target: number) => void;
+}) {
+  return (
+    <div className="rr-sim-list" role="table" aria-label="نتیجهٔ هر هدف ریسک به ریوارد">
+      <div className="rr-sim-list-scroll">
+        <div className="rr-sim-list-head" role="row">
+          {RR_COLS.map((col) => (
+            <div
+              key={col.key}
+              role="columnheader"
+              className={`rr-sim-cell ${col.key === 'target' ? 'rr-sim-cell-target' : 'rr-sim-cell-num'}`}
+            >
+              {col.label}
+            </div>
+          ))}
+        </div>
+        <div className="rr-sim-list-body" role="rowgroup">
+          {rows.map((r) => {
+            const on = r.target === selected;
+            const isIdeal = idealTarget === r.target;
+            return (
+              <div
+                key={r.target}
+                role="row"
+                tabIndex={0}
+                aria-selected={on}
+                aria-label={
+                  isIdeal
+                    ? `هدف ۱ به ${faNum(r.target)}، ایده‌آل`
+                    : `هدف ۱ به ${faNum(r.target)}`
+                }
+                onClick={() => onPick(r.target)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onPick(r.target);
+                  }
+                }}
+                className={`rr-sim-list-row ${on ? 'is-on' : ''} ${isIdeal ? 'is-ideal' : ''}`}
+              >
+                <div role="cell" className="rr-sim-cell rr-sim-cell-target">
+                  <span className="rr-sim-target-label">۱ : {faNum(r.target)}</span>
+                  {isIdeal ? <span className="rr-sim-row-tag">ایده‌آل</span> : null}
+                </div>
+                <div role="cell" className="rr-sim-cell rr-sim-cell-num">
+                  {faNum(r.trades)}
+                </div>
+                <div role="cell" className="rr-sim-cell rr-sim-cell-num">
+                  {plainPct(r.winRate)}
+                </div>
+                <div role="cell" className={`rr-sim-cell rr-sim-cell-num ${pnlClass(r.totalR)}`}>
+                  {faNum(r.totalR, 2)}R
+                </div>
+                <div role="cell" className="rr-sim-cell rr-sim-cell-num">
+                  {faNum(r.expectancyR, 2)}R
+                </div>
+                <div role="cell" className="rr-sim-cell rr-sim-cell-num">
+                  {r.profitFactor === null ? '—' : faNum(r.profitFactor, 2)}
+                </div>
+                <div role="cell" className="rr-sim-cell rr-sim-cell-num">
+                  {faNum(r.avgDrawdownR, 2)}R
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InsightBanner({
+  ready,
+  ideal,
+  blank,
+  progress,
+}: {
+  readonly ready: boolean;
+  readonly ideal: RRSimRow | null;
+  readonly blank: boolean;
+  readonly progress: string;
+}) {
+  if (!ready) {
+    return (
+      <div className="rr-sim-banner rr-sim-banner-busy">
+        <span className="rr-sim-pulse" aria-hidden="true" />
+        <div>
+          <p className="rr-sim-banner-title">در حال آماده‌سازی شبیه‌ساز</p>
+          <p className="rr-sim-banner-body" role="status" aria-atomic="true">
+            {progress ? `پیشرفت ${progress}` : 'معاملات روی دادهٔ یک‌دقیقه‌ای دوباره اجرا می‌شوند…'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (blank || !ideal) {
+    return (
+      <div className="rr-sim-banner">
+        <div>
+          <p className="rr-sim-banner-title">هدفی برای مقایسه نیست</p>
+          <p className="rr-sim-banner-body">
+            معامله‌ای با حد ضرر اولیه نیست؛ بعد از ثبت حد ضرر، منحنی و جدول پر می‌شوند.
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="rr-sim-banner rr-sim-banner-ideal">
+      <div className="rr-sim-banner-metric" aria-hidden="true">
+        <span className="rr-sim-banner-metric-label">ایده‌آل</span>
+        <span className="rr-sim-banner-metric-value">۱:{faNum(ideal.target)}</span>
+      </div>
+      <div>
+        <p className="rr-sim-banner-title">
+          بهترین مجموع R روی هدف ۱ به {faNum(ideal.target)} است
+        </p>
+        <p className="rr-sim-banner-body">
+          مجموع {faNum(ideal.totalR, 2)}R · حد ضرر ثابت می‌ماند و فقط حد سود عوض می‌شود.
+        </p>
+      </div>
     </div>
   );
 }
@@ -220,17 +362,19 @@ function Stat({
   value,
   hint,
   tone = '',
+  emphasize = false,
 }: {
   readonly label: string;
   readonly value: string;
   readonly hint?: string;
   readonly tone?: string;
+  readonly emphasize?: boolean;
 }) {
   return (
-    <div>
-      <dt className="text-[11.5px] text-muted">{label}</dt>
-      <dd className={`mt-0.5 text-[15px] font-semibold tabular-nums ${tone}`}>{value}</dd>
-      {hint ? <dd className="text-[11px] text-muted">{hint}</dd> : null}
+    <div className={`rr-sim-stat ${emphasize ? 'rr-sim-stat-em' : ''}`}>
+      <dt>{label}</dt>
+      <dd className={`tabular-nums ${tone}`}>{value}</dd>
+      {hint ? <dd className="rr-sim-stat-hint">{hint}</dd> : null}
     </div>
   );
 }
@@ -246,9 +390,11 @@ function RRCurve({
   readonly selected: number;
   readonly onPick: (target: number) => void;
 }) {
+  const gid = useId().replace(/:/g, '');
+  const [hover, setHover] = useState<number | null>(null);
   const W = 640;
-  const H = 210;
-  const pad = { l: 44, r: 12, t: 28, b: 28 };
+  const H = 228;
+  const pad = { l: 48, r: 16, t: 36, b: 32 };
   const values = rows.map((r) => r.totalR);
   const peak = Math.max(...values);
   const trough = Math.min(...values);
@@ -256,7 +402,7 @@ function RRCurve({
   const max = Math.max(0, peak);
   const span = max - min || 1;
   const lo = min - span * 0.08;
-  const hi = max + span * 0.16;
+  const hi = max + span * 0.18;
   const x = (i: number) =>
     pad.l + (rows.length < 2 ? 0 : (i / (rows.length - 1)) * (W - pad.l - pad.r));
   const y = (v: number) => pad.t + (1 - (v - lo) / (hi - lo)) * (H - pad.t - pad.b);
@@ -266,12 +412,32 @@ function RRCurve({
   const area = `${d}L${x(rows.length - 1).toFixed(1)},${y(0).toFixed(1)}L${x(0).toFixed(1)},${y(0).toFixed(1)}Z`;
   const ideal = idealTarget === null ? null : rows.find((r) => r.target === idealTarget);
   const idealIndex = ideal ? rows.indexOf(ideal) : -1;
+  const activeIndex = useMemo(() => {
+    const i = rows.findIndex((r) => r.target === selected);
+    return i >= 0 ? i : 0;
+  }, [rows, selected]);
+  const tipIndex = hover ?? activeIndex;
+  const tip = rows[tipIndex]!;
+
+  const nearest = (clientX: number, rect: DOMRect) => {
+    const fx = ((clientX - rect.left) / rect.width) * W;
+    let best = 0;
+    let dist = Infinity;
+    rows.forEach((_, i) => {
+      const gap = Math.abs(x(i) - fx);
+      if (gap < dist) {
+        dist = gap;
+        best = i;
+      }
+    });
+    return best;
+  };
 
   return (
-    <div dir="ltr">
+    <div dir="ltr" className="rr-sim-curve">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full cursor-pointer"
+        className="rr-sim-svg"
         role="img"
         aria-label={
           ideal
@@ -279,78 +445,174 @@ function RRCurve({
             : 'منحنی مجموع R برای هدف‌های ریسک به ریوارد'
         }
         onClick={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          const fx = ((e.clientX - rect.left) / rect.width) * W;
-          let best = 0;
-          let dist = Infinity;
-          rows.forEach((_, i) => {
-            const gap = Math.abs(x(i) - fx);
-            if (gap < dist) {
-              dist = gap;
-              best = i;
-            }
-          });
-          const row = rows[best];
+          const row = rows[nearest(e.clientX, e.currentTarget.getBoundingClientRect())];
           if (row) onPick(row.target);
         }}
+        onMouseMove={(e) => setHover(nearest(e.clientX, e.currentTarget.getBoundingClientRect()))}
+        onMouseLeave={() => setHover(null)}
       >
+        <defs>
+          <linearGradient id={`rr-fill-${gid}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--tc-accent)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--tc-accent)" stopOpacity="0.02" />
+          </linearGradient>
+          <linearGradient id={`rr-stroke-${gid}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="var(--tc-accent)" stopOpacity="0.75" />
+            <stop offset="100%" stopColor="var(--tc-accent)" stopOpacity="1" />
+          </linearGradient>
+        </defs>
+
+        {[0.25, 0.5, 0.75].map((t) => {
+          const v = lo + (hi - lo) * (1 - t);
+          const yy = y(v);
+          return (
+            <line
+              key={t}
+              x1={pad.l}
+              x2={W - pad.r}
+              y1={yy}
+              y2={yy}
+              stroke="var(--tc-border)"
+              strokeOpacity={0.55}
+              strokeWidth={1}
+              strokeDasharray="3 5"
+            />
+          );
+        })}
+
         <line
           x1={pad.l}
           x2={W - pad.r}
           y1={y(0)}
           y2={y(0)}
           stroke="var(--tc-border)"
-          strokeWidth={1}
+          strokeWidth={1.25}
         />
-      <text x={pad.l - 8} y={y(0) + 4} textAnchor="end" fontSize={11} fill="var(--tc-muted)">
-        ۰
-      </text>
-      {peak > 0 ? (
-        <text x={pad.l - 8} y={y(peak) + 4} textAnchor="end" fontSize={11} fill="var(--tc-muted)">
-          {faNum(peak, Math.abs(peak) >= 10 ? 0 : 1)}
+        <text x={pad.l - 10} y={y(0) + 4} textAnchor="end" fontSize={11} fill="var(--tc-muted)">
+          ۰
         </text>
-      ) : null}
-      {trough < 0 ? (
-        <text x={pad.l - 8} y={y(trough) + 4} textAnchor="end" fontSize={11} fill="var(--tc-muted)">
-          {faNum(trough, Math.abs(trough) >= 10 ? 0 : 1)}
-        </text>
-      ) : null}
-        <path d={area} fill="var(--tc-accent)" opacity={0.14} />
-        <path d={d} fill="none" stroke="var(--tc-accent)" strokeWidth={2} strokeLinejoin="round" />
+        {peak > 0 ? (
+          <text
+            x={pad.l - 10}
+            y={y(peak) + 4}
+            textAnchor="end"
+            fontSize={11}
+            fill="var(--tc-muted)"
+          >
+            {faNum(peak, Math.abs(peak) >= 10 ? 0 : 1)}
+          </text>
+        ) : null}
+        {trough < 0 ? (
+          <text
+            x={pad.l - 10}
+            y={y(trough) + 4}
+            textAnchor="end"
+            fontSize={11}
+            fill="var(--tc-muted)"
+          >
+            {faNum(trough, Math.abs(trough) >= 10 ? 0 : 1)}
+          </text>
+        ) : null}
+
+        <path d={area} fill={`url(#rr-fill-${gid})`} />
+        <path
+          d={d}
+          fill="none"
+          stroke={`url(#rr-stroke-${gid})`}
+          strokeWidth={2.25}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+
+        <line
+          x1={x(tipIndex)}
+          x2={x(tipIndex)}
+          y1={pad.t}
+          y2={H - pad.b}
+          stroke="var(--tc-accent)"
+          strokeOpacity={0.35}
+          strokeWidth={1}
+          strokeDasharray="4 4"
+        />
+
         {rows.map((r, i) => {
           const on = r.target === selected;
           const isIdeal = r.target === idealTarget;
-          const label = i === 0 || r.target % 2 === 0;
+          const label = i === 0 || i === rows.length - 1 || r.target % 2 === 0;
           return (
             <g key={r.target}>
               <circle
                 cx={x(i)}
                 cy={y(r.totalR)}
-                r={on ? 5 : 3}
+                r={on ? 6 : isIdeal ? 5 : 3.25}
                 fill={on || isIdeal ? 'var(--tc-accent)' : 'var(--tc-panel)'}
                 stroke="var(--tc-accent)"
-                strokeWidth={on ? 2.5 : 1.5}
+                strokeWidth={on ? 2.5 : isIdeal ? 2 : 1.5}
               />
+              {on ? (
+                <circle
+                  cx={x(i)}
+                  cy={y(r.totalR)}
+                  r={10}
+                  fill="none"
+                  stroke="var(--tc-accent)"
+                  strokeOpacity={0.28}
+                  strokeWidth={2}
+                />
+              ) : null}
               {label ? (
-                <text x={x(i)} y={H - 8} textAnchor="middle" fontSize={11} fill="var(--tc-muted)">
+                <text x={x(i)} y={H - 10} textAnchor="middle" fontSize={11} fill="var(--tc-muted)">
                   {faNum(r.target)}
                 </text>
               ) : null}
             </g>
           );
         })}
+
         {ideal && idealIndex >= 0 ? (
-          <text
-            x={x(idealIndex)}
-            y={Math.max(14, y(ideal.totalR) - 12)}
-            textAnchor="middle"
-            fontSize={11}
-            fontWeight={700}
-            fill="var(--tc-accent)"
-          >
-            ایده‌آل
-          </text>
+          <g>
+            <rect
+              x={x(idealIndex) - 28}
+              y={Math.max(8, y(ideal.totalR) - 28)}
+              width={56}
+              height={18}
+              rx={5}
+              fill="var(--tc-accent)"
+            />
+            <text
+              x={x(idealIndex)}
+              y={Math.max(21, y(ideal.totalR) - 15)}
+              textAnchor="middle"
+              fontSize={11}
+              fontWeight={700}
+              fill="var(--tc-accent-text)"
+            >
+              ایده‌آل
+            </text>
+          </g>
         ) : null}
+
+        <g className="rr-sim-tip" style={{ pointerEvents: 'none' }}>
+          <rect
+            x={Math.min(W - pad.r - 118, Math.max(pad.l, x(tipIndex) - 52))}
+            y={Math.max(8, y(tip.totalR) - (idealIndex === tipIndex ? 52 : 38))}
+            width={104}
+            height={28}
+            rx={8}
+            fill="var(--tc-panel)"
+            stroke="var(--tc-border)"
+          />
+          <text
+            x={Math.min(W - pad.r - 66, Math.max(pad.l + 52, x(tipIndex)))}
+            y={Math.max(26, y(tip.totalR) - (idealIndex === tipIndex ? 34 : 20))}
+            textAnchor="middle"
+            fontSize={12}
+            fontWeight={650}
+            fill="var(--tc-text)"
+          >
+            {`۱:${faNum(tip.target)} · ${faNum(tip.totalR, 2)}R`}
+          </text>
+        </g>
       </svg>
     </div>
   );

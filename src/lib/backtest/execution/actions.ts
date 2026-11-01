@@ -93,6 +93,9 @@ export function applyAction(e: ExecutionEngine, a: TradeAction): string | null {
       p.sl = sl;
       p.tp = tp;
       p.autoBE = autoBE;
+      // First SL/TP becomes the planned risk for R metrics (open may have had none).
+      if (p.initialSl === null && sl !== null) p.initialSl = sl;
+      if (p.initialTp === null && tp !== null) p.initialTp = tp;
       if (sl === null || Math.abs(sl - p.entryPrice) > EPS) p.breakEven = false;
       e.emit({ type: 'modified', id: p.id });
       return null;

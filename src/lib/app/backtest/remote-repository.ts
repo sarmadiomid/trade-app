@@ -1,9 +1,10 @@
 import { isPlanLimitMessage, openPlanPrompt } from '@/lib/app/billing';
-import type {
-  BacktestRepository,
-  BacktestSession,
-  LoggedAction,
-  SessionSummary,
+import {
+  hydrateInitialLevels,
+  type BacktestRepository,
+  type BacktestSession,
+  type LoggedAction,
+  type SessionSummary,
 } from '@/lib/backtest';
 
 const SESSIONS = '/api/backtest/sessions';
@@ -53,6 +54,7 @@ export class RemoteBacktestRepository implements BacktestRepository {
       const body = await call<{ session: BacktestSession }>(
         `${SESSIONS}/${encodeURIComponent(id)}`,
       );
+      hydrateInitialLevels(body.session);
       return body.session;
     } catch (e) {
       if (e instanceof Error && e.message === 'جلسه پیدا نشد') return null;

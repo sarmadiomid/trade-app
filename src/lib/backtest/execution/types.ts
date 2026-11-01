@@ -69,8 +69,10 @@ export interface Position {
   volume: number;
   sl: number | null;
   tp: number | null;
-  readonly initialSl: number | null;
-  readonly initialTp: number | null;
+  /** First SL set on the trade (at open or via a later modify). Mutated once when first assigned. */
+  initialSl: number | null;
+  /** First TP set on the trade (at open or via a later modify). Mutated once when first assigned. */
+  initialTp: number | null;
   autoBE: AutoBreakEven | null;
   /** True once auto break-even (or the BE button) moved the stop to entry. */
   breakEven: boolean;

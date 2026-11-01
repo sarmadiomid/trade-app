@@ -7,6 +7,7 @@ export * from './analytics/breakdown';
 export * from './analytics/rr-simulator';
 export * from './session/model';
 export { sessionSchema, parseSession, tradeActionSchema } from './session/schema';
+export { firstProtection, hydrateInitialLevels } from './session/hydrate-initials';
 export {
   StorageBacktestRepository,
   readSessionEnvelope,

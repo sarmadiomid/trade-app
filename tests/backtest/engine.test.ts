@@ -280,9 +280,24 @@ describe('stop loss and take profit', () => {
     e.apply({ type: 'market', id: 'p', side: 'buy', volume: 1, sl: null, tp: null });
     expect(e.apply({ type: 'modify-position', id: 'p', sl: 2001 }).ok).toBe(false);
     expect(e.apply({ type: 'modify-position', id: 'p', sl: 1990, tp: 2020 }).ok).toBe(true);
-    expect(e.state.positions[0]).toMatchObject({ sl: 1990, tp: 2020, initialSl: null });
+    // First SL/TP after open becomes the planned risk for R / RR analytics.
+    expect(e.state.positions[0]).toMatchObject({
+      sl: 1990,
+      tp: 2020,
+      initialSl: 1990,
+      initialTp: 2020,
+    });
     expect(e.apply({ type: 'modify-position', id: 'p', tp: null }).ok).toBe(true);
     expect(e.state.positions[0]!.tp).toBeNull();
+    expect(e.state.positions[0]!.initialTp).toBe(2020);
+    // Later moves keep the original initial levels.
+    expect(e.apply({ type: 'modify-position', id: 'p', sl: 1985, tp: 2030 }).ok).toBe(true);
+    expect(e.state.positions[0]).toMatchObject({
+      sl: 1985,
+      tp: 2030,
+      initialSl: 1990,
+      initialTp: 2020,
+    });
   });
 
   it('tracks MAE / MFE in R and the planned R:R', () => {

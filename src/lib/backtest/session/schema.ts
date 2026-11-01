@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isTimeframeId, type TimeframeId } from '@/lib/core';
+import { hydrateInitialLevels } from './hydrate-initials';
 import type { BacktestSession } from './model';
 
 const num = z.number().finite();
@@ -177,5 +178,8 @@ export const sessionSchema = z.object({
 
 export function parseSession(data: unknown): BacktestSession | null {
   const r = sessionSchema.safeParse(data);
-  return r.success ? (r.data as BacktestSession) : null;
+  if (!r.success) return null;
+  const session = r.data as BacktestSession;
+  hydrateInitialLevels(session);
+  return session;
 }
