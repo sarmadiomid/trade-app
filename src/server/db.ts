@@ -299,6 +299,12 @@ export interface SupportFileDoc {
   createdAt: Date;
 }
 
+/** Built-in seed symbol an admin removed from the live catalogue. */
+export interface DisabledBuiltinDoc {
+  _id: string;
+  at: Date;
+}
+
 /** A symbol added from the admin panel. Built-in symbols are not stored here. */
 export interface InstrumentDoc {
   /** Uppercase symbol. */
@@ -376,13 +382,14 @@ export interface Collections {
   supportFiles: Collection<SupportFileDoc>;
   instruments: Collection<InstrumentDoc>;
   marketChunks: Collection<MarketChunkDoc>;
+  disabledBuiltins: Collection<DisabledBuiltinDoc>;
 }
 
 /**
  * Bump when `Collections` gains a field. Dev hot reload keeps the previous promise on
  * globalThis, and that object would not have the new collections.
  */
-const COLLECTIONS_VERSION = 3;
+const COLLECTIONS_VERSION = 4;
 
 const globalForMongo = globalThis as unknown as {
   __mongo?: { version: number; client: Promise<MongoClient>; ready: Promise<Collections> };
@@ -412,6 +419,7 @@ async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
     supportFiles: db.collection<SupportFileDoc>('support_files'),
     instruments: db.collection<InstrumentDoc>('instruments'),
     marketChunks: db.collection<MarketChunkDoc>('market_chunks'),
+    disabledBuiltins: db.collection<DisabledBuiltinDoc>('disabled_builtins'),
   };
 }
 

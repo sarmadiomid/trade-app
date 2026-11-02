@@ -11,6 +11,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     async (_user, body) => ({
       symbol: await importSymbolBars(decodeURIComponent(symbol), body.timeframe, body.bars, body.mode),
     }),
-    8_000_000,
+    200_000_000,
   );
 }

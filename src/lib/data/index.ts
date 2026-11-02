@@ -21,7 +21,9 @@ export {
   INSTRUMENTS,
   assetClassOf,
   instrumentSpec,
+  isBuiltinDisabled,
   setAssetClasses,
+  setDisabledBuiltins,
   type AssetClass,
 } from './instruments';
 export { MockMarketProvider } from './mock/mock-market-provider';
@@ -32,17 +34,19 @@ export {
   customSpec,
   ensureCustomCatalog,
   installCustomCatalog,
+  reloadCustomCatalog,
   subscribeCustomCatalog,
   customCatalogVersion,
   type CatalogInstrument,
 } from './custom-catalog';
 export {
   MAX_IMPORT_BARS,
-  MAX_SYMBOL_BARS,
   barsBetween,
   fromTuples,
   normalizeBars,
   parseCandleCsv,
+  parseCandleFile,
+  parseCandleJson,
   projectBars,
   timeframeFromPath,
   rangeOfBars,

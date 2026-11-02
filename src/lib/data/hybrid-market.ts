@@ -1,5 +1,6 @@
-import type { BarsRequest, BarsResponse, InstrumentSpec } from '@/lib/core';
+import type { BarsRequest, BarsResponse, InstrumentSpec, SymbolInfo } from '@/lib/core';
 import { customRange, customSpec } from './custom-catalog';
+import { isBuiltinDisabled } from './instruments';
 import { MockMarketProvider } from './mock/mock-market-provider';
 import { MOCK_MODELS } from './mock/models';
 
@@ -31,10 +32,15 @@ export class HybridMarketProvider extends MockMarketProvider {
     if (!isBuiltIn(req.symbol)) return { bars: [], source: 'catalog', hasMoreHistory: false };
     return super.generate(req);
   }
+
+  override searchSymbols(query: string): SymbolInfo[] {
+    return super.searchSymbols(query).filter((item) => !isBuiltinDisabled(item.symbol));
+  }
 }
 
 function isBuiltIn(symbol: string): boolean {
-  return MOCK_MODELS[symbol.trim().toUpperCase()] !== undefined;
+  const key = symbol.trim().toUpperCase();
+  return MOCK_MODELS[key] !== undefined && !isBuiltinDisabled(key);
 }
 
 async function remoteBars(req: BarsRequest): Promise<BarsResponse> {

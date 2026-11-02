@@ -4,8 +4,6 @@ import { DAY_MS, canAggregate, compareTimeframes, isTimeframeId } from '@/lib/co
 import {
   INSTRUMENTS,
   MOCK_MODELS,
-  MAX_IMPORT_BARS,
-  MAX_SYMBOL_BARS,
   assetClassOf,
   barsBetween,
   draftToSpec,
@@ -66,6 +64,7 @@ const MAX_SERIES_CACHE = 32;
 
 export type MarketLookup =
   | { readonly kind: 'builtin' }
+  | { readonly kind: 'unavailable' }
   | {
       readonly kind: 'custom';
       readonly spec: InstrumentSpec;
@@ -74,18 +73,27 @@ export type MarketLookup =
     };
 
 export async function lookupMarket(symbol: string): Promise<MarketLookup> {
-  const doc = await findInstrument(symbol);
-  if (!doc) return { kind: 'builtin' };
-  const draft = docToDraft(doc);
-  return {
-    kind: 'custom',
-    spec: draftToSpec(draft),
-    timeframe: doc.timeframe,
-    range:
-      doc.dataStart !== null && doc.dataEnd !== null
-        ? { start: doc.dataStart, end: doc.dataEnd }
-        : null,
-  };
+  const key = symbol.trim().toUpperCase();
+  const doc = await findInstrument(key);
+  if (doc) {
+    const draft = docToDraft(doc);
+    return {
+      kind: 'custom',
+      spec: draftToSpec(draft),
+      timeframe: doc.timeframe,
+      range:
+        doc.dataStart !== null && doc.dataEnd !== null
+          ? { start: doc.dataStart, end: doc.dataEnd }
+          : null,
+    };
+  }
+  if (RESERVED.has(key) && (await isBuiltinDisabled(key))) return { kind: 'unavailable' };
+  return { kind: 'builtin' };
+}
+
+export async function listDisabledBuiltins(): Promise<string[]> {
+  const disabled = await disabledBuiltinSet();
+  return [...disabled].sort();
 }
 
 export async function readMarketBars(
@@ -119,6 +127,7 @@ export async function readMarketMinutes(
 ): Promise<Candle[] | null> {
   const found = await lookupMarket(symbol);
   if (found.kind === 'builtin') return null;
+  if (found.kind === 'unavailable') throw new SymbolError('این نماد حذف شده است', 404);
   const book = await loadBook(symbol);
   const minutes = book?.frames.get('1m');
   if (!minutes) throw new SymbolError('برای تمرین این نماد به کندل یک‌دقیقه‌ای نیاز است');
@@ -126,7 +135,13 @@ export async function readMarketMinutes(
 }
 
 export async function listAdminSymbols(): Promise<AdminSymbolRow[]> {
-  const builtin = INSTRUMENTS.map((item) => {
+  const { instruments } = await collections();
+  const custom = await instruments.find({}).sort({ updatedAt: -1 }).toArray();
+  const customIds = new Set(custom.map((doc) => doc._id));
+  const disabled = await disabledBuiltinSet();
+  const builtin = INSTRUMENTS.filter(
+    (item) => !disabled.has(item.symbol) && !customIds.has(item.symbol),
+  ).map((item) => {
     const model = MOCK_MODELS[item.symbol];
     return {
       symbol: item.symbol,
@@ -141,8 +156,6 @@ export async function listAdminSymbols(): Promise<AdminSymbolRow[]> {
       practiceReady: true,
     };
   });
-  const { instruments } = await collections();
-  const custom = await instruments.find({}).sort({ updatedAt: -1 }).toArray();
   return [...custom.map(toRow), ...builtin];
 }
 
@@ -156,7 +169,9 @@ export async function symbolDetail(symbol: string): Promise<AdminSymbolDetail | 
 }
 
 export async function saveInstrument(input: unknown): Promise<AdminSymbolRow> {
-  const parsed = parseInstrumentDraft(input, RESERVED);
+  const disabled = await disabledBuiltinSet();
+  const reserved = new Set([...RESERVED].filter((symbol) => !disabled.has(symbol)));
+  const parsed = parseInstrumentDraft(input, reserved);
   if (!parsed.ok) throw new SymbolError(parsed.error);
   const { instruments } = await collections();
   const now = new Date();
@@ -198,8 +213,18 @@ export async function saveInstrument(input: unknown): Promise<AdminSymbolRow> {
 
 export async function removeInstrument(symbol: string): Promise<void> {
   const key = symbol.trim().toUpperCase();
-  if (RESERVED.has(key)) throw new SymbolError('نمادهای داخلی کندلو حذف نمی‌شوند');
-  const { instruments, marketChunks } = await collections();
+  const { instruments, marketChunks, disabledBuiltins } = await collections();
+  if (RESERVED.has(key)) {
+    await marketChunks.deleteMany({ symbol: key });
+    await instruments.deleteOne({ _id: key });
+    await disabledBuiltins.updateOne(
+      { _id: key },
+      { $set: { _id: key, at: new Date() } },
+      { upsert: true },
+    );
+    seriesCache.delete(key);
+    return;
+  }
   const found = await instruments.findOne({ _id: key }, { projection: { _id: 1 } });
   if (!found) throw new SymbolError('این نماد پیدا نشد', 404);
   await marketChunks.deleteMany({ symbol: key });
@@ -219,15 +244,9 @@ export async function importSymbolBars(
   if (!doc) throw new SymbolError('اول مشخصات نماد را ذخیره کنید', 404);
   const incoming = tuplesFrom(rows);
   if (incoming.length === 0) throw new SymbolError('کندلی برای ذخیره نیست');
-  if (incoming.length > MAX_IMPORT_BARS)
-    throw new SymbolError('هر بخش حداکثر ۲۰ هزار کندل می‌پذیرد');
   const normalized = normalizeBars(fromTuples(incoming), timeframe);
   if (!normalized.ok) throw new SymbolError(normalized.error);
   const { marketChunks, instruments } = await collections();
-  const existingCount = mode === 'replace' ? 0 : await countTimeframe(doc._id, timeframe);
-  if (existingCount + normalized.bars.length > MAX_SYMBOL_BARS) {
-    throw new SymbolError('مجموع کندل‌های این تایم‌فریم از ۲۰۰ هزار گذشته است');
-  }
   if (mode === 'replace') {
     await marketChunks.deleteMany({ symbol: doc._id, timeframe });
   }
@@ -296,9 +315,21 @@ export async function publishedCatalog(): Promise<CatalogInstrument[]> {
 
 async function findInstrument(symbol: string): Promise<InstrumentDoc | null> {
   const key = symbol.trim().toUpperCase();
-  if (!key || RESERVED.has(key)) return null;
+  if (!key) return null;
   const { instruments } = await collections();
   return instruments.findOne({ _id: key });
+}
+
+async function disabledBuiltinSet(): Promise<Set<string>> {
+  const { disabledBuiltins } = await collections();
+  const rows = await disabledBuiltins.find({}, { projection: { _id: 1 } }).toArray();
+  return new Set(rows.map((row) => row._id));
+}
+
+async function isBuiltinDisabled(symbol: string): Promise<boolean> {
+  const { disabledBuiltins } = await collections();
+  const found = await disabledBuiltins.findOne({ _id: symbol }, { projection: { _id: 1 } });
+  return found !== null;
 }
 
 async function loadBook(symbol: string): Promise<CachedBook | null> {
@@ -345,17 +376,6 @@ async function listSeries(symbol: string): Promise<StoredSeries[]> {
       dataEnd: row.end,
     }))
     .sort((a, b) => compareTimeframes(a.timeframe, b.timeframe));
-}
-
-async function countTimeframe(symbol: string, timeframe: TimeframeId): Promise<number> {
-  const { marketChunks } = await collections();
-  const rows = await marketChunks
-    .aggregate<{ count: number }>([
-      { $match: { symbol, timeframe } },
-      { $group: { _id: null, count: { $sum: '$count' } } },
-    ])
-    .toArray();
-  return rows[0]?.count ?? 0;
 }
 
 /** Practice follows the 1-minute file when it exists; otherwise the finest stored series. */

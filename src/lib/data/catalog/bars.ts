@@ -8,9 +8,7 @@ import {
   type TimeframeId,
 } from '@/lib/core';
 
-/** Hard cap for one symbol so a CSV cannot fill the database. */
-export const MAX_SYMBOL_BARS = 200_000;
-/** Bars accepted in one upload request. The client sends larger files in batches. */
+/** Client upload batch size. The admin panel sends larger files in chunks. */
 export const MAX_IMPORT_BARS = 20_000;
 
 const HEADER_TIME = /^(time|timestamp|date|datetime|t|dt|dtyyyymmdd|yyyymmdd)$/i;
@@ -23,6 +21,25 @@ const HEADER_VOLUME = /^(volume|vol|v)$/i;
 
 /** Folder and file names used by the advanced-get export, longest match first. */
 const PATH_TIMEFRAMES: readonly { readonly pattern: RegExp; readonly id: TimeframeId }[] = [
+  // Short aliases used by JSON dumps: m1.json, m15.json, 15m.json, h1.json, d1.json, daily.json
+  { pattern: /(?:^|[/\\._-])m240(?:\.[^.]+)?$/i, id: '4h' },
+  { pattern: /(?:^|[/\\._-])m120(?:\.[^.]+)?$/i, id: '2h' },
+  { pattern: /(?:^|[/\\._-])m60(?:\.[^.]+)?$/i, id: '1h' },
+  { pattern: /(?:^|[/\\._-])m30(?:\.[^.]+)?$/i, id: '30m' },
+  { pattern: /(?:^|[/\\._-])30m(?:\.[^.]+)?$/i, id: '30m' },
+  { pattern: /(?:^|[/\\._-])30minute(?:\.[^.]+)?$/i, id: '30m' },
+  { pattern: /(?:^|[/\\._-])m15(?:\.[^.]+)?$/i, id: '15m' },
+  { pattern: /(?:^|[/\\._-])15m(?:\.[^.]+)?$/i, id: '15m' },
+  { pattern: /(?:^|[/\\._-])15minute(?:\.[^.]+)?$/i, id: '15m' },
+  { pattern: /(?:^|[/\\._-])m5(?:\.[^.]+)?$/i, id: '5m' },
+  { pattern: /(?:^|[/\\._-])m3(?:\.[^.]+)?$/i, id: '3m' },
+  { pattern: /(?:^|[/\\._-])m1(?:\.[^.]+)?$/i, id: '1m' },
+  { pattern: /(?:^|[/\\._-])h4(?:\.[^.]+)?$/i, id: '4h' },
+  { pattern: /(?:^|[/\\._-])h1(?:\.[^.]+)?$/i, id: '1h' },
+  { pattern: /(?:^|[/\\._-])d1(?:\.[^.]+)?$/i, id: '1D' },
+  { pattern: /(?:^|[/\\._-])1d(?:\.[^.]+)?$/i, id: '1D' },
+  { pattern: /(?:^|[/\\._-])daily(?:\.[^.]+)?$/i, id: '1D' },
+  { pattern: /(?:^|[/\\._-])1day(?:\.[^.]+)?$/i, id: '1D' },
   { pattern: /240\s*minute|(?:^|[^\d])4\s*h(?:our)?(?:[^\d]|$)/i, id: '4h' },
   { pattern: /120\s*minute|(?:^|[^\d])2\s*h(?:our)?(?:[^\d]|$)/i, id: '2h' },
   { pattern: /60\s*minute|(?:^|[^\d])1\s*h(?:our)?(?:[^\d]|$)/i, id: '1h' },
@@ -34,7 +51,7 @@ const PATH_TIMEFRAMES: readonly { readonly pattern: RegExp; readonly id: Timefra
   { pattern: /daily|1\s*day|(?:^|[^\d])1\s*d(?:ay)?(?:[^\d]|$)/i, id: '1D' },
 ];
 
-/** Timeframe implied by a path such as `advanced-get/15minute/XAU_USD-15minute.prn`. */
+/** Timeframe implied by a path such as `advanced-get/15minute/XAU_USD-15minute.prn` or `m1.json`. */
 export function timeframeFromPath(path: string): TimeframeId | null {
   const name = path.replaceAll('\\', '/');
   return PATH_TIMEFRAMES.find((item) => item.pattern.test(name))?.id ?? null;
@@ -166,8 +183,6 @@ export function normalizeBars(
     }
   }
   if (out.length === 0) return { ok: false, error: 'فایل هیچ کندلی ندارد' };
-  if (out.length > MAX_SYMBOL_BARS)
-    return { ok: false, error: 'تعداد کندل‌ها از سقف ۲۰۰ هزار گذشته است' };
   return { ok: true, bars: out };
 }
 
@@ -226,10 +241,116 @@ export function parseCandleCsv(
       return { ok: false, error: `سطر ${i + 1} خوانده نشد` };
     }
     raw.push({ time, open, high, low, close, volume });
-    if (raw.length > MAX_SYMBOL_BARS)
-      return { ok: false, error: 'تعداد کندل‌ها از سقف ۲۰۰ هزار گذشته است' };
   }
   return normalizeBars(raw, timeframe);
+}
+
+/**
+ * Parses a JSON candle dump.
+ * Accepts `[{time,open,high,low,close,volume}, …]`, tuple rows, or
+ * `{ bars | candles | data: […] }` wrappers. `time` may be ms or seconds.
+ */
+export function parseCandleJson(
+  text: string,
+  timeframe: TimeframeId,
+): { ok: true; bars: Candle[] } | { ok: false; error: string } {
+  let data: unknown;
+  try {
+    data = JSON.parse(text.replace(/^\uFEFF/, ''));
+  } catch {
+    return { ok: false, error: 'فایل JSON معتبر نیست' };
+  }
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const bag = data as Record<string, unknown>;
+    data = bag.bars ?? bag.candles ?? bag.data ?? bag.klines;
+  }
+  if (!Array.isArray(data)) {
+    return { ok: false, error: 'JSON باید آرایه‌ای از کندل‌ها باشد' };
+  }
+  if (data.length === 0) return { ok: false, error: 'فایل هیچ کندلی ندارد' };
+
+  const raw: Candle[] = [];
+  for (let i = 0; i < data.length; i++) {
+    const bar = candleFromJson(data[i]);
+    if (!bar) return { ok: false, error: `کندل ${i + 1} خوانده نشد` };
+    raw.push(bar);
+  }
+  return normalizeBars(raw, timeframe);
+}
+
+/** Picks JSON vs CSV/PRN from the file contents (or the `.json` extension). */
+export function parseCandleFile(
+  text: string,
+  timeframe: TimeframeId,
+  path = '',
+): { ok: true; bars: Candle[] } | { ok: false; error: string } {
+  const trimmed = text.replace(/^\uFEFF/, '').trimStart();
+  if (/\.json$/i.test(path) || trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    return parseCandleJson(text, timeframe);
+  }
+  return parseCandleCsv(text, timeframe);
+}
+
+function candleFromJson(item: unknown): Candle | null {
+  if (Array.isArray(item)) {
+    if (item.length < 5) return null;
+    const time = parseJsonTime(item[0]);
+    const open = asFiniteNumber(item[1]);
+    const high = asFiniteNumber(item[2]);
+    const low = asFiniteNumber(item[3]);
+    const close = asFiniteNumber(item[4]);
+    const volume = item.length > 5 ? asFiniteNumber(item[5]) : 0;
+    if (
+      time === null ||
+      open === null ||
+      high === null ||
+      low === null ||
+      close === null ||
+      volume === null
+    ) {
+      return null;
+    }
+    return { time, open, high, low, close, volume };
+  }
+  if (!item || typeof item !== 'object') return null;
+  const row = item as Record<string, unknown>;
+  const time = parseJsonTime(row.time ?? row.timestamp ?? row.t ?? row.date);
+  const open = asFiniteNumber(row.open ?? row.o);
+  const high = asFiniteNumber(row.high ?? row.h);
+  const low = asFiniteNumber(row.low ?? row.l);
+  const close = asFiniteNumber(row.close ?? row.c);
+  const volumeRaw = row.volume ?? row.vol ?? row.v;
+  const volume = volumeRaw === undefined ? 0 : asFiniteNumber(volumeRaw);
+  if (
+    time === null ||
+    open === null ||
+    high === null ||
+    low === null ||
+    close === null ||
+    volume === null
+  ) {
+    return null;
+  }
+  return { time, open, high, low, close, volume };
+}
+
+function parseJsonTime(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    if (raw >= 1e12) return Math.round(raw);
+    if (raw >= 1e9) return Math.round(raw * 1000);
+    return null;
+  }
+  if (typeof raw === 'string') return parseTime(foldDigits(raw.trim()));
+  return null;
+}
+
+function asFiniteNumber(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const value = Number(foldDigits(raw.trim()));
+    return Number.isFinite(value) ? value : null;
+  }
+  return null;
 }
 
 export function toTuples(bars: readonly Candle[]): number[][] {

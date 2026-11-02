@@ -9,8 +9,8 @@ import { Popover } from '../ui/Popover';
 import { Tooltip } from '../ui/Tooltip';
 import { useToolbarText } from './toolbar-locale';
 
-const STORAGE_KEY = 'chartix.favoriteTimeframes.v1';
-const DEFAULT_FAVORITES: readonly TimeframeId[] = ['1m', '5m', '15m', '1h', '4h', '1D'];
+const STORAGE_KEY = 'chartix.favoriteTimeframes.v2';
+const DEFAULT_FAVORITES: readonly TimeframeId[] = ['1m', '5m', '15m', '30m', '1h', '4h', '1D'];
 
 const TF_DESC_EN: Readonly<Record<TimeframeId, string>> = {
   '1m': '1 minute',

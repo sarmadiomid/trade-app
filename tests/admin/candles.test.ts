@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseCandleCsv, projectBars, sliceCandles, timeframeFromPath } from '@/lib/data';
+import {
+  parseCandleCsv,
+  parseCandleFile,
+  parseCandleJson,
+  projectBars,
+  sliceCandles,
+  timeframeFromPath,
+} from '@/lib/data';
 
 describe('candle csv', () => {
   it('reads a headered file and snaps bars onto the timeframe', () => {
@@ -88,5 +95,54 @@ describe('candle csv', () => {
     expect(timeframeFromPath('advanced-get/60minute/XAU_USD-60minute.prn')).toBe('1h');
     expect(timeframeFromPath('advanced-get/240minute/XAU_USD-240minute.prn')).toBe('4h');
     expect(timeframeFromPath('notes/readme.txt')).toBeNull();
+  });
+
+  it('reads short JSON dump names as timeframes', () => {
+    expect(timeframeFromPath('m1.json')).toBe('1m');
+    expect(timeframeFromPath('EURUSD_m15.json')).toBe('15m');
+    expect(timeframeFromPath('15m.json')).toBe('15m');
+    expect(timeframeFromPath('15minute.json')).toBe('15m');
+    expect(timeframeFromPath('m30.json')).toBe('30m');
+    expect(timeframeFromPath('30m.json')).toBe('30m');
+    expect(timeframeFromPath('h1.json')).toBe('1h');
+    expect(timeframeFromPath('h4.json')).toBe('4h');
+    expect(timeframeFromPath('d1.json')).toBe('1D');
+    expect(timeframeFromPath('1d.json')).toBe('1D');
+    expect(timeframeFromPath('daily.json')).toBe('1D');
+  });
+
+  it('reads a JSON array of candle objects', () => {
+    const json = JSON.stringify([
+      { time: 1_700_000_000_000, open: 1.1, high: 1.12, low: 1.09, close: 1.11, volume: 900 },
+      { time: 1_700_000_060_000, open: 1.11, high: 1.13, low: 1.1, close: 1.12, volume: 1000 },
+    ]);
+    const parsed = parseCandleJson(json, '1m');
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.bars).toHaveLength(2);
+    expect(parsed.bars[0]?.open).toBe(1.1);
+    expect(parsed.bars[0]?.volume).toBe(900);
+    expect(parsed.bars[1]?.close).toBe(1.12);
+  });
+
+  it('reads JSON tuple rows and second-based timestamps', () => {
+    const json = JSON.stringify({
+      bars: [[1_704_067_200, 1.1, 1.2, 1.0, 1.15, 8]],
+    });
+    const parsed = parseCandleJson(json, '1m');
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.bars[0]?.time).toBe(1_704_067_200_000);
+    expect(parsed.bars[0]?.close).toBe(1.15);
+  });
+
+  it('routes .json paths through the JSON parser', () => {
+    const json = JSON.stringify([
+      { time: 1_700_000_000_000, open: 1, high: 2, low: 0.5, close: 1.5, volume: 1 },
+    ]);
+    const parsed = parseCandleFile(json, '5m', 'm5.json');
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.bars).toHaveLength(1);
   });
 });

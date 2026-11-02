@@ -71,6 +71,7 @@ function nextIdAfter(actions: readonly LoggedAction[]): number {
 async function specOf(symbol: string): Promise<InstrumentSpec> {
   const found = await lookupMarket(symbol);
   if (found.kind === 'custom') return found.spec;
+  if (found.kind === 'unavailable') throw new BacktestError('نماد نامعتبر است');
   const spec = instrumentSpec(symbol);
   if (!spec) throw new BacktestError('نماد نامعتبر است');
   return spec;
@@ -84,6 +85,7 @@ async function rangeOf(symbol: string): Promise<{ start: number; end: number }> 
     }
     return found.range;
   }
+  if (found.kind === 'unavailable') throw new BacktestError('نماد نامعتبر است');
   return practiceMarket().dataRange(symbol);
 }
 
@@ -116,6 +118,7 @@ async function initialBid(symbol: string, settings: SessionSettings): Promise<nu
     if (bid === undefined) throw new BacktestError('در این بازه داده‌ای وجود ندارد');
     return bid;
   }
+  if (found.kind === 'unavailable') throw new BacktestError('نماد نامعتبر است');
   const market = practiceMarket();
   const before = market.generate({
     symbol,

@@ -100,8 +100,24 @@ export const INSTRUMENTS: readonly InstrumentSpec[] = [
   }),
 ];
 
+/** Built-in seed symbols an admin removed; set from `/api/catalog`. */
+const disabledBuiltins = new Set<string>();
+
+export function setDisabledBuiltins(symbols: readonly string[]): void {
+  disabledBuiltins.clear();
+  for (const symbol of symbols) {
+    const key = symbol.trim().toUpperCase();
+    if (key) disabledBuiltins.add(key);
+  }
+}
+
+export function isBuiltinDisabled(symbol: string): boolean {
+  return disabledBuiltins.has(symbol.trim().toUpperCase());
+}
+
 export function instrumentSpec(symbol: string): InstrumentSpec | null {
   const upper = symbol.trim().toUpperCase();
+  if (disabledBuiltins.has(upper)) return null;
   return INSTRUMENTS.find((i) => i.symbol === upper) ?? null;
 }
 

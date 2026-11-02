@@ -15,9 +15,11 @@ import { createPortal } from 'react-dom';
 import type { Candle, TimeframeId } from '@/lib/core';
 import {
   MAX_IMPORT_BARS,
-  parseCandleCsv,
+  normalizeBars,
+  parseCandleFile,
   timeframeFromPath,
   toTuples,
+  reloadCustomCatalog,
   type AssetClass,
   type HourPreset,
   type InstrumentDraft,
@@ -65,7 +67,8 @@ interface ReadyFile {
 type OpenMode = 'open' | 'refresh' | 'saved';
 type ListFilter = 'all' | 'custom' | 'builtin';
 type Dialog =
-  { readonly kind: 'delete' } | { readonly kind: 'discard'; readonly proceed: () => void };
+  | { readonly kind: 'delete'; readonly symbol: string; readonly builtin: boolean }
+  | { readonly kind: 'discard'; readonly proceed: () => void };
 type Errors = Partial<Record<keyof InstrumentDraft, string>>;
 
 const ASSETS: ReadonlyArray<{ id: AssetClass; label: string }> = [
@@ -82,7 +85,15 @@ const HOURS: ReadonlyArray<{ id: HourPreset; label: string }> = [
   { id: 'crypto', label: 'شبانه‌روزی' },
 ];
 
-const TIMEFRAMES: TimeframeId[] = ['1m', '5m', '15m', '1h', '4h', '1D'];
+const TIMEFRAMES: ReadonlyArray<{ id: TimeframeId; label: string }> = [
+  { id: '1m', label: '۱ دقیقه — m1' },
+  { id: '5m', label: '۵ دقیقه — m5' },
+  { id: '15m', label: '۱۵ دقیقه — m15' },
+  { id: '30m', label: '۳۰ دقیقه — m30' },
+  { id: '1h', label: '۱ ساعت — h1' },
+  { id: '4h', label: '۴ ساعت — h4' },
+  { id: '1D', label: 'روزانه — d1' },
+];
 
 const EMPTY: InstrumentDraft = {
   symbol: '',
@@ -846,10 +857,11 @@ export function SymbolsDesk() {
   };
 
   const remove = async () => {
-    if (!detail) return;
+    if (dialog?.kind !== 'delete') return;
+    const { symbol, builtin: wasBuiltin } = dialog;
     setBusy(true);
     try {
-      await api(`/api/admin/symbols/${encodeURIComponent(detail.symbol)}`, { method: 'DELETE' });
+      await api(`/api/admin/symbols/${encodeURIComponent(symbol)}`, { method: 'DELETE' });
       requestRef.current++;
       setSelected('new');
       setDetail(null);
@@ -857,8 +869,8 @@ export function SymbolsDesk() {
       setBaseline(EMPTY);
       setFormVersion((v) => v + 1);
       setDialog(null);
-      await load();
-      setNotice('نماد حذف شد.');
+      await Promise.all([load(), reloadCustomCatalog()]);
+      setNotice(wasBuiltin ? 'نماد داخلی از فهرست حذف شد.' : 'نماد حذف شد.');
     } catch (e) {
       setDialog(null);
       setError(e instanceof ApiError ? e.message : 'حذف انجام نشد');
@@ -892,7 +904,7 @@ export function SymbolsDesk() {
       <PageHead
         kicker="بازار"
         title="نمادها و داده"
-        text="نماد داخلی کندلو ثابت است. نماد تازه را با مشخصات قرارداد بسازید، بعد پوشهٔ advanced-get یا فایل‌های PRN را بارگذاری کنید. تمرین فقط با فایل یک‌دقیقه‌ای باز می‌شود."
+        text="نماد داخلی را می‌توانید حذف کنید یا نماد تازه بسازید و فایل JSON، پوشهٔ advanced-get یا PRN را بارگذاری کنید. تمرین فقط با دادهٔ یک‌دقیقه‌ای باز می‌شود."
       />
 
       <div className="grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -1041,7 +1053,11 @@ export function SymbolsDesk() {
         {/* ---------- Detail pane ---------- */}
         <div ref={detailRef} className="min-w-0 scroll-mt-4 space-y-4">
           {builtin ? (
-            <BuiltinCard row={builtin} />
+            <BuiltinCard
+              row={builtin}
+              busy={busy}
+              onDelete={() => setDialog({ kind: 'delete', symbol: builtin.symbol, builtin: true })}
+            />
           ) : detailLoading ? (
             <FormSkeleton />
           ) : detailError && selected !== 'new' ? (
@@ -1073,7 +1089,11 @@ export function SymbolsDesk() {
                 onChange={setDraft}
                 onSave={() => void save()}
                 onReset={resetForm}
-                onDelete={detail ? () => setDialog({ kind: 'delete' }) : null}
+                onDelete={
+                  detail
+                    ? () => setDialog({ kind: 'delete', symbol: detail.symbol, builtin: false })
+                    : null
+                }
               />
               {detail ? (
                 <DataPanel
@@ -1110,12 +1130,16 @@ export function SymbolsDesk() {
         onCloseNotice={() => setNotice('')}
       />
 
-      {dialog?.kind === 'delete' && detail ? (
+      {dialog?.kind === 'delete' ? (
         <ConfirmDialog
           danger
           busy={busy}
-          title={`حذف نماد ${detail.symbol}`}
-          text="نماد و همهٔ دادهٔ کندل آن برای همیشه حذف می‌شود. این کار قابل بازگشت نیست."
+          title={`حذف نماد ${dialog.symbol}`}
+          text={
+            dialog.builtin
+              ? 'این نماد داخلی از فهرست تمرین حذف می‌شود. بعداً می‌توانید همون نام را با دادهٔ واقعی دوباره بسازید.'
+              : 'نماد و همهٔ دادهٔ کندل آن برای همیشه حذف می‌شود. این کار قابل بازگشت نیست.'
+          }
           confirmLabel="حذف نماد"
           onConfirm={() => void remove()}
           onCancel={() => setDialog(null)}
@@ -1203,7 +1227,15 @@ function FormSkeleton() {
   );
 }
 
-function BuiltinCard({ row }: { readonly row: SymbolRow }) {
+function BuiltinCard({
+  row,
+  busy,
+  onDelete,
+}: {
+  readonly row: SymbolRow;
+  readonly busy: boolean;
+  readonly onDelete: () => void;
+}) {
   return (
     <Panel className="p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1215,8 +1247,8 @@ function BuiltinCard({ row }: { readonly row: SymbolRow }) {
           <p className="mt-1.5 text-[14px] text-[var(--a-muted)]">{row.description}</p>
         </div>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[11.5px] text-[#b9c6e4]">
-          <Icon name="lock" className="h-3.5 w-3.5" />
-          فقط‌خواندنی
+          <Icon name="chart" className="h-3.5 w-3.5" />
+          دادهٔ مصنوعی
         </span>
       </div>
       {row.dataStart && row.dataEnd ? (
@@ -1241,9 +1273,15 @@ function BuiltinCard({ row }: { readonly row: SymbolRow }) {
       ) : null}
       <div className="mt-5">
         <Callout tone="info">
-          تاریخچهٔ این نماد داخل برنامه ساخته می‌شود و از پنل عوض نمی‌شود. برای قیمت واقعی، نماد
-          تازه‌ای با نام دیگر بسازید و پوشهٔ داده را بارگذاری کنید.
+          تاریخچهٔ این نماد داخل برنامه ساخته می‌شود. اگر حذفش کنید از تمرین کنار می‌رود و می‌توانید
+          همون نام را با دادهٔ واقعی دوباره بسازید.
         </Callout>
+      </div>
+      <div className="mt-5 flex justify-end">
+        <button type="button" disabled={busy} onClick={onDelete} className={BTN_DANGER}>
+          {busy ? <Spinner /> : <Icon name="trash" className="h-4 w-4" />}
+          حذف نماد داخلی
+        </button>
       </div>
     </Panel>
   );
@@ -1571,10 +1609,10 @@ function DataPanel({
     if (!list || list.length === 0) return;
     onError('');
     const files = Array.from(list).filter((file) =>
-      /\.(prn|csv|txt)$/i.test(file.webkitRelativePath || file.name),
+      /\.(prn|csv|txt|json)$/i.test(file.webkitRelativePath || file.name),
     );
     if (files.length === 0) {
-      onError('فایل PRN یا CSV پیدا نشد. فایل‌های .prn، .csv یا .txt را انتخاب کنید.');
+      onError('فایل داده پیدا نشد. فایل‌های .json، .prn، .csv یا .txt را انتخاب کنید.');
       return;
     }
     setReading({ done: 0, total: files.length });
@@ -1585,7 +1623,7 @@ function DataPanel({
       const path = file.webkitRelativePath || file.name;
       try {
         const detected = timeframeFromPath(path) ?? timeframe;
-        const result = parseCandleCsv(await file.text(), detected);
+        const result = parseCandleFile(await file.text(), detected, path);
         if (!result.ok) {
           problems.push(`${file.name}: ${result.error}`);
         } else if (result.bars[0] && result.bars[result.bars.length - 1]) {
@@ -1599,7 +1637,7 @@ function DataPanel({
     setReading(null);
     const merged = mergeReady(next);
     setReady(merged);
-    if (merged.length === 0) onError(problems[0] ?? 'فایل PRN یا CSV پیدا نشد');
+    if (merged.length === 0) onError(problems[0] ?? 'فایل داده پیدا نشد');
     else if (problems.length > 0) onError(problems.join(' · '));
   };
 
@@ -1714,9 +1752,9 @@ function DataPanel({
               onChange={(e) => setTimeframe(e.target.value as TimeframeId)}
               className={fieldClass}
             >
-              {TIMEFRAMES.map((id) => (
-                <option key={id} value={id}>
-                  {id}
+              {TIMEFRAMES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
                 </option>
               ))}
             </select>
@@ -1769,20 +1807,54 @@ function DataPanel({
                 );
                 return (
                   <li
-                    key={file.timeframe}
+                    key={`${file.timeframe}:${file.name}`}
                     className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3"
                   >
-                    <span
-                      dir="ltr"
-                      className="grid h-9 min-w-[2.75rem] place-items-center rounded-lg bg-[#3b78ff]/12 px-2 text-[12px] font-semibold text-[#9db9ff] ring-1 ring-[#3b78ff]/25"
-                    >
-                      {file.timeframe}
-                    </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium tabular-nums">
-                        {faNum(file.bars.length)} کندل
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          dir="rtl"
+                          disabled={busy}
+                          aria-label={`تایم‌فریم ${file.name}`}
+                          value={file.timeframe}
+                          onChange={(e) => {
+                            const next = e.target.value as TimeframeId;
+                            if (next === file.timeframe) return;
+                            const normalized = normalizeBars(file.bars, next);
+                            if (!normalized.ok) {
+                              onError(normalized.error);
+                              return;
+                            }
+                            setReady((list) =>
+                              mergeReady([
+                                ...list.filter(
+                                  (item) =>
+                                    !(
+                                      item.timeframe === file.timeframe &&
+                                      item.name === file.name
+                                    ),
+                                ),
+                                {
+                                  name: file.name,
+                                  timeframe: next,
+                                  bars: normalized.bars,
+                                },
+                              ]),
+                            );
+                          }}
+                          className={`${fieldClass} !h-9 !w-auto min-w-[10.5rem] !rounded-lg !px-2.5 text-[12px] font-semibold`}
+                        >
+                          {TIMEFRAMES.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[13px] font-medium tabular-nums">
+                          {faNum(file.bars.length)} کندل
+                        </span>
                       </div>
-                      <div className="mt-0.5 text-[12px] text-[var(--a-muted)]">
+                      <div className="mt-1 text-[12px] text-[var(--a-muted)]">
                         <bdi>
                           {formatJalaliDateTime(first.time, false)} –{' '}
                           {formatJalaliDateTime(last.time, false)}
@@ -1808,7 +1880,12 @@ function DataPanel({
                       disabled={busy}
                       aria-label={`حذف ${file.timeframe} از فهرست`}
                       onClick={() =>
-                        setReady((list) => list.filter((item) => item.timeframe !== file.timeframe))
+                        setReady((list) =>
+                          list.filter(
+                            (item) =>
+                              !(item.timeframe === file.timeframe && item.name === file.name),
+                          ),
+                        )
                       }
                       className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[var(--a-muted)] transition hover:bg-white/10 hover:text-white disabled:opacity-40 ${FOCUS_RING}`}
                     >
@@ -1872,6 +1949,7 @@ function FilePicks({
   readonly disabled: boolean;
   readonly onFiles: (files: FileList | null) => void;
 }) {
+  const jsonRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const portal = usePortalTarget();
@@ -1898,7 +1976,24 @@ function FilePicks({
           if (!disabled) onFiles(event.dataTransfer.files);
         }}
       >
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <button
+            type="button"
+            disabled={disabled}
+            className={`${PICK_BOX} ${boxTone}`}
+            onClick={(event) => openFilePicker(jsonRef.current, event.currentTarget)}
+          >
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#3ecf8e]/12 text-[#8ef0cf] ring-1 ring-[#3ecf8e]/25 transition group-hover:scale-105">
+              <Icon name="file" className="h-[18px] w-[18px]" />
+            </span>
+            <span className="mt-3 text-[14px] font-medium">فایل JSON</span>
+            <span dir="ltr" className="mt-1 text-[11.5px] text-[var(--a-muted)]">
+              {'[{time,open,high,low,close,volume}]'}
+            </span>
+            <span className="mt-1 text-[11px] leading-5 text-[var(--a-muted)]">
+              مثلاً m1.json، m15.json، d1.json
+            </span>
+          </button>
           <button
             type="button"
             disabled={disabled}
@@ -1908,7 +2003,7 @@ function FilePicks({
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#3b78ff]/12 text-[#7aa2ff] ring-1 ring-[#3b78ff]/25 transition group-hover:scale-105">
               <Icon name="file" className="h-[18px] w-[18px]" />
             </span>
-            <span className="mt-3 text-[14px] font-medium">فایل‌های PRN</span>
+            <span className="mt-3 text-[14px] font-medium">فایل‌های PRN / CSV</span>
             <span dir="ltr" className="mt-1 text-[11.5px] text-[var(--a-muted)]">
               {'<DTYYYYMMDD>,<OPEN>,<HIGH>,<LOW>,<CLOSE>,<VOL>'}
             </span>
@@ -1924,7 +2019,7 @@ function FilePicks({
             </span>
             <span className="mt-3 text-[14px] font-medium">پوشه advanced-get</span>
             <span className="mt-1 text-[12px] leading-5 text-[var(--a-muted)]">
-              1minute تا 240minute، هر پوشه یک تایم‌فریم
+              1minute، 15minute، daily و بقیه
             </span>
           </button>
         </div>
@@ -1935,6 +2030,19 @@ function FilePicks({
       {portal
         ? createPortal(
             <>
+              <input
+                ref={jsonRef}
+                type="file"
+                multiple
+                tabIndex={-1}
+                aria-hidden="true"
+                accept=".json,application/json"
+                className="admin-file-input"
+                onChange={(event) => {
+                  onFiles(event.target.files);
+                  event.target.value = '';
+                }}
+              />
               <input
                 ref={filesRef}
                 type="file"

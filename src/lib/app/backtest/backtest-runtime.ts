@@ -15,7 +15,15 @@ import {
   type LoggedAction,
   type SessionSettings,
 } from '@/lib/backtest';
-import { HybridMarketProvider, customInstruments, customRange, customSpec, instrumentSpec, INSTRUMENTS } from '@/lib/data';
+import {
+  HybridMarketProvider,
+  customInstruments,
+  customRange,
+  customSpec,
+  instrumentSpec,
+  isBuiltinDisabled,
+  INSTRUMENTS,
+} from '@/lib/data';
 import { MemoryStorage, NamespacedStorage } from '@/lib/storage';
 import { RemoteBacktestRepository } from './remote-repository';
 import type { ChartApp, ChartAppOptions } from '../chart-app';
@@ -67,7 +75,9 @@ export function createBacktestServices(
     market: m,
     repo,
     instruments: () => {
-      const built = INSTRUMENTS.filter((item) => m.searchSymbols(item.symbol).length > 0);
+      const built = INSTRUMENTS.filter(
+        (item) => !isBuiltinDisabled(item.symbol) && m.searchSymbols(item.symbol).length > 0,
+      );
       const seen = new Set(built.map((item) => item.symbol));
       return [...built, ...customInstruments().filter((item) => !seen.has(item.symbol))];
     },

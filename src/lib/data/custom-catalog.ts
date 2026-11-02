@@ -1,5 +1,5 @@
 import type { InstrumentSpec, TradingHours } from '@/lib/core';
-import { setAssetClasses, type AssetClass } from './instruments';
+import { setAssetClasses, setDisabledBuiltins, type AssetClass } from './instruments';
 
 /** One admin-published instrument the practice picker and the chart can use. */
 export interface CatalogInstrument {
@@ -55,9 +55,13 @@ export function customRange(symbol: string): { start: number; end: number } | nu
   return { start: found.dataStart, end: found.dataEnd };
 }
 
-export function installCustomCatalog(instruments: readonly CatalogInstrument[]): void {
+export function installCustomCatalog(
+  instruments: readonly CatalogInstrument[],
+  disabled: readonly string[] = [],
+): void {
   installed = instruments.map((item) => ({ ...item, symbol: item.symbol.toUpperCase() }));
   setAssetClasses(installed.map((item) => ({ symbol: item.symbol, assetClass: item.assetClass })));
+  setDisabledBuiltins(disabled);
   ready = true;
   version += 1;
   listeners.forEach((listener) => listener());
@@ -69,12 +73,28 @@ export function ensureCustomCatalog(): Promise<void> {
   pending ??= fetch('/api/catalog', { credentials: 'same-origin', cache: 'no-store' })
     .then(async (res) => {
       if (!res.ok) return;
-      const body = (await res.json()) as { instruments?: CatalogInstrument[] };
-      if (Array.isArray(body.instruments)) installCustomCatalog(body.instruments);
+      const body = (await res.json()) as {
+        instruments?: CatalogInstrument[];
+        disabledBuiltins?: string[];
+      };
+      if (Array.isArray(body.instruments)) {
+        installCustomCatalog(
+          body.instruments,
+          Array.isArray(body.disabledBuiltins) ? body.disabledBuiltins : [],
+        );
+      }
     })
     .catch(() => {})
     .finally(() => {
       if (!ready) installCustomCatalog([]);
     });
   return pending;
+}
+
+/** Refetches after an admin changes the live catalogue. */
+export function reloadCustomCatalog(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.resolve();
+  ready = false;
+  pending = null;
+  return ensureCustomCatalog();
 }

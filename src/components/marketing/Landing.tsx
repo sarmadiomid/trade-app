@@ -312,7 +312,7 @@ function PlatformFrame() {
           XAUUSD
         </span>
         <span className="hidden items-center gap-0.5 text-[11px] text-[#7d93c9] sm:flex">
-          {['1m', '5m', '15m', '1H', '4H'].map((t) => (
+          {['1m', '5m', '15m', '30m', '1H', '4H'].map((t) => (
             <span
               key={t}
               className={`rounded px-1.5 py-0.5 ${t === '15m' ? 'bg-[#2f7bff]/25 text-[#9cc4ff]' : ''}`}
