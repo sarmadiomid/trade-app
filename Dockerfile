@@ -19,8 +19,9 @@ WORKDIR /src
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /src/node_modules ./node_modules
 COPY . .
+# Alpine lacks glibc SWC natives; Turbopack needs them. Use Webpack for this image.
 RUN --mount=type=cache,target=/src/.next/cache \
-    npm run build
+    npx next build --webpack
 
 # --- Production runtime (Next.js standalone) ---
 FROM node:22-alpine AS runtime
@@ -42,10 +43,10 @@ USER nextjs
 EXPOSE 3000
 
 LABEL org.opencontainers.image.title="TradingChart" \
-      org.opencontainers.image.description="TradingView-style charting app"
+    org.opencontainers.image.description="TradingView-style charting app"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server.js"]
 
