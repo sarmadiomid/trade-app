@@ -32,6 +32,17 @@ import { PageHead, Panel, fieldClass, labelClass } from './ui';
 /* Types & constants                                                   */
 /* ------------------------------------------------------------------ */
 
+interface IngestStatus {
+  readonly enabled: boolean;
+  readonly bootstrapped: boolean;
+  readonly lastRunAt: number | null;
+  readonly lastSuccessAt: number | null;
+  readonly lastError: string | null;
+  readonly lastFrom: number | null;
+  readonly lastTo: number | null;
+  readonly lastBarCount: number | null;
+}
+
 interface SymbolRow {
   readonly symbol: string;
   readonly description: string;
@@ -43,6 +54,8 @@ interface SymbolRow {
   readonly dataStart: number | null;
   readonly dataEnd: number | null;
   readonly practiceReady: boolean;
+  readonly dukascopyId: string | null;
+  readonly ingest: IngestStatus | null;
 }
 
 interface StoredSeries {
@@ -111,6 +124,7 @@ const EMPTY: InstrumentDraft = {
   defaultSpread: 0.0001,
   defaultCommissionPerLot: 0,
   active: true,
+  dukascopyId: '',
 };
 
 const FOCUS_RING =
@@ -213,7 +227,8 @@ type IconName =
   | 'lock'
   | 'save'
   | 'undo'
-  | 'chart';
+  | 'chart'
+  | 'cloud';
 
 const ICONS: Record<IconName, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
@@ -272,6 +287,9 @@ const ICONS: Record<IconName, ReactNode> = {
     </>
   ),
   chart: <path d="M4 18V9M9 18V5M14 18v-6M19 18V8" />,
+  cloud: (
+    <path d="M7.5 18h9.2A4.3 4.3 0 0 0 18 9.7 6 6 0 0 0 7.1 11 3.8 3.8 0 0 0 7.5 18z" />
+  ),
 };
 
 function Icon({ name, className = 'h-4 w-4' }: { name: IconName; className?: string }) {
@@ -1096,15 +1114,19 @@ export function SymbolsDesk() {
                 }
               />
               {detail ? (
-                <DataPanel
-                  key={detail.symbol}
-                  detail={detail}
-                  onImported={async (text) => {
-                    await load(detail.symbol, 'refresh');
-                    setNotice(text);
-                  }}
-                  onError={setError}
-                />
+                detail.dukascopyId || draft.dukascopyId ? (
+                  <DukascopyPanel detail={detail} dukascopyId={draft.dukascopyId || detail.dukascopyId || ''} />
+                ) : (
+                  <DataPanel
+                    key={detail.symbol}
+                    detail={detail}
+                    onImported={async (text) => {
+                      await load(detail.symbol, 'refresh');
+                      setNotice(text);
+                    }}
+                    onError={setError}
+                  />
+                )
               ) : (
                 <Panel className="flex items-start gap-3.5 p-5">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.05] text-[var(--a-muted)] ring-1 ring-white/10">
@@ -1423,6 +1445,20 @@ function SpecForm({
                 placeholder="USD"
               />
             </Field>
+            <Field
+              label="شناسه Dukascopy"
+              hint="خالی = آپلود دستی CSV/JSON. پر = همگام‌سازی خودکار توسط worker (مثل eurusd)."
+            >
+              <input
+                dir="ltr"
+                value={draft.dukascopyId}
+                onChange={(e) =>
+                  set('dukascopyId', e.target.value.replace(/\s/g, '').toLowerCase())
+                }
+                className={fieldClass}
+                placeholder={draft.symbol ? draft.symbol.toLowerCase() : 'eurusd'}
+              />
+            </Field>
           </Section>
 
           <Section title="بازار">
@@ -1574,6 +1610,87 @@ function SpecForm({
           ) : null}
         </div>
       </form>
+    </Panel>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Dukascopy-managed symbol status                                     */
+/* ------------------------------------------------------------------ */
+
+function DukascopyPanel({
+  detail,
+  dukascopyId,
+}: {
+  readonly detail: SymbolDetail;
+  readonly dukascopyId: string;
+}) {
+  const ingest = detail.ingest;
+  return (
+    <Panel className="p-5">
+      <div className="flex items-start gap-3.5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#3b78ff]/15 text-[#8eb6ff] ring-1 ring-[#3b78ff]/25">
+          <Icon name="cloud" className="h-[18px] w-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[14.5px] font-semibold">داده از Dukascopy</h3>
+          <p className="mt-1 text-[13px] leading-7 text-[var(--a-muted)]">
+            این نماد توسط worker همگام می‌شود: ۳ سال اولیه برای همهٔ تایم‌فریم‌ها (۱م تا ماهانه)،
+            سپس هر ۱۲ ساعت. آپلود فایل برای جلوگیری از تداخل نویسنده‌ها غیرفعال است.
+          </p>
+          <dl className="mt-4 grid gap-3 text-[13px] sm:grid-cols-2">
+            <div>
+              <dt className="text-[var(--a-muted)]">شناسه</dt>
+              <dd dir="ltr" className="mt-0.5 font-medium text-white">
+                {dukascopyId}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[var(--a-muted)]">وضعیت bootstrap</dt>
+              <dd className="mt-0.5 font-medium text-white">
+                {ingest?.bootstrapped ? 'انجام شده' : 'در صف / ناتمام'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[var(--a-muted)]">تعداد کندل ۱دقیقه</dt>
+              <dd className="mt-0.5 font-medium text-white">{faNum(detail.barCount)}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--a-muted)]">آخرین همگام‌سازی موفق</dt>
+              <dd className="mt-0.5 font-medium text-white">
+                {ingest?.lastSuccessAt
+                  ? formatJalaliDateTime(ingest.lastSuccessAt, true)
+                  : '—'}
+              </dd>
+            </div>
+            {ingest?.lastError ? (
+              <div className="sm:col-span-2">
+                <dt className="text-[#ffb3bf]">آخرین خطا</dt>
+                <dd className="mt-0.5 break-words text-[#ffb3bf]">{ingest.lastError}</dd>
+              </div>
+            ) : null}
+          </dl>
+          {detail.series.length > 0 ? (
+            <ul className="mt-4 space-y-2">
+              {detail.series.map((series) => (
+                <li
+                  key={series.timeframe}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12.5px]"
+                >
+                  <span dir="ltr" className="font-medium text-white">
+                    {series.timeframe}
+                  </span>
+                  <span className="text-[var(--a-muted)]">
+                    {faNum(series.barCount)} کندل ·{' '}
+                    {formatJalaliDateTime(series.dataStart, false)} –{' '}
+                    {formatJalaliDateTime(series.dataEnd, false)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </div>
     </Panel>
   );
 }

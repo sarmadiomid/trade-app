@@ -28,6 +28,33 @@ describe('parseInstrumentDraft', () => {
     if (!parsed.ok) return;
     expect(parsed.draft.symbol).toBe('EURJPY');
     expect(parsed.draft.baseCurrency).toBe('EUR');
+    expect(parsed.draft.dukascopyId).toBe('');
+  });
+
+  it('accepts a dukascopy id', () => {
+    const parsed = parseInstrumentDraft(
+      {
+        symbol: 'EURUSD',
+        description: 'Euro / Dollar',
+        baseCurrency: 'EUR',
+        quoteCurrency: 'USD',
+        assetClass: 'forex',
+        hours: 'forex',
+        tickSize: 0.00001,
+        pipSize: 0.0001,
+        contractSize: 100000,
+        lotMin: 0.01,
+        lotStep: 0.01,
+        lotMax: 50,
+        defaultSpread: 0.0001,
+        defaultCommissionPerLot: 0,
+        dukascopyId: 'EURUSD',
+      },
+      reserved,
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.draft.dukascopyId).toBe('eurusd');
   });
 
   it('refuses a built-in symbol', () => {

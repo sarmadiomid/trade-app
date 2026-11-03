@@ -15,7 +15,12 @@ import {
   type CatalogInstrument,
   type InstrumentDraft,
 } from '@/lib/data';
-import { collections, type InstrumentDoc, type MarketChunkDoc } from './db';
+import {
+  collections,
+  type InstrumentDoc,
+  type InstrumentIngestState,
+  type MarketChunkDoc,
+} from './db';
 
 export class SymbolError extends Error {
   constructor(
@@ -28,6 +33,17 @@ export class SymbolError extends Error {
 
 const RESERVED = new Set(INSTRUMENTS.map((item) => item.symbol));
 
+export interface AdminIngestStatus {
+  readonly enabled: boolean;
+  readonly bootstrapped: boolean;
+  readonly lastRunAt: number | null;
+  readonly lastSuccessAt: number | null;
+  readonly lastError: string | null;
+  readonly lastFrom: number | null;
+  readonly lastTo: number | null;
+  readonly lastBarCount: number | null;
+}
+
 export interface AdminSymbolRow {
   readonly symbol: string;
   readonly description: string;
@@ -39,6 +55,8 @@ export interface AdminSymbolRow {
   readonly dataStart: number | null;
   readonly dataEnd: number | null;
   readonly practiceReady: boolean;
+  readonly dukascopyId: string | null;
+  readonly ingest: AdminIngestStatus | null;
 }
 
 export interface AdminSymbolDetail extends AdminSymbolRow {
@@ -154,6 +172,8 @@ export async function listAdminSymbols(): Promise<AdminSymbolRow[]> {
       dataStart: model?.start ?? null,
       dataEnd: model?.end ?? null,
       practiceReady: true,
+      dukascopyId: null,
+      ingest: null,
     };
   });
   return [...custom.map(toRow), ...builtin];
@@ -176,6 +196,9 @@ export async function saveInstrument(input: unknown): Promise<AdminSymbolRow> {
   const { instruments } = await collections();
   const now = new Date();
   const draft = parsed.draft;
+  const dukascopyId = draft.dukascopyId || null;
+  const existing = await instruments.findOne({ _id: draft.symbol });
+  const ingestUpdate = nextIngestOnSave(existing, dukascopyId);
   await instruments.updateOne(
     { _id: draft.symbol },
     {
@@ -194,6 +217,8 @@ export async function saveInstrument(input: unknown): Promise<AdminSymbolRow> {
         defaultSpread: draft.defaultSpread,
         defaultCommissionPerLot: draft.defaultCommissionPerLot,
         active: draft.active,
+        dukascopyId,
+        ingest: ingestUpdate,
         updatedAt: now,
       },
       $setOnInsert: {
@@ -417,6 +442,8 @@ function toRow(doc: InstrumentDoc): AdminSymbolRow {
     dataStart: doc.dataStart,
     dataEnd: doc.dataEnd,
     practiceReady: doc.active && doc.timeframe === '1m' && doc.barCount > 0,
+    dukascopyId: doc.dukascopyId ?? null,
+    ingest: toIngestStatus(doc.ingest ?? null),
   };
 }
 
@@ -437,6 +464,42 @@ function docToDraft(doc: InstrumentDoc): InstrumentDraft {
     defaultSpread: doc.defaultSpread,
     defaultCommissionPerLot: doc.defaultCommissionPerLot,
     active: doc.active,
+    dukascopyId: doc.dukascopyId ?? '',
+  };
+}
+
+function toIngestStatus(state: InstrumentIngestState | null): AdminIngestStatus | null {
+  if (!state) return null;
+  return {
+    enabled: state.enabled !== false,
+    bootstrapped: state.bootstrappedAt !== null,
+    lastRunAt: state.lastRunAt?.getTime() ?? null,
+    lastSuccessAt: state.lastSuccessAt?.getTime() ?? null,
+    lastError: state.lastError,
+    lastFrom: state.lastFrom,
+    lastTo: state.lastTo,
+    lastBarCount: state.lastBarCount,
+  };
+}
+
+/** Keep bootstrap history when the Dukascopy id is unchanged; reset when it changes or clears. */
+function nextIngestOnSave(
+  existing: InstrumentDoc | null,
+  dukascopyId: string | null,
+): InstrumentIngestState | null {
+  if (!dukascopyId) return null;
+  if (existing?.dukascopyId === dukascopyId && existing.ingest) {
+    return { ...existing.ingest, enabled: existing.ingest.enabled !== false };
+  }
+  return {
+    enabled: true,
+    bootstrappedAt: null,
+    lastRunAt: null,
+    lastSuccessAt: null,
+    lastError: null,
+    lastFrom: null,
+    lastTo: null,
+    lastBarCount: null,
   };
 }
 

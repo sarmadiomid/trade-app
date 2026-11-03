@@ -159,6 +159,18 @@ export const MIGRATIONS: readonly Migration[] = [
       ]);
     },
   },
+  {
+    id: '011-dukascopy-ingest',
+    description: 'Indexes for Dukascopy-backed catalog symbols and ingest locks',
+    async up(db) {
+      await Promise.all([
+        db.collection('instruments').createIndex({ dukascopyId: 1, active: 1 }),
+        db
+          .collection('instruments')
+          .createIndex({ 'ingest.bootstrappedAt': 1, active: 1, dukascopyId: 1 }),
+      ]);
+    },
+  },
 ];
 
 export const defaultDisplayName = (phone: string) => `Trader ${phone.slice(-4)}`;

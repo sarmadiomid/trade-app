@@ -47,10 +47,16 @@ export interface InstrumentDraft {
   readonly defaultSpread: number;
   readonly defaultCommissionPerLot: number;
   readonly active: boolean;
+  /**
+   * Dukascopy instrument id (lowercase, e.g. eurusd). Empty string means manual
+   * CSV/JSON upload instead of the ingest worker.
+   */
+  readonly dukascopyId: string;
 }
 
 const SYMBOL_RE = /^[A-Z0-9]{2,20}$/;
 const CCY_RE = /^[A-Z0-9]{2,12}$/;
+const DUKASCOPY_ID_RE = /^[a-z][a-z0-9]{1,31}$/;
 
 export function hoursPresetOf(hours: TradingHours): HourPreset {
   if (hours.dailyBreak) return 'metals';
@@ -123,6 +129,11 @@ export function parseInstrumentDraft(
   if (input.active !== undefined && typeof input.active !== 'boolean') {
     return { ok: false, error: 'وضعیت نمایش نماد نامعتبر است' };
   }
+  const dukascopyRaw =
+    typeof input.dukascopyId === 'string' ? input.dukascopyId.trim().toLowerCase() : '';
+  if (dukascopyRaw && !DUKASCOPY_ID_RE.test(dukascopyRaw)) {
+    return { ok: false, error: 'شناسهٔ Dukascopy باید حروف کوچک انگلیسی باشد (مثل eurusd)' };
+  }
   return {
     ok: true,
     draft: {
@@ -141,6 +152,7 @@ export function parseInstrumentDraft(
       defaultSpread,
       defaultCommissionPerLot,
       active: input.active !== false,
+      dukascopyId: dukascopyRaw,
     },
   };
 }

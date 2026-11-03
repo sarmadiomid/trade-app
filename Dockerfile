@@ -43,10 +43,10 @@ USER nextjs
 EXPOSE 3000
 
 LABEL org.opencontainers.image.title="TradingChart" \
-      org.opencontainers.image.description="TradingView-style charting app"
+    org.opencontainers.image.description="TradingView-style charting app"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server.js"]
 
@@ -67,3 +67,23 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 COPY . .
 EXPOSE 3000
 CMD ["npx", "next", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
+
+# --- Dukascopy catalog ingest worker (bootstrap + 12h refresh) ---
+FROM node:22-alpine AS ingest
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV DUKASCOPY_CACHE_PATH=/data/.dukascopy-cache
+
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    --mount=type=secret,id=npmrc,target=/root/.npmrc,required=false \
+    --mount=type=cache,target=/root/.npm \
+    npm ci
+
+COPY . .
+RUN mkdir -p /data/.dukascopy-cache
+
+CMD ["npm", "run", "ingest:dukascopy", "--", "--loop"]
