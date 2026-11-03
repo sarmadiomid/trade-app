@@ -6,8 +6,11 @@
  *   npm run ingest:dukascopy -- --mode bootstrap --symbol EURUSD
  *
  * Uses --conditions=react-server so `server-only` modules resolve in plain Node.
+ *
+ * Proxy (sing-box / HTTP / SOCKS): set DUKASCOPY_PROXY or HTTPS_PROXY before running.
  */
 
+import { applyIngestProxy } from '../src/server/ingest/proxy';
 import { runIngestLoop, runIngestPass } from '../src/server/ingest/run';
 
 function arg(name: string): string | undefined {
@@ -25,6 +28,10 @@ async function main(): Promise<void> {
     console.error('MONGODB_URI is required');
     process.exit(1);
   }
+
+  const proxy = await applyIngestProxy();
+  if (proxy) console.warn(`[ingest] using proxy ${proxy}`);
+  else console.warn('[ingest] no proxy configured (DUKASCOPY_PROXY / HTTPS_PROXY)');
 
   if (has('--loop')) {
     await runIngestLoop();
