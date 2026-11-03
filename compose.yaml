@@ -46,6 +46,14 @@ services:
       INGEST_BOOTSTRAP_YEARS: ${INGEST_BOOTSTRAP_YEARS:-3}
       INGEST_INTERVAL_MS: ${INGEST_INTERVAL_MS:-43200000}
       INGEST_OVERLAP_MS: ${INGEST_OVERLAP_MS:-172800000}
+      # Host sing-box / Clash mixed port. Inside Docker, 127.0.0.1 is the container —
+      # use host.docker.internal (Linux: add extra_hosts below) or the host LAN IP.
+      DUKASCOPY_PROXY: ${DUKASCOPY_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,mongo,mongodb}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - dukascopy-cache:/data/.dukascopy-cache
     networks:
