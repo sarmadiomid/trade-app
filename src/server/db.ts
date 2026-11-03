@@ -305,6 +305,20 @@ export interface DisabledBuiltinDoc {
   at: Date;
 }
 
+/** Dukascopy ingest status for an admin catalog symbol. */
+export interface InstrumentIngestState {
+  /** When false the worker skips this symbol. */
+  enabled: boolean;
+  /** Set after a successful 3-year (or configured) bootstrap. */
+  bootstrappedAt: Date | null;
+  lastRunAt: Date | null;
+  lastSuccessAt: Date | null;
+  lastError: string | null;
+  lastFrom: number | null;
+  lastTo: number | null;
+  lastBarCount: number | null;
+}
+
 /** A symbol added from the admin panel. Built-in symbols are not stored here. */
 export interface InstrumentDoc {
   /** Uppercase symbol. */
@@ -323,6 +337,10 @@ export interface InstrumentDoc {
   defaultSpread: number;
   defaultCommissionPerLot: number;
   active: boolean;
+  /** Dukascopy instrument id (e.g. eurusd). Null/absent = manual CSV/JSON only. */
+  dukascopyId: string | null;
+  /** Worker-managed sync status. */
+  ingest: InstrumentIngestState | null;
   /** Timeframe of the stored candles, or null when none have been imported. */
   timeframe: TimeframeId | null;
   barCount: number;
@@ -332,6 +350,14 @@ export interface InstrumentDoc {
   dataEnd: number | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+/** Advisory lock so bootstrap/refresh jobs do not overlap. */
+export interface IngestLockDoc {
+  _id: string;
+  holder: string;
+  at: Date;
+  mode: string;
 }
 
 /** One UTC month of candles for an admin symbol. `bars` rows are time, open, high, low, close, volume. */
@@ -383,13 +409,14 @@ export interface Collections {
   instruments: Collection<InstrumentDoc>;
   marketChunks: Collection<MarketChunkDoc>;
   disabledBuiltins: Collection<DisabledBuiltinDoc>;
+  ingestLocks: Collection<IngestLockDoc>;
 }
 
 /**
  * Bump when `Collections` gains a field. Dev hot reload keeps the previous promise on
  * globalThis, and that object would not have the new collections.
  */
-const COLLECTIONS_VERSION = 4;
+const COLLECTIONS_VERSION = 5;
 
 const globalForMongo = globalThis as unknown as {
   __mongo?: { version: number; client: Promise<MongoClient>; ready: Promise<Collections> };
@@ -420,6 +447,7 @@ async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
     instruments: db.collection<InstrumentDoc>('instruments'),
     marketChunks: db.collection<MarketChunkDoc>('market_chunks'),
     disabledBuiltins: db.collection<DisabledBuiltinDoc>('disabled_builtins'),
+    ingestLocks: db.collection<IngestLockDoc>('ingest_locks'),
   };
 }
 

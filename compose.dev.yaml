@@ -28,6 +28,23 @@ services:
           path: ./next.config.ts
           target: /app/next.config.ts
 
+  ingest:
+    build:
+      target: ingest
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017}
+      MONGODB_DB: ${MONGODB_DB:-tradingchart}
+      DUKASCOPY_CACHE_PATH: /data/.dukascopy-cache
+      INGEST_BOOTSTRAP_YEARS: ${INGEST_BOOTSTRAP_YEARS:-3}
+      # Faster local loop so you can see refresh without waiting 12h.
+      INGEST_INTERVAL_MS: ${INGEST_INTERVAL_MS:-3600000}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - dukascopy-cache:/data/.dukascopy-cache
+
   mongo:
     image: mongo:7.0
     ports:
@@ -52,3 +69,4 @@ networks:
 
 volumes:
   mongo-data:
+  dukascopy-cache:

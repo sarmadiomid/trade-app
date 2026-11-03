@@ -29,7 +29,33 @@ services:
       - infra
     restart: unless-stopped
 
+  # Historical m1 candles: 3y bootstrap then 12h incremental refresh via dukascopy-node.
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ingest
+    image: tradingchart-ingest:latest
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: ${MONGODB_URI:?Set MONGODB_URI in .env}
+      MONGODB_DB: ${MONGODB_DB:-tradingchart}
+      DUKASCOPY_CACHE_PATH: /data/.dukascopy-cache
+      INGEST_BOOTSTRAP_YEARS: ${INGEST_BOOTSTRAP_YEARS:-3}
+      INGEST_INTERVAL_MS: ${INGEST_INTERVAL_MS:-43200000}
+      INGEST_OVERLAP_MS: ${INGEST_OVERLAP_MS:-172800000}
+    volumes:
+      - dukascopy-cache:/data/.dukascopy-cache
+    networks:
+      - infra
+    restart: unless-stopped
+
 networks:
   infra:
     external: true
     name: infra
+
+volumes:
+  dukascopy-cache:

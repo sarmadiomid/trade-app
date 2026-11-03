@@ -66,3 +66,23 @@ RUN --mount=type=bind,source=package.json,target=package.json \
 COPY . .
 EXPOSE 3000
 CMD ["npx", "next", "dev", "--hostname", "0.0.0.0", "--port", "3000"]
+
+# --- Dukascopy catalog ingest worker (bootstrap + 12h refresh) ---
+FROM node:22-alpine AS ingest
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV DUKASCOPY_CACHE_PATH=/data/.dukascopy-cache
+
+RUN --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+    --mount=type=secret,id=npmrc,target=/root/.npmrc,required=false \
+    --mount=type=cache,target=/root/.npm \
+    npm ci
+
+COPY . .
+RUN mkdir -p /data/.dukascopy-cache
+
+CMD ["npm", "run", "ingest:dukascopy", "--", "--loop"]
