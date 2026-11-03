@@ -19,8 +19,9 @@ WORKDIR /src
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /src/node_modules ./node_modules
 COPY . .
+# Alpine lacks glibc SWC natives; Turbopack needs them. Use Webpack for this image.
 RUN --mount=type=cache,target=/src/.next/cache \
-    npm run build
+    npx next build --webpack
 
 # --- Production runtime (Next.js standalone) ---
 FROM node:22-alpine AS runtime
