@@ -68,15 +68,14 @@ export function NewBattleDialog({
   useEffect(() => {
     void ensureCustomCatalog();
   }, []);
-  useEffect(() => {
-    if (instruments.length === 0) return;
+  // Catalogue loads async; drop seed defaults that are not in the published list.
+  if (instruments.length > 0) {
     const allowed = new Set(instruments.map((item) => item.symbol));
-    setS((prev) => {
-      const assets = prev.assets.filter((symbol) => allowed.has(symbol));
-      if (assets.length === prev.assets.length) return prev;
-      return { ...prev, assets };
-    });
-  }, [instruments]);
+    const assets = s.assets.filter((symbol) => allowed.has(symbol));
+    if (assets.length !== s.assets.length) {
+      setS((prev) => ({ ...prev, assets: prev.assets.filter((symbol) => allowed.has(symbol)) }));
+    }
+  }
   const set = (patch: Partial<BattleSettings>) => {
     setS((prev) => ({ ...prev, ...patch }));
     setError(null);
