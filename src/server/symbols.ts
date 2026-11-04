@@ -3,6 +3,7 @@ import type { Candle, InstrumentSpec, TimeframeId } from '@/lib/core';
 import { DAY_MS, canAggregate, compareTimeframes, isTimeframeId } from '@/lib/core';
 import {
   INSTRUMENTS,
+  MAX_INSTRUMENT_IMPORT_ROWS,
   MOCK_MODELS,
   assetClassOf,
   barsBetween,
@@ -234,6 +235,94 @@ export async function saveInstrument(input: unknown): Promise<AdminSymbolRow> {
   const saved = await instruments.findOne({ _id: draft.symbol });
   if (!saved) throw new SymbolError('ذخیرهٔ نماد انجام نشد', 500);
   return toRow(saved);
+}
+
+export interface InstrumentImportFailure {
+  readonly index: number;
+  readonly symbol?: string;
+  readonly error: string;
+}
+
+export interface InstrumentImportResult {
+  readonly symbols: readonly AdminSymbolRow[];
+  readonly queued: number;
+  readonly created: number;
+  readonly updated: number;
+}
+
+/**
+ * Validates every row first, then upserts. Rejects the whole batch if any row fails.
+ * Instruments with dukascopyId land in the Dukascopy ingest pending set.
+ */
+export async function importInstruments(input: unknown): Promise<InstrumentImportResult> {
+  if (!Array.isArray(input)) throw new SymbolError('فهرست نمادها نامعتبر است');
+  if (input.length === 0) throw new SymbolError('هیچ نمادی برای ورود ارسال نشده');
+  if (input.length > MAX_INSTRUMENT_IMPORT_ROWS) {
+    throw new SymbolError(`حداکثر ${MAX_INSTRUMENT_IMPORT_ROWS} نماد در هر ورود مجاز است`);
+  }
+
+  const disabled = await disabledBuiltinSet();
+  const reserved = new Set([...RESERVED].filter((symbol) => !disabled.has(symbol)));
+  const drafts: InstrumentDraft[] = [];
+  const failures: InstrumentImportFailure[] = [];
+  const seen = new Set<string>();
+
+  for (let i = 0; i < input.length; i++) {
+    const item = input[i];
+    const symbolHint =
+      item && typeof item === 'object' && !Array.isArray(item) && 'symbol' in item
+        ? String((item as { symbol: unknown }).symbol ?? '')
+            .trim()
+            .toUpperCase() || undefined
+        : undefined;
+    const parsed = parseInstrumentDraft(item, reserved);
+    if (!parsed.ok) {
+      failures.push({ index: i, symbol: symbolHint, error: parsed.error });
+      continue;
+    }
+    if (seen.has(parsed.draft.symbol)) {
+      failures.push({
+        index: i,
+        symbol: parsed.draft.symbol,
+        error: 'این نماد در فهرست تکراری است',
+      });
+      continue;
+    }
+    seen.add(parsed.draft.symbol);
+    drafts.push(parsed.draft);
+  }
+
+  if (failures.length > 0) {
+    const first = failures[0]!;
+    const extra = failures.length > 1 ? ` (و ${failures.length - 1} خطای دیگر)` : '';
+    throw new SymbolError(
+      `ردیف ${first.index + 1}${first.symbol ? ` (${first.symbol})` : ''}: ${first.error}${extra}`,
+    );
+  }
+
+  const { instruments } = await collections();
+  const existingIds = new Set(
+    (
+      await instruments
+        .find({ _id: { $in: drafts.map((d) => d.symbol) } }, { projection: { _id: 1 } })
+        .toArray()
+    ).map((doc) => doc._id),
+  );
+
+  const symbols: AdminSymbolRow[] = [];
+  let queued = 0;
+  let created = 0;
+  let updated = 0;
+
+  for (const draft of drafts) {
+    const row = await saveInstrument(draft);
+    symbols.push(row);
+    if (existingIds.has(draft.symbol)) updated += 1;
+    else created += 1;
+    if (draft.dukascopyId) queued += 1;
+  }
+
+  return { symbols, queued, created, updated };
 }
 
 export async function removeInstrument(symbol: string): Promise<void> {

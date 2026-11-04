@@ -15,14 +15,19 @@ import { createPortal } from 'react-dom';
 import type { Candle, TimeframeId } from '@/lib/core';
 import {
   MAX_IMPORT_BARS,
+  MAX_INSTRUMENT_IMPORT_ROWS,
+  instrumentImportCsvTemplate,
+  instrumentImportJsonTemplate,
   normalizeBars,
   parseCandleFile,
+  parseInstrumentCatalogFile,
   timeframeFromPath,
   toTuples,
   reloadCustomCatalog,
   type AssetClass,
   type HourPreset,
   type InstrumentDraft,
+  type InstrumentImportPreview,
 } from '@/lib/data';
 import { faNum, formatJalaliDateTime } from '@/lib/locale/jalali';
 import { ApiError, api } from '@/components/platform/api';
@@ -81,7 +86,8 @@ type OpenMode = 'open' | 'refresh' | 'saved';
 type ListFilter = 'all' | 'custom' | 'builtin';
 type Dialog =
   | { readonly kind: 'delete'; readonly symbol: string; readonly builtin: boolean }
-  | { readonly kind: 'discard'; readonly proceed: () => void };
+  | { readonly kind: 'discard'; readonly proceed: () => void }
+  | { readonly kind: 'bulk-import' };
 type Errors = Partial<Record<keyof InstrumentDraft, string>>;
 
 const ASSETS: ReadonlyArray<{ id: AssetClass; label: string }> = [
@@ -647,7 +653,7 @@ function Callout({
   tone,
   children,
 }: {
-  readonly tone: 'info' | 'warn' | 'ok';
+  readonly tone: 'info' | 'warn' | 'ok' | 'bad';
   readonly children: ReactNode;
 }) {
   const style =
@@ -655,13 +661,15 @@ function Callout({
       ? 'border-[#3ecf8e]/25 bg-[#3ecf8e]/8 text-[#a6f0cb]'
       : tone === 'warn'
         ? 'border-[#f5b544]/25 bg-[#f5b544]/8 text-[#f7d58f]'
-        : 'border-[#3b78ff]/25 bg-[#3b78ff]/8 text-[#b3c8ff]';
+        : tone === 'bad'
+          ? 'border-[#ff6b81]/25 bg-[#ff6b81]/8 text-[#ffb3bf]'
+          : 'border-[#3b78ff]/25 bg-[#3b78ff]/8 text-[#b3c8ff]';
   return (
     <div
       className={`flex items-start gap-2.5 rounded-xl border px-3.5 py-3 text-[12.5px] leading-6 ${style}`}
     >
       <Icon
-        name={tone === 'ok' ? 'check' : tone === 'warn' ? 'alert' : 'info'}
+        name={tone === 'ok' ? 'check' : tone === 'info' ? 'info' : 'alert'}
         className="mt-1 h-4 w-4 shrink-0"
       />
       <div className="min-w-0">{children}</div>
@@ -848,6 +856,34 @@ export function SymbolsDesk() {
       scrollToDetail();
     });
 
+  const reservedForImport = useMemo(
+    () =>
+      new Set(
+        rows.filter((row) => row.source === 'builtin' && row.active).map((row) => row.symbol),
+      ),
+    [rows],
+  );
+
+  const openBulkImport = () =>
+    guarded(() => {
+      setDialog({ kind: 'bulk-import' });
+    });
+
+  const finishBulkImport = async (summary: {
+    readonly created: number;
+    readonly updated: number;
+    readonly queued: number;
+  }) => {
+    setDialog(null);
+    await Promise.all([load(), reloadCustomCatalog()]);
+    const parts = [
+      summary.created ? `${faNum(summary.created)} نماد جدید` : null,
+      summary.updated ? `${faNum(summary.updated)} به‌روزرسانی` : null,
+      summary.queued ? `${faNum(summary.queued)} در صف Dukascopy` : null,
+    ].filter(Boolean);
+    setNotice(parts.length ? `ورود دسته‌ای انجام شد: ${parts.join('، ')}.` : 'ورود دسته‌ای انجام شد.');
+  };
+
   const resetForm = () => {
     setDraft(baseline);
     setFormVersion((v) => v + 1);
@@ -938,6 +974,16 @@ export function SymbolsDesk() {
             نماد جدید
             <span className="grid h-6 w-6 place-items-center rounded-lg bg-[var(--a-gold)]/15">
               <Icon name="plus" className="h-3.5 w-3.5" />
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={openBulkImport}
+            className={`flex h-11 w-full items-center justify-between border-b border-[var(--a-line)] px-4 text-[13px] font-medium text-[#c9d3ea] transition hover:bg-white/[0.04] ${FOCUS_RING_INSET}`}
+          >
+            ورود دسته‌ای CSV / JSON
+            <span className="grid h-6 w-6 place-items-center rounded-lg bg-white/[0.06] text-[var(--a-muted)]">
+              <Icon name="upload" className="h-3.5 w-3.5" />
             </span>
           </button>
 
@@ -1178,6 +1224,13 @@ export function SymbolsDesk() {
             proceed();
           }}
           onCancel={() => setDialog(null)}
+        />
+      ) : null}
+      {dialog?.kind === 'bulk-import' ? (
+        <BulkImportDialog
+          reserved={reservedForImport}
+          onCancel={() => setDialog(null)}
+          onImported={(summary) => void finishBulkImport(summary)}
         />
       ) : null}
     </div>
@@ -1692,6 +1745,304 @@ function DukascopyPanel({
         </div>
       </div>
     </Panel>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Bulk instrument catalog import                                      */
+/* ------------------------------------------------------------------ */
+
+function downloadText(filename: string, text: string, mime: string): void {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function BulkImportDialog({
+  reserved,
+  onCancel,
+  onImported,
+}: {
+  readonly reserved: ReadonlySet<string>;
+  readonly onCancel: () => void;
+  readonly onImported: (summary: {
+    readonly created: number;
+    readonly updated: number;
+    readonly queued: number;
+  }) => void;
+}) {
+  const portal = usePortalTarget();
+  const titleId = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState('');
+  const [preview, setPreview] = useState<InstrumentImportPreview | null>(null);
+  const [parseError, setParseError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [commitError, setCommitError] = useState('');
+
+  const canCommit =
+    preview !== null && preview.ok.length > 0 && preview.issues.length === 0 && !busy;
+
+  const resetFile = () => {
+    setFileName('');
+    setPreview(null);
+    setParseError('');
+    setCommitError('');
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const readFile = async (file: File) => {
+    setBusy(true);
+    setParseError('');
+    setCommitError('');
+    setPreview(null);
+    setFileName(file.name);
+    try {
+      const text = await file.text();
+      const next = parseInstrumentCatalogFile(text, file.name, reserved);
+      setPreview(next);
+      if (next.ok.length === 0 && next.issues.length === 0) {
+        setParseError('فایل هیچ نمادی ندارد');
+      }
+    } catch (e) {
+      setParseError(messageOf(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const commit = async () => {
+    if (!preview || preview.issues.length > 0 || preview.ok.length === 0) return;
+    setBusy(true);
+    setCommitError('');
+    try {
+      const body = await api<{
+        created: number;
+        updated: number;
+        queued: number;
+      }>('/api/admin/symbols/import', {
+        method: 'POST',
+        body: { instruments: preview.ok.map((row) => row.draft) },
+      });
+      onImported(body);
+    } catch (e) {
+      setCommitError(e instanceof ApiError ? e.message : 'ورود انجام نشد');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape' && !busy) onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [busy, onCancel]);
+
+  if (!portal) return null;
+
+  const queuedPreview = preview?.ok.filter((row) => row.draft.dukascopyId).length ?? 0;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] grid place-items-center p-4">
+      <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={busy ? undefined : onCancel} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        dir="rtl"
+        className="relative flex max-h-[min(90vh,720px)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0f1420] shadow-2xl shadow-black/60"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
+          <div>
+            <h3 id={titleId} className="text-[16px] font-semibold">
+              ورود دسته‌ای نمادها
+            </h3>
+            <p className="mt-1 text-[13px] leading-6 text-[var(--a-muted)]">
+              فایل CSV یا JSON را انتخاب کنید. ابتدا اعتبارسنجی می‌شود؛ فقط بعد از تأیید، نمادها ذخیره
+              و در صف دانلود Dukascopy قرار می‌گیرند. حداکثر {faNum(MAX_INSTRUMENT_IMPORT_ROWS)}{' '}
+              نماد.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onCancel}
+            aria-label="بستن"
+            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[var(--a-muted)] transition hover:bg-white/10 hover:text-white disabled:opacity-40 ${FOCUS_RING}`}
+          >
+            <Icon name="close" className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={BTN_GHOST}
+              onClick={() =>
+                downloadText(
+                  'instruments-template.csv',
+                  instrumentImportCsvTemplate(),
+                  'text/csv;charset=utf-8',
+                )
+              }
+            >
+              <Icon name="file" />
+              قالب CSV
+            </button>
+            <button
+              type="button"
+              className={BTN_GHOST}
+              onClick={() =>
+                downloadText(
+                  'instruments-template.json',
+                  instrumentImportJsonTemplate(),
+                  'application/json;charset=utf-8',
+                )
+              }
+            >
+              <Icon name="file" />
+              قالب JSON
+            </button>
+          </div>
+
+          <label
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-8 text-center transition hover:border-[var(--a-accent)]/50 hover:bg-white/[0.05] ${FOCUS_RING}`}
+          >
+            <Icon name="upload" className="h-6 w-6 text-[var(--a-accent)]" />
+            <span className="mt-3 text-[14px] font-medium">انتخاب فایل CSV یا JSON</span>
+            <span className="mt-1 text-[12.5px] text-[var(--a-muted)]">
+              {fileName || 'هنوز فایلی انتخاب نشده'}
+            </span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".csv,.json,text/csv,application/json"
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void readFile(file);
+              }}
+            />
+          </label>
+
+          {parseError ? <Callout tone="bad">{parseError}</Callout> : null}
+
+          {preview ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2 text-[12.5px]">
+                <span className="rounded-lg bg-white/[0.06] px-2.5 py-1 text-[var(--a-muted)]">
+                  قالب: {preview.format.toUpperCase()}
+                </span>
+                <span className="rounded-lg bg-emerald-500/15 px-2.5 py-1 text-emerald-200">
+                  معتبر: {faNum(preview.ok.length)}
+                </span>
+                <span
+                  className={`rounded-lg px-2.5 py-1 ${
+                    preview.issues.length
+                      ? 'bg-[#ff6b81]/15 text-[#ffb3bf]'
+                      : 'bg-white/[0.06] text-[var(--a-muted)]'
+                  }`}
+                >
+                  خطا: {faNum(preview.issues.length)}
+                </span>
+                <span className="rounded-lg bg-[var(--a-accent)]/15 px-2.5 py-1 text-[#9ec0ff]">
+                  صف Dukascopy: {faNum(queuedPreview)}
+                </span>
+              </div>
+
+              {preview.issues.length > 0 ? (
+                <Callout tone="bad">
+                  فایل هنوز قابل تأیید نیست. همهٔ ردیف‌ها باید معتبر باشند؛ خطاها را درست کنید و
+                  دوباره انتخاب کنید.
+                </Callout>
+              ) : preview.ok.length > 0 ? (
+                <Callout tone="ok">
+                  فایل مطابق فرمت است. بعد از تأیید، نمادهایی که dukascopyId دارند به صف دانلود
+                  Dukascopy می‌روند.
+                </Callout>
+              ) : null}
+
+              {preview.issues.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-[#ff6b81]/25">
+                  <div className="border-b border-[#ff6b81]/20 bg-[#ff6b81]/10 px-3 py-2 text-[12.5px] font-medium text-[#ffb3bf]">
+                    خطاهای اعتبارسنجی
+                  </div>
+                  <ul className="max-h-40 overflow-y-auto divide-y divide-white/5 text-[12.5px]">
+                    {preview.issues.slice(0, 40).map((issue) => (
+                      <li key={`${issue.row}-${issue.symbol ?? ''}-${issue.error}`} className="px-3 py-2">
+                        <span className="text-[var(--a-muted)]">
+                          ردیف {faNum(issue.row)}
+                          {issue.symbol ? ` · ${issue.symbol}` : ''}
+                        </span>
+                        <span className="mt-0.5 block text-[#ffd0d7]">{issue.error}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {preview.ok.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-white/10">
+                  <div className="border-b border-white/10 bg-white/[0.04] px-3 py-2 text-[12.5px] font-medium text-[#c9d3ea]">
+                    پیش‌نمایش نمادهای معتبر
+                  </div>
+                  <div className="max-h-48 overflow-auto">
+                    <table className="w-full min-w-[520px] text-start text-[12.5px]">
+                      <thead className="sticky top-0 bg-[#121826] text-[var(--a-muted)]">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">نماد</th>
+                          <th className="px-3 py-2 font-medium">توضیح</th>
+                          <th className="px-3 py-2 font-medium">بازار</th>
+                          <th className="px-3 py-2 font-medium">Dukascopy</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {preview.ok.slice(0, 80).map((row) => (
+                          <tr key={row.draft.symbol}>
+                            <td className="px-3 py-2 font-medium">{row.draft.symbol}</td>
+                            <td className="px-3 py-2 text-[var(--a-muted)]">{row.draft.description}</td>
+                            <td className="px-3 py-2 text-[var(--a-muted)]">{row.draft.assetClass}</td>
+                            <td className="px-3 py-2 font-mono text-[12px] text-[#9ec0ff]">
+                              {row.draft.dukascopyId || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {commitError ? <Callout tone="bad">{commitError}</Callout> : null}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-5 py-4">
+          <button type="button" className={BTN_GHOST} disabled={busy || !fileName} onClick={resetFile}>
+            پاک کردن فایل
+          </button>
+          <div className="flex gap-2">
+            <button type="button" className={BTN_GHOST} disabled={busy} onClick={onCancel}>
+              انصراف
+            </button>
+            <button type="button" className={BTN_PRIMARY} disabled={!canCommit} onClick={() => void commit()}>
+              {busy ? <Spinner /> : <Icon name="check" />}
+              {busy ? 'در حال ذخیره…' : `تأیید و ورود ${preview ? faNum(preview.ok.length) : ''} نماد`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    portal,
   );
 }
 

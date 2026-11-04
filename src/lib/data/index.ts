@@ -63,4 +63,16 @@ export {
   type HourPreset,
   type InstrumentDraft,
 } from './catalog/instrument-form';
+export {
+  INSTRUMENT_IMPORT_COLUMNS,
+  INSTRUMENT_IMPORT_HINT,
+  MAX_INSTRUMENT_IMPORT_ROWS,
+  instrumentImportCsvTemplate,
+  instrumentImportJsonTemplate,
+  parseInstrumentCatalogFile,
+  type InstrumentImportColumn,
+  type InstrumentImportIssue,
+  type InstrumentImportOk,
+  type InstrumentImportPreview,
+} from './catalog/instrument-import';
 export { GOLD_MODEL, MOCK_MODELS, type MockModel } from './mock/models';
