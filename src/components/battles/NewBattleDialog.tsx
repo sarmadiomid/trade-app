@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   BATTLE_ASSETS,
   BATTLE_SPEEDS,
@@ -20,7 +20,12 @@ import {
   type WinCondition,
 } from '@/lib/battles';
 import { faNum } from '@/lib/locale/jalali';
-import { instrumentSpec } from '@/lib/data';
+import {
+  customCatalogVersion,
+  customInstruments,
+  ensureCustomCatalog,
+  subscribeCustomCatalog,
+} from '@/lib/data';
 import { isPlanLimitMessage } from '@/lib/app';
 import { api } from '../platform/api';
 import { Button } from '../ui/Button';
@@ -31,10 +36,8 @@ import { duration } from '../backtest/format';
 import { SymbolField } from '../market/SymbolField';
 import { ASSET_COLORS, WIN_FA, compactMoney, faMessage, minutes } from './format';
 
-const BATTLE_INSTRUMENTS = BATTLE_ASSETS.map((symbol) => ({
-  symbol,
-  description: instrumentSpec(symbol)?.description ?? symbol,
-}));
+/** Battle engine still replays mock builtins; only show ones also published in the DB catalogue. */
+const BATTLE_ASSET_SET = new Set<string>(BATTLE_ASSETS);
 
 const STEPS = ['نوع نبرد', 'بازار', 'قانون‌ها', 'بازبینی'] as const;
 
@@ -55,6 +58,25 @@ export function NewBattleDialog({
   const [s, setS] = useState<BattleSettings>({ ...DEFAULT_SETTINGS, name: `نبرد ${hostName}` });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const catalogTick = useSyncExternalStore(subscribeCustomCatalog, customCatalogVersion, () => 0);
+  const instruments = useMemo(() => {
+    if (catalogTick < 0) return [];
+    return customInstruments()
+      .filter((item) => BATTLE_ASSET_SET.has(item.symbol))
+      .map((item) => ({ symbol: item.symbol, description: item.description }));
+  }, [catalogTick]);
+  useEffect(() => {
+    void ensureCustomCatalog();
+  }, []);
+  useEffect(() => {
+    if (instruments.length === 0) return;
+    const allowed = new Set(instruments.map((item) => item.symbol));
+    setS((prev) => {
+      const assets = prev.assets.filter((symbol) => allowed.has(symbol));
+      if (assets.length === prev.assets.length) return prev;
+      return { ...prev, assets };
+    });
+  }, [instruments]);
   const set = (patch: Partial<BattleSettings>) => {
     setS((prev) => ({ ...prev, ...patch }));
     setError(null);
@@ -258,7 +280,7 @@ export function NewBattleDialog({
               <SymbolField
                 tone="battle"
                 multiple
-                instruments={BATTLE_INSTRUMENTS}
+                instruments={instruments}
                 picked={s.assets}
                 onChange={toggleAsset}
                 listId="battle-symbols"

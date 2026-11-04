@@ -21,8 +21,6 @@ import {
   customRange,
   customSpec,
   instrumentSpec,
-  isBuiltinDisabled,
-  INSTRUMENTS,
 } from '@/lib/data';
 import { MemoryStorage, NamespacedStorage } from '@/lib/storage';
 import { RemoteBacktestRepository } from './remote-repository';
@@ -74,13 +72,8 @@ export function createBacktestServices(
   return {
     market: m,
     repo,
-    instruments: () => {
-      const built = INSTRUMENTS.filter(
-        (item) => !isBuiltinDisabled(item.symbol) && m.searchSymbols(item.symbol).length > 0,
-      );
-      const seen = new Set(built.map((item) => item.symbol));
-      return [...built, ...customInstruments().filter((item) => !seen.has(item.symbol))];
-    },
+    // Practice picker: only admin-published catalogue rows (MongoDB), never seed builtins.
+    instruments: () => customInstruments(),
     spec,
     dataRange: (symbol) => customRange(symbol) ?? m.dataRange(symbol),
     async create(settings) {

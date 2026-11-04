@@ -92,6 +92,11 @@ export function CreateSessionDialog({
   const [section, setSection] = useState<Section>('basics');
   const [tried, setTried] = useState(false);
   const [symbol, setSymbol] = useState(initial?.symbol ?? instruments[0]?.symbol ?? 'XAUUSD');
+  useEffect(() => {
+    if (instruments.length === 0) return;
+    if (instruments.some((item) => item.symbol === symbol)) return;
+    setSymbol(instruments[0]!.symbol);
+  }, [instruments, symbol]);
   const initialSpec = services.spec(symbol);
   const [balance, setBalance] = useState(initial?.startingBalance ?? 100_000);
   const [customBalance, setCustomBalance] = useState(
