@@ -393,7 +393,7 @@ function normalizeRow(input: Record<string, unknown>): Record<string, unknown> {
   }
   if (typeof out.dukascopyId === 'string') {
     out.dukascopyId = out.dukascopyId.trim().toLowerCase();
-  } else if (out.dukascopyId == null) {
+  } else if (out.dukascopyId === null || out.dukascopyId === undefined) {
     out.dukascopyId = '';
   }
   return out;
