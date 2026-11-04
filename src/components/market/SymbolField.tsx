@@ -64,6 +64,7 @@ const SYMBOL_CATEGORIES: ReadonlyArray<{ id: SymbolCategory; label: string }> = 
   { id: 'forex', label: 'فارکس' },
   { id: 'indices', label: 'شاخص‌ها' },
   { id: 'crypto', label: 'کریپتو' },
+  { id: 'stocks', label: 'سهام' },
   { id: 'favorites', label: 'علاقه‌مندی‌ها' },
 ];
 

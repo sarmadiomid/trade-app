@@ -170,7 +170,7 @@ export function symbolAllowed(plan: PlanId, symbol: string): boolean {
   return e.indices;
 }
 
-/** Cheapest plan that unlocks `symbol`. Gold is Beginner; indices are Professional. */
+/** Cheapest plan that unlocks `symbol`. Gold is Beginner; indices/stocks are Professional. */
 export function symbolMinPlan(symbol: string): PlanId {
   if (isGoldSymbol(symbol)) return 'beginner';
   const kind = assetClassOf(symbol);
@@ -194,6 +194,7 @@ export function symbolDenial(plan: PlanId, symbol: string): string | null {
   if (kind === 'metals') return requiresPlan('سایر فلزات', 'mid');
   if (kind === 'forex') return requiresPlan('نمادهای فارکس', 'mid');
   if (kind === 'crypto') return requiresPlan('کریپتو', 'mid');
+  if (kind === 'stocks') return requiresPlan('سهام', 'pro');
   return requiresPlan('شاخص‌ها', 'pro');
 }
 

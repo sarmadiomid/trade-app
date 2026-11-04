@@ -95,6 +95,7 @@ const ASSETS: ReadonlyArray<{ id: AssetClass; label: string }> = [
   { id: 'metals', label: 'فلزات' },
   { id: 'indices', label: 'شاخص' },
   { id: 'crypto', label: 'رمزارز' },
+  { id: 'stocks', label: 'سهام' },
 ];
 
 const HOURS: ReadonlyArray<{ id: HourPreset; label: string }> = [
@@ -102,6 +103,7 @@ const HOURS: ReadonlyArray<{ id: HourPreset; label: string }> = [
   { id: 'metals', label: 'فلزات، وقفه ۲۱ تا ۲۲' },
   { id: 'indices', label: 'شاخص، مثل فلزات' },
   { id: 'crypto', label: 'شبانه‌روزی' },
+  { id: 'stocks', label: 'سهام، مثل شاخص' },
 ];
 
 const TIMEFRAMES: ReadonlyArray<{ id: TimeframeId; label: string }> = [

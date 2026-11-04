@@ -1,8 +1,8 @@
 import { decimalsOf, type InstrumentSpec, type TradingHours } from '@/lib/core';
 import type { AssetClass } from '../instruments';
 
-export const ASSET_CLASSES = ['metals', 'forex', 'indices', 'crypto'] as const;
-export const HOUR_PRESETS = ['forex', 'metals', 'indices', 'crypto'] as const;
+export const ASSET_CLASSES = ['metals', 'forex', 'indices', 'crypto', 'stocks'] as const;
+export const HOUR_PRESETS = ['forex', 'metals', 'indices', 'crypto', 'stocks'] as const;
 export type HourPreset = (typeof HOUR_PRESETS)[number];
 
 const FOREX_HOURS: TradingHours = {
@@ -29,6 +29,7 @@ export const HOURS_BY_PRESET: Readonly<Record<HourPreset, TradingHours>> = {
   metals: METALS_HOURS,
   indices: METALS_HOURS,
   crypto: CRYPTO_HOURS,
+  stocks: METALS_HOURS,
 };
 
 export interface InstrumentDraft {
@@ -176,11 +177,23 @@ function nonNegative(value: unknown): number | null {
 }
 
 function isAssetClass(value: unknown): value is AssetClass {
-  return value === 'metals' || value === 'forex' || value === 'indices' || value === 'crypto';
+  return (
+    value === 'metals' ||
+    value === 'forex' ||
+    value === 'indices' ||
+    value === 'crypto' ||
+    value === 'stocks'
+  );
 }
 
 function isHourPreset(value: unknown): value is HourPreset {
-  return value === 'forex' || value === 'metals' || value === 'indices' || value === 'crypto';
+  return (
+    value === 'forex' ||
+    value === 'metals' ||
+    value === 'indices' ||
+    value === 'crypto' ||
+    value === 'stocks'
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
