@@ -253,7 +253,11 @@ export function parseInstrumentCatalogFile(
       typeof input.symbol === 'string' ? input.symbol.trim().toUpperCase() : undefined;
     const parsed = parseInstrumentDraft(input, reserved);
     if (!parsed.ok) {
-      issues.push({ row: rowNumber, symbol: symbolHint, error: parsed.error });
+      issues.push({
+        row: rowNumber,
+        ...(symbolHint !== undefined ? { symbol: symbolHint } : {}),
+        error: parsed.error,
+      });
       continue;
     }
     if (seen.has(parsed.draft.symbol)) {

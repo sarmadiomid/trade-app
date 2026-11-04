@@ -277,7 +277,11 @@ export async function importInstruments(input: unknown): Promise<InstrumentImpor
         : undefined;
     const parsed = parseInstrumentDraft(item, reserved);
     if (!parsed.ok) {
-      failures.push({ index: i, symbol: symbolHint, error: parsed.error });
+      failures.push({
+        index: i,
+        ...(symbolHint !== undefined ? { symbol: symbolHint } : {}),
+        error: parsed.error,
+      });
       continue;
     }
     if (seen.has(parsed.draft.symbol)) {
