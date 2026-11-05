@@ -51,7 +51,7 @@ export async function getIngestFleetSnapshot(): Promise<IngestFleetSnapshot> {
     if (phase === 'running') {
       runningCount += 1;
       const since = doc.ingest?.runningSince?.getTime();
-      if (since != null) running.push({ symbol: doc._id, runningSince: since });
+      if (typeof since === 'number') running.push({ symbol: doc._id, runningSince: since });
     } else if (phase === 'error') {
       errorCount += 1;
       if (errors.length < 20) {

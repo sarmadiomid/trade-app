@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   agentRules: false,
   devIndicators: false,
+  // Keep dukascopy-node out of the Turbopack graph. It pulls fastest-validator,
+  // which optionally requires cli-highlight and breaks the production build.
+  serverExternalPackages: ['dukascopy-node', 'fastest-validator'],
   async headers() {
     const marketingCache = [
       {

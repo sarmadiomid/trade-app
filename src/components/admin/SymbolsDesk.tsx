@@ -911,7 +911,13 @@ export function SymbolsDesk() {
       .finally(() => {
         if (live) setLoading(false);
       });
-    void loadFleet();
+    void api<IngestFleetSnapshot>('/api/admin/ingest')
+      .then((body) => {
+        if (live) setFleet(body);
+      })
+      .catch(() => {
+        /* strip is best-effort */
+      });
     return () => {
       live = false;
     };

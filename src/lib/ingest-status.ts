@@ -15,7 +15,7 @@ export interface IngestPhaseInput {
 export function ingestPhase(input: IngestPhaseInput): IngestPhase {
   if (!input.dukascopyId) return 'idle';
   if (input.enabled === false) return 'idle';
-  if (input.runningSince != null) return 'running';
+  if (typeof input.runningSince === 'number') return 'running';
   if (input.lastError) return 'error';
   if (!input.bootstrapped) return 'pending';
   return 'ok';
