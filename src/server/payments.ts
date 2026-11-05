@@ -7,11 +7,11 @@ import {
   isSepResNum,
   isSepStateOk,
   isZarinpalAuthority,
-  parseSepReturn,
   paymentDescription,
   sepStateMessage,
   type PaymentGatewayId,
   type PaymentStatus,
+  type SepReturnFields,
 } from '@/lib/app/billing/gateway';
 import { normalizeIranianMobile } from '@/auth/phone';
 import {
@@ -233,9 +233,7 @@ export async function settleZarinpalReturn(input: {
  * SEP posts (or GETs) State / RefNum / ResNum after OnlinePG. State OK still requires
  * VerifyTransaction, amount match, and a RefNum that was never spent on another order.
  */
-export async function settleSepReturn(
-  fields: ReturnType<typeof parseSepReturn>,
-): Promise<GatewayReturn> {
+export async function settleSepReturn(fields: SepReturnFields): Promise<GatewayReturn> {
   if (!isSepResNum(fields.resNum)) return { paymentId: null, outcome: 'missing' };
   const { payments } = await collections();
   const payment = await payments.findOne({ _id: new ObjectId(fields.resNum) });

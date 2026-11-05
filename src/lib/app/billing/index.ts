@@ -36,7 +36,9 @@ export {
   checkoutCharge,
   isPaymentGateway,
   isPaymentRedirect,
+  parseSepReturn,
   type PaymentGatewayId,
+  type SepReturnFields,
 } from './gateway';
 export {
   currentPlan,

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { parseSepReturn } from '@/lib/app/billing/gateway';
+import { parseSepReturn, type SepReturnFields } from '@/lib/app';
 import { publicOrigin } from '@/server/http';
 import { settleSepReturn, settleZarinpalReturn } from '@/server/payments';
 
@@ -86,7 +86,7 @@ async function redirectZarinpal(req: NextRequest, authority: string, status: str
   return response;
 }
 
-async function redirectSep(req: NextRequest, fields: ReturnType<typeof parseSepReturn>) {
+async function redirectSep(req: NextRequest, fields: SepReturnFields) {
   const origin = publicOrigin(req) ?? req.nextUrl.origin;
   const destination = new URL('/home/checkout/result', origin);
   try {

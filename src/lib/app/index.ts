@@ -56,6 +56,7 @@ export {
   normalizePlan,
   openPlanPrompt,
   openWelcomePlanPrompt,
+  parseSepReturn,
   planPrompt,
   planPromptKind,
   queueWelcomePlan,
@@ -72,4 +73,5 @@ export {
   type DiscountQuote,
   type PaymentGatewayId,
   type PlanId,
+  type SepReturnFields,
 } from './billing';
