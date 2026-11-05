@@ -227,7 +227,7 @@ export interface PaymentDoc {
   /** Toman charged. Zero means the bank was not called. */
   amount: number;
   currency: 'IRT';
-  /** Zarinpal authority, or `free-…` when nothing was charged. */
+  /** Zarinpal authority, SEP token, or `free-…` when nothing was charged. */
   authority: string;
   status: PaymentStatus;
   refId: string | null;

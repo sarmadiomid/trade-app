@@ -95,11 +95,13 @@ describe('checkout charge', () => {
     expect(checkoutCharge('zarinpal', 0)).toEqual({ ok: true, kind: 'free' });
   });
 
-  it('refuses a tiny amount and the unfinished SEP gateway', () => {
+  it('refuses a tiny amount and accepts SEP toman charges', () => {
     expect(checkoutCharge('zarinpal', 999).ok).toBe(false);
-    expect(checkoutCharge('sep', 199_000)).toMatchObject({
-      ok: false,
-      error: 'درگاه سپ هنوز فعال نشده است',
+    expect(checkoutCharge('sep', 999).ok).toBe(false);
+    expect(checkoutCharge('sep', 199_000)).toEqual({
+      ok: true,
+      kind: 'sep',
+      amount: 199_000,
     });
   });
 });

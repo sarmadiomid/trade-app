@@ -45,7 +45,7 @@ const GATEWAYS: readonly {
     name: 'سپ (سامان)',
     detail: 'پرداخت از درگاه بانک سامان',
     mark: 'سپ',
-    ready: false,
+    ready: true,
   },
 ];
 
@@ -107,7 +107,7 @@ export function CheckoutView({
   const holdPay = discountPending && !alreadyOnPlan;
 
   const startPay = async () => {
-    if (payPending || gateway !== 'zarinpal') return;
+    if (payPending || !GATEWAYS.some((item) => item.id === gateway && item.ready)) return;
     setPayPending(true);
     setPayError(null);
     try {
@@ -135,6 +135,9 @@ export function CheckoutView({
       setPayPending(false);
     }
   };
+
+  const payLabel =
+    gateway === 'sep' ? 'پرداخت با سپ' : gateway === 'zarinpal' ? 'پرداخت با زرین‌پال' : 'پرداخت';
 
   const pickCycle = (next: BillingCycle) => {
     if (next === cycle) return;
@@ -403,14 +406,6 @@ export function CheckoutView({
                     >
                       در حال بررسی کد
                     </span>
-                  ) : gateway === 'sep' ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="mt-4 inline-flex h-12 w-full cursor-default items-center justify-center rounded-full bg-[var(--h-accent)] text-[14.5px] font-bold text-white opacity-60"
-                    >
-                      درگاه سپ به‌زودی فعال می‌شود
-                    </button>
                   ) : (
                     <button
                       type="button"
@@ -419,8 +414,12 @@ export function CheckoutView({
                       onClick={() => void startPay()}
                       className="mt-4 inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full bg-[var(--h-accent)] px-4 text-[14.5px] font-bold text-white shadow-lg shadow-accent/40 transition hover:brightness-110 disabled:cursor-default disabled:opacity-70 motion-safe:active:scale-[0.99]"
                     >
-                      {payPending ? null : <ZarinpalLogo />}
-                      {payPending ? 'در حال اتصال به درگاه' : 'پرداخت با زرین‌پال'}
+                      {payPending ? null : gateway === 'zarinpal' ? (
+                        <ZarinpalLogo />
+                      ) : gateway === 'sep' ? (
+                        <SepLogo />
+                      ) : null}
+                      {payPending ? 'در حال اتصال به درگاه' : payLabel}
                       {payPending ? null : (
                         <Icon name="chevronRight" size={16} className="rtl:-scale-x-100" />
                       )}
@@ -469,6 +468,22 @@ function ZarinpalLogo() {
   );
 }
 
+/** Official SEP wordmark from sep.ir. Blue mark on a white chip, same as Zarinpal. */
+function SepLogo() {
+  return (
+    <span className="inline-flex h-7 shrink-0 items-center rounded-md bg-white px-1.5 ring-1 ring-black/10">
+      <Image
+        src="/billing/sep.png"
+        alt=""
+        width={104}
+        height={65}
+        unoptimized
+        className="h-5 w-auto"
+      />
+    </span>
+  );
+}
+
 function GatewayPicker({
   gateway,
   sandbox,
@@ -500,6 +515,8 @@ function GatewayPicker({
             >
               {option.id === 'zarinpal' ? (
                 <ZarinpalLogo />
+              ) : option.id === 'sep' ? (
+                <SepLogo />
               ) : (
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[12px] font-bold ${
@@ -514,11 +531,6 @@ function GatewayPicker({
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="text-[14px] font-semibold">{option.name}</span>
-                  {option.ready ? null : (
-                    <span className="rounded-md bg-[var(--h-chip)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--h-muted)]">
-                      به‌زودی
-                    </span>
-                  )}
                 </span>
                 <span className="mt-0.5 block text-[12px] leading-5 text-[var(--h-muted)]">
                   {option.detail}

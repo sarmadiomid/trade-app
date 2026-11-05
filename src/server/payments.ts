@@ -3,8 +3,13 @@ import { ObjectId } from 'mongodb';
 import { PLAN_LABEL } from '@/lib/app/billing/entitlements';
 import {
   checkoutCharge,
+  isSepRefNum,
+  isSepResNum,
+  isSepStateOk,
   isZarinpalAuthority,
+  parseSepReturn,
   paymentDescription,
+  sepStateMessage,
   type PaymentGatewayId,
   type PaymentStatus,
 } from '@/lib/app/billing/gateway';
@@ -24,6 +29,7 @@ import {
   releaseDiscountReserve,
   reserveDiscountCode,
 } from './discounts';
+import { requestSepPayment, verifySepPayment } from './sep';
 import { requestZarinpalPayment, verifyZarinpalPayment } from './zarinpal';
 
 export type CheckoutStart =
@@ -42,12 +48,15 @@ export interface PaymentReceipt {
   readonly failureMessage: string | null;
 }
 
-export type ZarinpalReturn =
+export type GatewayReturn =
   | { readonly paymentId: string; readonly outcome: 'paid' | 'canceled' | 'failed' | 'error' }
   | { readonly paymentId: null; readonly outcome: 'missing' };
 
+/** @deprecated Prefer GatewayReturn; kept for existing callback imports. */
+export type ZarinpalReturn = GatewayReturn;
+
 /**
- * Prices the order on the server and sends the buyer to Zarinpal.
+ * Prices the order on the server and sends the buyer to the selected bank gateway.
  * A zero total (a full discount) activates the plan without a bank call.
  */
 export async function startCheckout(input: {
@@ -107,21 +116,51 @@ export async function startCheckout(input: {
   }
 
   const id = new ObjectId();
+  const callbackUrl = `${input.origin}/api/billing/callback`;
+  const mobile = normalizeIranianMobile(input.phone);
+
+  if (charge.kind === 'sep') {
+    const requested = await requestSepPayment({
+      amount: charge.amount,
+      resNum: id.toHexString(),
+      callbackUrl,
+      mobile,
+    });
+    if (!requested.ok) {
+      if (reserved) await releaseDiscountReserve(code);
+      return { ok: false, status: 502, error: requested.message };
+    }
+    const stored = await storePendingPayment({
+      id,
+      userId: input.userId,
+      gateway: 'sep',
+      planId: input.planId,
+      cycle: input.cycle,
+      code,
+      subtotal,
+      discount,
+      amount: charge.amount,
+      authority: requested.token,
+      fee: null,
+      reserved,
+    });
+    if (!stored.ok) return stored;
+    return { ok: true, url: requested.url };
+  }
+
   const requested = await requestZarinpalPayment({
     amount: charge.amount,
     description: paymentDescription(PLAN_LABEL[input.planId], input.cycle),
-    callbackUrl: `${input.origin}/api/billing/callback`,
-    mobile: normalizeIranianMobile(input.phone),
+    callbackUrl,
+    mobile,
     orderId: id.toHexString(),
   });
   if (!requested.ok) {
     if (reserved) await releaseDiscountReserve(code);
     return { ok: false, status: 502, error: requested.message };
   }
-
-  const now = new Date();
-  const doc: PaymentDoc = {
-    _id: id,
+  const stored = await storePendingPayment({
+    id,
     userId: input.userId,
     gateway: 'zarinpal',
     planId: input.planId,
@@ -130,27 +169,17 @@ export async function startCheckout(input: {
     subtotal,
     discount,
     amount: charge.amount,
-    currency: 'IRT',
     authority: requested.authority,
-    status: 'pending',
-    refId: null,
-    cardPan: null,
     fee: requested.fee,
-    failureMessage: null,
-    discountError: null,
-    createdAt: now,
-    paidAt: null,
-  };
-  try {
-    const { payments } = await collections();
-    await payments.insertOne(doc);
-  } catch (error) {
-    if (reserved) await releaseDiscountReserve(code);
-    console.error('[billing] could not store Zarinpal authority', id.toHexString(), error);
-    return { ok: false, status: 500, error: 'ثبت پرداخت انجام نشد' };
-  }
+    reserved,
+  });
+  if (!stored.ok) return stored;
   return { ok: true, url: requested.url };
 }
+
+type StorePending =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly status: number; readonly error: string };
 
 /**
  * Zarinpal sends the browser back with Authority and Status. Status OK is verified
@@ -159,7 +188,7 @@ export async function startCheckout(input: {
 export async function settleZarinpalReturn(input: {
   readonly authority: string;
   readonly status: string;
-}): Promise<ZarinpalReturn> {
+}): Promise<GatewayReturn> {
   if (!isZarinpalAuthority(input.authority)) return { paymentId: null, outcome: 'missing' };
   const { payments } = await collections();
   const payment = await payments.findOne({ authority: input.authority });
@@ -193,41 +222,98 @@ export async function settleZarinpalReturn(input: {
     return { paymentId, outcome: verified.retry ? 'error' : 'failed' };
   }
 
-  let discountError: string | null = null;
-  if (payment.code) {
-    try {
-      const committed = await commitDiscountRedemption({
-        userId: payment.userId,
-        code: payment.code,
-        planId: payment.planId,
-        cycle: payment.cycle,
-      });
-      if (!committed.ok) {
-        console.error('[billing] discount after payment', committed.error);
-        discountError = committed.error;
-      }
-    } catch (error) {
-      console.error('[billing] discount after payment', error);
-      discountError = 'ثبت کد تخفیف انجام نشد';
+  return finalizePaidPayment(payment, {
+    refId: verified.refId,
+    cardPan: verified.cardPan,
+    fee: verified.fee,
+  });
+}
+
+/**
+ * SEP posts (or GETs) State / RefNum / ResNum after OnlinePG. State OK still requires
+ * VerifyTransaction, amount match, and a RefNum that was never spent on another order.
+ */
+export async function settleSepReturn(
+  fields: ReturnType<typeof parseSepReturn>,
+): Promise<GatewayReturn> {
+  if (!isSepResNum(fields.resNum)) return { paymentId: null, outcome: 'missing' };
+  const { payments } = await collections();
+  const payment = await payments.findOne({ _id: new ObjectId(fields.resNum) });
+  if (!payment || payment.gateway !== 'sep') return { paymentId: null, outcome: 'missing' };
+  const paymentId = payment._id.toHexString();
+  if (payment.status === 'paid') return { paymentId, outcome: 'paid' };
+
+  if (!isSepStateOk(fields.state)) {
+    const canceled = fields.state.trim() === 'CanceledByUser';
+    if (payment.status === 'pending') {
+      await payments.updateOne(
+        { _id: payment._id, status: 'pending' },
+        {
+          $set: {
+            status: canceled ? 'canceled' : 'failed',
+            failureMessage: sepStateMessage(fields.state),
+          },
+        },
+      );
+      if (payment.code) await releaseDiscountReserve(payment.code);
     }
+    if (payment.status === 'failed') return { paymentId, outcome: 'failed' };
+    return { paymentId, outcome: canceled || payment.status === 'canceled' ? 'canceled' : 'failed' };
   }
 
-  await setUserPlan(payment.userId, payment.planId);
-  await payments.updateOne(
-    { _id: payment._id, status: { $in: ['pending', 'failed', 'canceled'] } },
-    {
-      $set: {
-        status: 'paid',
-        refId: verified.refId,
-        cardPan: verified.cardPan,
-        fee: verified.fee,
-        paidAt: new Date(),
-        failureMessage: null,
-        ...(discountError ? { discountError } : {}),
-      },
-    },
-  );
-  return { paymentId, outcome: 'paid' };
+  if (!isSepRefNum(fields.refNum)) {
+    if (payment.status === 'pending') {
+      await payments.updateOne(
+        { _id: payment._id, status: 'pending' },
+        { $set: { status: 'failed', failureMessage: 'رسید دیجیتالی سپ نامعتبر است' } },
+      );
+      if (payment.code) await releaseDiscountReserve(payment.code);
+    }
+    return { paymentId, outcome: 'failed' };
+  }
+
+  const spent = await payments.findOne({
+    refId: fields.refNum,
+    status: 'paid',
+    _id: { $ne: payment._id },
+  });
+  if (spent) {
+    if (payment.status === 'pending') {
+      await payments.updateOne(
+        { _id: payment._id, status: 'pending' },
+        { $set: { status: 'failed', failureMessage: 'رسید دیجیتالی قبلاً مصرف شده است' } },
+      );
+      if (payment.code) await releaseDiscountReserve(payment.code);
+    }
+    return { paymentId, outcome: 'failed' };
+  }
+
+  const verified = await verifySepPayment({
+    amount: payment.amount,
+    refNum: fields.refNum,
+  });
+  if (!verified.ok) {
+    if (!verified.retry && payment.status === 'pending') {
+      await payments.updateOne(
+        { _id: payment._id, status: 'pending' },
+        {
+          $set: {
+            status: 'failed',
+            failureMessage: verified.message,
+            ...(verified.amountMismatch ? { refId: verified.refNum } : {}),
+          },
+        },
+      );
+      if (payment.code) await releaseDiscountReserve(payment.code);
+    }
+    return { paymentId, outcome: verified.retry ? 'error' : 'failed' };
+  }
+
+  return finalizePaidPayment(payment, {
+    refId: verified.refNum,
+    cardPan: verified.cardPan ?? (fields.securePan || null),
+    fee: payment.fee,
+  });
 }
 
 /** The signed-in buyer's receipt. Another account's payment is hidden. */
@@ -250,6 +336,99 @@ export async function paymentReceipt(
     cardPan: doc.cardPan,
     failureMessage: doc.failureMessage,
   };
+}
+
+async function finalizePaidPayment(
+  payment: PaymentDoc,
+  verified: {
+    readonly refId: string;
+    readonly cardPan: string | null;
+    readonly fee: number | null;
+  },
+): Promise<GatewayReturn> {
+  const paymentId = payment._id.toHexString();
+  let discountError: string | null = null;
+  if (payment.code) {
+    try {
+      const committed = await commitDiscountRedemption({
+        userId: payment.userId,
+        code: payment.code,
+        planId: payment.planId,
+        cycle: payment.cycle,
+      });
+      if (!committed.ok) {
+        console.error('[billing] discount after payment', committed.error);
+        discountError = committed.error;
+      }
+    } catch (error) {
+      console.error('[billing] discount after payment', error);
+      discountError = 'ثبت کد تخفیف انجام نشد';
+    }
+  }
+
+  await setUserPlan(payment.userId, payment.planId);
+  const { payments } = await collections();
+  await payments.updateOne(
+    { _id: payment._id, status: { $in: ['pending', 'failed', 'canceled'] } },
+    {
+      $set: {
+        status: 'paid',
+        refId: verified.refId,
+        cardPan: verified.cardPan,
+        fee: verified.fee,
+        paidAt: new Date(),
+        failureMessage: null,
+        ...(discountError ? { discountError } : {}),
+      },
+    },
+  );
+  return { paymentId, outcome: 'paid' };
+}
+
+async function storePendingPayment(input: {
+  readonly id: ObjectId;
+  readonly userId: ObjectId;
+  readonly gateway: 'zarinpal' | 'sep';
+  readonly planId: PaidPlanId;
+  readonly cycle: BillingCycle;
+  readonly code: string;
+  readonly subtotal: number;
+  readonly discount: number;
+  readonly amount: number;
+  readonly authority: string;
+  readonly fee: number | null;
+  readonly reserved: boolean;
+}): Promise<StorePending> {
+  const doc: PaymentDoc = {
+    _id: input.id,
+    userId: input.userId,
+    gateway: input.gateway,
+    planId: input.planId,
+    cycle: input.cycle,
+    code: input.code,
+    subtotal: input.subtotal,
+    discount: input.discount,
+    amount: input.amount,
+    currency: 'IRT',
+    authority: input.authority,
+    status: 'pending',
+    refId: null,
+    cardPan: null,
+    fee: input.fee,
+    failureMessage: null,
+    discountError: null,
+    createdAt: new Date(),
+    paidAt: null,
+  };
+  try {
+    const { payments } = await collections();
+    await payments.insertOne(doc);
+  } catch (error) {
+    if (input.reserved) await releaseDiscountReserve(input.code);
+    console.error('[billing] could not store payment authority', input.id.toHexString(), error);
+    return { ok: false, status: 500, error: 'ثبت پرداخت انجام نشد' };
+  }
+  return { ok: true };
 }
 
 async function fulfillFreeOrder(input: {

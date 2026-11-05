@@ -6,7 +6,7 @@ import { startCheckout } from '@/server/payments';
 
 export const dynamic = 'force-dynamic';
 
-/** Starts a Zarinpal payment for the signed-in buyer. The amount is priced here, not taken from the client. */
+/** Starts a Zarinpal or SEP payment for the signed-in buyer. The amount is priced here, not taken from the client. */
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return json({ error: 'Forbidden' }, 403);
   try {
