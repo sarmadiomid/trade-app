@@ -311,6 +311,8 @@ export interface InstrumentIngestState {
   enabled: boolean;
   /** Set after a successful 3-year (or configured) bootstrap. */
   bootstrappedAt: Date | null;
+  /** Non-null while a bootstrap/refresh download is in flight. */
+  runningSince: Date | null;
   lastRunAt: Date | null;
   lastSuccessAt: Date | null;
   lastError: string | null;

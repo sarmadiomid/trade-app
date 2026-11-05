@@ -42,6 +42,7 @@ describe('dukascopy ingest windows', () => {
           ingest: {
             enabled: true,
             bootstrappedAt: new Date('2024-01-01'),
+            runningSince: null,
             lastRunAt: null,
             lastSuccessAt: null,
             lastError: null,
@@ -69,6 +70,7 @@ describe('dukascopy ingest windows', () => {
         ingest: {
           enabled: true,
           bootstrappedAt: new Date('2025-01-01'),
+          runningSince: null,
           lastRunAt: null,
           lastSuccessAt: null,
           lastError: null,

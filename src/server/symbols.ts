@@ -37,6 +37,7 @@ const RESERVED = new Set(INSTRUMENTS.map((item) => item.symbol));
 export interface AdminIngestStatus {
   readonly enabled: boolean;
   readonly bootstrapped: boolean;
+  readonly runningSince: number | null;
   readonly lastRunAt: number | null;
   readonly lastSuccessAt: number | null;
   readonly lastError: string | null;
@@ -566,6 +567,7 @@ function toIngestStatus(state: InstrumentIngestState | null): AdminIngestStatus 
   return {
     enabled: state.enabled !== false,
     bootstrapped: state.bootstrappedAt !== null,
+    runningSince: state.runningSince?.getTime() ?? null,
     lastRunAt: state.lastRunAt?.getTime() ?? null,
     lastSuccessAt: state.lastSuccessAt?.getTime() ?? null,
     lastError: state.lastError,
@@ -587,6 +589,7 @@ function nextIngestOnSave(
   return {
     enabled: true,
     bootstrappedAt: null,
+    runningSince: null,
     lastRunAt: null,
     lastSuccessAt: null,
     lastError: null,

@@ -6,6 +6,13 @@ import type { InstrumentDoc, InstrumentIngestState } from '../db';
 import { collections } from '../db';
 import { importSymbolBars, SymbolError } from '../symbols';
 import { ingestConfig } from './config';
+import {
+  DOWNLOAD_CHUNK_DAY_MS,
+  DOWNLOAD_CHUNK_MONTH_MS,
+  DOWNLOAD_CHUNK_WEEK_MS,
+  downloadChunks,
+  isDukascopyEmptyBatchError,
+} from './download';
 import { INGEST_TIMEFRAMES, type DukascopyTimeframe } from './timeframes';
 import { windowFor, type IngestMode } from './windows';
 
@@ -73,6 +80,7 @@ export async function ingestSymbol(
 
   const { from, to } = windowFor(doc, mode, now);
   await patchIngest(doc._id, {
+    runningSince: new Date(now),
     lastRunAt: new Date(now),
     lastError: null,
     lastFrom: from,
@@ -96,6 +104,7 @@ export async function ingestSymbol(
 
     const successAt = new Date();
     const ingestPatch: Partial<InstrumentIngestState> = {
+      runningSince: null,
       lastSuccessAt: successAt,
       lastError: null,
       lastBarCount: imported,
@@ -110,6 +119,7 @@ export async function ingestSymbol(
   } catch (err) {
     const message = formatIngestError(err);
     await patchIngest(doc._id, {
+      runningSince: null,
       lastError: message,
       lastFrom: from,
       lastTo: to,
@@ -159,6 +169,82 @@ async function downloadCandles(
   to: number,
 ): Promise<DukascopyCandle[]> {
   if (to <= from) return [];
+  try {
+    return await downloadCandlesRange(instrument, timeframe, from, to);
+  } catch (err) {
+    if (!isDukascopyEmptyBatchError(err)) throw err;
+    // dukascopy-node getOHLC crashes on empty day batches inside a wide window.
+    // Fall back to monthly slices so pairs with short/sparse history still import.
+    console.warn(
+      `[ingest] ${instrument} ${timeframe}: empty-batch crash on full window; retrying monthly`,
+    );
+    return downloadCandlesChunked(instrument, timeframe, from, to);
+  }
+}
+
+async function downloadCandlesChunked(
+  instrument: string,
+  timeframe: DukascopyTimeframe,
+  from: number,
+  to: number,
+): Promise<DukascopyCandle[]> {
+  const out: DukascopyCandle[] = [];
+  for (const month of downloadChunks(from, to, DOWNLOAD_CHUNK_MONTH_MS)) {
+    const part = await downloadCandlesRefining(instrument, timeframe, month.from, month.to, [
+      DOWNLOAD_CHUNK_WEEK_MS,
+      DOWNLOAD_CHUNK_DAY_MS,
+    ]);
+    out.push(...part);
+    if (ingestConfig.pauseBetweenTimeframesMs > 0) {
+      await sleep(ingestConfig.pauseBetweenTimeframesMs);
+    }
+  }
+  return out;
+}
+
+/**
+ * Try a range; on empty-batch crash, split with the next finer size until days,
+ * then skip days that still crash.
+ */
+async function downloadCandlesRefining(
+  instrument: string,
+  timeframe: DukascopyTimeframe,
+  from: number,
+  to: number,
+  refineMs: readonly number[],
+): Promise<DukascopyCandle[]> {
+  try {
+    return await downloadCandlesRange(instrument, timeframe, from, to);
+  } catch (err) {
+    if (!isDukascopyEmptyBatchError(err)) throw err;
+  }
+
+  const next = refineMs[0];
+  if (next === undefined || to - from <= next) {
+    console.warn(
+      `[ingest] ${instrument} ${timeframe}: skip empty chunk ${new Date(from).toISOString()}→${new Date(to).toISOString()}`,
+    );
+    return [];
+  }
+
+  const out: DukascopyCandle[] = [];
+  const rest = refineMs.slice(1);
+  for (const piece of downloadChunks(from, to, next)) {
+    out.push(...(await downloadCandlesRefining(instrument, timeframe, piece.from, piece.to, rest)));
+    if (ingestConfig.pauseBetweenTimeframesMs > 0) {
+      await sleep(ingestConfig.pauseBetweenTimeframesMs);
+    }
+  }
+  return out;
+}
+
+async function downloadCandlesRange(
+  instrument: string,
+  timeframe: DukascopyTimeframe,
+  from: number,
+  to: number,
+): Promise<DukascopyCandle[]> {
+  if (to <= from) return [];
   const data = await getHistoricalRates({
     instrument: instrument as never,
     dates: { from: new Date(from), to: new Date(to) },
@@ -178,6 +264,10 @@ async function downloadCandles(
   if (!Array.isArray(data)) {
     throw new Error('dukascopy-node returned a non-array payload');
   }
+  return parseDukascopyCandles(data);
+}
+
+function parseDukascopyCandles(data: readonly unknown[]): DukascopyCandle[] {
   const out: DukascopyCandle[] = [];
   for (const row of data) {
     if (!row || typeof row !== 'object') continue;
@@ -209,6 +299,7 @@ async function patchIngest(symbol: string, patch: Partial<InstrumentIngestState>
   const base: InstrumentIngestState = doc?.ingest ?? {
     enabled: true,
     bootstrappedAt: null,
+    runningSince: null,
     lastRunAt: null,
     lastSuccessAt: null,
     lastError: null,

@@ -23,6 +23,32 @@ export interface RunSummary {
   readonly skippedLock: boolean;
 }
 
+export interface IngestLockSnapshot {
+  readonly held: boolean;
+  readonly stale: boolean;
+  readonly holder: string | null;
+  readonly at: number | null;
+  readonly mode: string | null;
+}
+
+/** Read-only view of the Dukascopy worker lock (for admin monitoring). */
+export async function getIngestLockSnapshot(): Promise<IngestLockSnapshot> {
+  const { ingestLocks } = await collections();
+  const doc = await ingestLocks.findOne({ _id: LOCK_ID });
+  if (!doc) {
+    return { held: false, stale: false, holder: null, at: null, mode: null };
+  }
+  const at = doc.at.getTime();
+  const stale = Date.now() - at >= ingestConfig.lockStaleMs;
+  return {
+    held: true,
+    stale,
+    holder: doc.holder,
+    at,
+    mode: doc.mode,
+  };
+}
+
 /** One pass: bootstrap anything pending, then refresh the rest (or a forced mode). */
 export async function runIngestPass(options: RunOptions = {}): Promise<RunSummary> {
   const holder = `${hostname()}:${process.pid}`;

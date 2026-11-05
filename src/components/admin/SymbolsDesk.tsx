@@ -29,6 +29,7 @@ import {
   type InstrumentDraft,
   type InstrumentImportPreview,
 } from '@/lib/data';
+import { ingestPhase, type IngestPhase } from '@/lib/ingest-status';
 import { faNum, formatJalaliDateTime } from '@/lib/locale/jalali';
 import { ApiError, api } from '@/components/platform/api';
 import { PageHead, Panel, fieldClass, labelClass } from './ui';
@@ -40,12 +41,39 @@ import { PageHead, Panel, fieldClass, labelClass } from './ui';
 interface IngestStatus {
   readonly enabled: boolean;
   readonly bootstrapped: boolean;
+  readonly runningSince: number | null;
   readonly lastRunAt: number | null;
   readonly lastSuccessAt: number | null;
   readonly lastError: string | null;
   readonly lastFrom: number | null;
   readonly lastTo: number | null;
   readonly lastBarCount: number | null;
+}
+
+interface IngestFleetSnapshot {
+  readonly lock: {
+    readonly held: boolean;
+    readonly stale: boolean;
+    readonly holder: string | null;
+    readonly at: number | null;
+    readonly mode: string | null;
+  };
+  readonly counts: {
+    readonly targets: number;
+    readonly running: number;
+    readonly errors: number;
+    readonly pendingBootstrap: number;
+    readonly ok: number;
+  };
+  readonly errors: readonly {
+    readonly symbol: string;
+    readonly lastError: string;
+    readonly lastRunAt: number | null;
+  }[];
+  readonly running: readonly {
+    readonly symbol: string;
+    readonly runningSince: number;
+  }[];
 }
 
 interface SymbolRow {
@@ -83,12 +111,20 @@ interface ReadyFile {
 }
 
 type OpenMode = 'open' | 'refresh' | 'saved';
-type ListFilter = 'all' | 'custom' | 'builtin';
+type ListFilter = 'all' | 'custom' | 'builtin' | 'errors' | 'pending';
 type Dialog =
   | { readonly kind: 'delete'; readonly symbol: string; readonly builtin: boolean }
   | { readonly kind: 'discard'; readonly proceed: () => void }
   | { readonly kind: 'bulk-import' };
 type Errors = Partial<Record<keyof InstrumentDraft, string>>;
+
+const INGEST_PHASE_LABEL: Record<IngestPhase, string> = {
+  running: 'در حال دریافت',
+  error: 'خطای همگام‌سازی',
+  pending: 'صف bootstrap',
+  ok: 'همگام',
+  idle: '',
+};
 
 const ASSETS: ReadonlyArray<{ id: AssetClass; label: string }> = [
   { id: 'forex', label: 'فارکس' },
@@ -236,7 +272,8 @@ type IconName =
   | 'save'
   | 'undo'
   | 'chart'
-  | 'cloud';
+  | 'cloud'
+  | 'refresh';
 
 const ICONS: Record<IconName, ReactNode> = {
   plus: <path d="M12 5v14M5 12h14" />,
@@ -297,6 +334,14 @@ const ICONS: Record<IconName, ReactNode> = {
   chart: <path d="M4 18V9M9 18V5M14 18v-6M19 18V8" />,
   cloud: (
     <path d="M7.5 18h9.2A4.3 4.3 0 0 0 18 9.7 6 6 0 0 0 7.1 11 3.8 3.8 0 0 0 7.5 18z" />
+  ),
+  refresh: (
+    <>
+      <path d="M4.5 12a7.5 7.5 0 0 1 12.7-5.4L20 9" />
+      <path d="M20 4v5h-5" />
+      <path d="M19.5 12a7.5 7.5 0 0 1-12.7 5.4L4 15" />
+      <path d="M4 20v-5h5" />
+    </>
   ),
 };
 
@@ -496,6 +541,36 @@ function StatusBadge({ row }: { readonly row: SymbolRow }) {
       className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${tone}`}
     >
       {label}
+    </span>
+  );
+}
+
+function rowIngestPhase(row: SymbolRow): IngestPhase {
+  return ingestPhase({
+    dukascopyId: row.dukascopyId,
+    bootstrapped: row.ingest?.bootstrapped ?? false,
+    runningSince: row.ingest?.runningSince ?? null,
+    lastError: row.ingest?.lastError ?? null,
+    enabled: row.ingest?.enabled !== false,
+  });
+}
+
+function IngestChip({ phase }: { readonly phase: IngestPhase }) {
+  if (phase === 'idle') return null;
+  const tone =
+    phase === 'running'
+      ? 'border-[#3b78ff]/35 bg-[#3b78ff]/12 text-[#9ec0ff]'
+      : phase === 'error'
+        ? 'border-[#ff6b81]/35 bg-[#ff6b81]/12 text-[#ffb3bf]'
+        : phase === 'pending'
+          ? 'border-[#f5b544]/35 bg-[#f5b544]/12 text-[#f7c46a]'
+          : 'border-[#3ecf8e]/30 bg-[#3ecf8e]/10 text-[#8ef0cf]';
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${tone}`}
+    >
+      {phase === 'running' ? <Spinner className="h-3 w-3" /> : null}
+      {INGEST_PHASE_LABEL[phase]}
     </span>
   );
 }
@@ -720,11 +795,14 @@ export function SymbolsDesk() {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<ListFilter>('all');
+  const [fleet, setFleet] = useState<IngestFleetSnapshot | null>(null);
+  const [triggering, setTriggering] = useState<string | null>(null);
   const requestRef = useRef(0);
   const detailRef = useRef<HTMLDivElement>(null);
 
   const builtin = rows.find((row) => row.symbol === selected && row.source === 'builtin');
   const dirty = !detailLoading && !builtin && !sameDraft(draft, baseline);
+  const lockBusy = Boolean(fleet?.lock.held && !fleet.lock.stale);
 
   const scrollToDetail = () => {
     if (window.matchMedia('(max-width: 1023px)').matches) {
@@ -795,6 +873,32 @@ export function SymbolsDesk() {
       .finally(() => setLoading(false));
   };
 
+  const loadFleet = async () => {
+    try {
+      const body = await api<IngestFleetSnapshot>('/api/admin/ingest');
+      setFleet(body);
+    } catch {
+      /* strip is best-effort */
+    }
+  };
+
+  const triggerIngest = async (symbol: string) => {
+    setTriggering(symbol);
+    setError('');
+    try {
+      await api<{ started: boolean }>(`/api/admin/symbols/${encodeURIComponent(symbol)}/ingest`, {
+        method: 'POST',
+        body: { mode: 'auto' },
+      });
+      setNotice(`همگام‌سازی ${symbol} شروع شد.`);
+      await Promise.all([loadFleet(), load(symbol, 'refresh')]);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'شروع همگام‌سازی انجام نشد');
+    } finally {
+      setTriggering(null);
+    }
+  };
+
   useEffect(() => {
     let live = true;
     void api<{ symbols: SymbolRow[] }>('/api/admin/symbols')
@@ -807,10 +911,52 @@ export function SymbolsDesk() {
       .finally(() => {
         if (live) setLoading(false);
       });
+    void loadFleet();
     return () => {
       live = false;
     };
   }, []);
+
+  // Poll ingest fleet: fast while anything is running, slower otherwise.
+  useEffect(() => {
+    const busyFleet =
+      (fleet?.counts.running ?? 0) > 0 ||
+      Boolean(detail?.ingest?.runningSince) ||
+      triggering !== null;
+    const ms = busyFleet ? 5_000 : 30_000;
+    const symbol = selected;
+    const watchDetail = symbol !== 'new' && !builtin;
+    const tick = () => {
+      void loadFleet();
+      if (!busyFleet) return;
+      void api<{ symbols: SymbolRow[] }>('/api/admin/symbols')
+        .then((body) => setRows(body.symbols))
+        .catch(() => {});
+      if (watchDetail) {
+        void api<{ symbol: SymbolDetail }>(`/api/admin/symbols/${encodeURIComponent(symbol)}`)
+          .then((body) => setDetail(body.symbol))
+          .catch(() => {});
+      }
+    };
+    const id = window.setInterval(tick, ms);
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void loadFleet();
+        if (busyFleet) tick();
+      }
+    };
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [
+    fleet?.counts.running,
+    detail?.ingest?.runningSince,
+    triggering,
+    selected,
+    builtin,
+  ]);
 
   // Success notices fade on their own; errors stay until dismissed.
   useEffect(() => {
@@ -940,19 +1086,28 @@ export function SymbolsDesk() {
       all: rows.length,
       custom: rows.filter((row) => row.source === 'custom').length,
       builtin: rows.filter((row) => row.source === 'builtin').length,
+      errors: rows.filter((row) => rowIngestPhase(row) === 'error').length,
+      pending: rows.filter((row) => rowIngestPhase(row) === 'pending').length,
     }),
     [rows],
   );
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    return rows.filter(
-      (row) =>
-        (filter === 'all' || row.source === filter) &&
-        (!needle ||
-          row.symbol.toLowerCase().includes(needle) ||
-          row.description.toLowerCase().includes(needle)),
-    );
+    return rows.filter((row) => {
+      if (filter === 'custom' || filter === 'builtin') {
+        if (row.source !== filter) return false;
+      } else if (filter === 'errors') {
+        if (rowIngestPhase(row) !== 'error') return false;
+      } else if (filter === 'pending') {
+        if (rowIngestPhase(row) !== 'pending') return false;
+      }
+      return (
+        !needle ||
+        row.symbol.toLowerCase().includes(needle) ||
+        row.description.toLowerCase().includes(needle)
+      );
+    });
   }, [rows, search, filter]);
 
   return (
@@ -963,7 +1118,9 @@ export function SymbolsDesk() {
         text="نماد داخلی را می‌توانید حذف کنید یا نماد تازه بسازید و فایل JSON، پوشهٔ advanced-get یا PRN را بارگذاری کنید. تمرین فقط با دادهٔ یک‌دقیقه‌ای باز می‌شود."
       />
 
-      <div className="grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <IngestFleetStrip fleet={fleet} onPick={(symbol) => choose(symbol)} />
+
+      <div className="mt-4 grid items-start gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
         {/* ---------- Symbol list ---------- */}
         <Panel className="overflow-hidden lg:sticky lg:top-4">
           <button
@@ -1016,13 +1173,15 @@ export function SymbolsDesk() {
             <div
               role="tablist"
               aria-label="فیلتر نمادها"
-              className="flex gap-1 rounded-xl bg-white/[0.04] p-1"
+              className="flex flex-wrap gap-1 rounded-xl bg-white/[0.04] p-1"
             >
               {(
                 [
                   ['all', 'همه'],
                   ['custom', 'سفارشی'],
                   ['builtin', 'داخلی'],
+                  ['errors', 'خطا'],
+                  ['pending', 'صف'],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -1031,7 +1190,7 @@ export function SymbolsDesk() {
                   role="tab"
                   aria-selected={filter === id}
                   onClick={() => setFilter(id)}
-                  className={`flex-1 rounded-lg px-2 py-1.5 text-[12px] font-medium transition ${FOCUS_RING} ${
+                  className={`min-w-[4.5rem] flex-1 rounded-lg px-2 py-1.5 text-[12px] font-medium transition ${FOCUS_RING} ${
                     filter === id
                       ? 'bg-white/10 text-white'
                       : 'text-[var(--a-muted)] hover:text-white'
@@ -1077,6 +1236,10 @@ export function SymbolsDesk() {
               {visible.map((row) => {
                 const isSelected = selected === row.symbol;
                 const assetLabel = ASSETS.find((item) => item.id === row.assetClass)?.label;
+                const phase = rowIngestPhase(row);
+                const canSync = Boolean(row.dukascopyId) && row.active;
+                const syncBusy =
+                  phase === 'running' || triggering !== null || lockBusy || busy;
                 return (
                   <li key={`${row.source}-${row.symbol}`} className="relative">
                     {isSelected ? (
@@ -1085,30 +1248,56 @@ export function SymbolsDesk() {
                         className="absolute inset-y-0 start-0 w-0.5 bg-[#3b78ff]"
                       />
                     ) : null}
-                    <button
-                      type="button"
-                      aria-current={isSelected ? 'true' : undefined}
-                      onClick={() => choose(row.symbol)}
-                      className={`flex w-full flex-col items-start gap-1 border-b border-[var(--a-line)] px-4 py-3 text-start transition hover:bg-white/[0.03] ${FOCUS_RING_INSET} ${
+                    <div
+                      className={`flex items-stretch border-b border-[var(--a-line)] ${
                         isSelected ? 'bg-[#3b78ff]/[0.08]' : ''
                       }`}
                     >
-                      <span className="flex w-full items-center justify-between gap-2">
-                        <bdi className="font-semibold">{row.symbol}</bdi>
-                        <StatusBadge row={row} />
-                      </span>
-                      <span className="line-clamp-1 text-[12px] text-[var(--a-muted)]">
-                        {row.description}
-                      </span>
-                      {assetLabel || !row.active ? (
-                        <span className="flex items-center gap-1.5 text-[11px] text-[var(--a-muted)]/80">
-                          {assetLabel}
-                          {!row.active ? (
-                            <span className="rounded bg-white/[0.06] px-1.5 py-px">غیرفعال</span>
-                          ) : null}
+                      <button
+                        type="button"
+                        aria-current={isSelected ? 'true' : undefined}
+                        onClick={() => choose(row.symbol)}
+                        className={`flex min-w-0 flex-1 flex-col items-start gap-1 px-4 py-3 text-start transition hover:bg-white/[0.03] ${FOCUS_RING_INSET}`}
+                      >
+                        <span className="flex w-full flex-wrap items-center justify-between gap-2">
+                          <bdi className="font-semibold">{row.symbol}</bdi>
+                          <span className="flex flex-wrap items-center justify-end gap-1">
+                            <IngestChip phase={phase} />
+                            <StatusBadge row={row} />
+                          </span>
                         </span>
+                        <span className="line-clamp-1 text-[12px] text-[var(--a-muted)]">
+                          {row.description}
+                        </span>
+                        {assetLabel || !row.active ? (
+                          <span className="flex items-center gap-1.5 text-[11px] text-[var(--a-muted)]/80">
+                            {assetLabel}
+                            {!row.active ? (
+                              <span className="rounded bg-white/[0.06] px-1.5 py-px">غیرفعال</span>
+                            ) : null}
+                          </span>
+                        ) : null}
+                      </button>
+                      {canSync ? (
+                        <button
+                          type="button"
+                          title="همگام‌سازی Dukascopy"
+                          aria-label={`همگام‌سازی ${row.symbol}`}
+                          disabled={syncBusy || busy}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void triggerIngest(row.symbol);
+                          }}
+                          className={`m-2 grid h-9 w-9 shrink-0 place-items-center self-center rounded-xl border border-white/10 text-[var(--a-muted)] transition hover:bg-white/10 hover:text-white disabled:opacity-40 ${FOCUS_RING}`}
+                        >
+                          {phase === 'running' || triggering === row.symbol ? (
+                            <Spinner className="h-3.5 w-3.5" />
+                          ) : (
+                            <Icon name="refresh" className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       ) : null}
-                    </button>
+                    </div>
                   </li>
                 );
               })}
@@ -1163,7 +1352,13 @@ export function SymbolsDesk() {
               />
               {detail ? (
                 detail.dukascopyId || draft.dukascopyId ? (
-                  <DukascopyPanel detail={detail} dukascopyId={draft.dukascopyId || detail.dukascopyId || ''} />
+                  <DukascopyPanel
+                    detail={detail}
+                    dukascopyId={draft.dukascopyId || detail.dukascopyId || ''}
+                    busy={busy || triggering === detail.symbol}
+                    lockBusy={lockBusy}
+                    onSync={() => void triggerIngest(detail.symbol)}
+                  />
                 ) : (
                   <DataPanel
                     key={detail.symbol}
@@ -1676,23 +1871,42 @@ function SpecForm({
 function DukascopyPanel({
   detail,
   dukascopyId,
+  busy,
+  lockBusy,
+  onSync,
 }: {
   readonly detail: SymbolDetail;
   readonly dukascopyId: string;
+  readonly busy: boolean;
+  readonly lockBusy: boolean;
+  readonly onSync: () => void;
 }) {
   const ingest = detail.ingest;
+  const phase = ingestPhase({
+    dukascopyId,
+    bootstrapped: ingest?.bootstrapped ?? false,
+    runningSince: ingest?.runningSince ?? null,
+    lastError: ingest?.lastError ?? null,
+    enabled: ingest?.enabled !== false,
+  });
+  const running = phase === 'running';
   return (
     <Panel className="p-5">
       <div className="flex items-start gap-3.5">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#3b78ff]/15 text-[#8eb6ff] ring-1 ring-[#3b78ff]/25">
-          <Icon name="cloud" className="h-[18px] w-[18px]" />
+          {running ? <Spinner className="h-[18px] w-[18px]" /> : <Icon name="cloud" className="h-[18px] w-[18px]" />}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[14.5px] font-semibold">داده از Dukascopy</h3>
-          <p className="mt-1 text-[13px] leading-7 text-[var(--a-muted)]">
-            این نماد توسط worker همگام می‌شود: ۳ سال اولیه برای همهٔ تایم‌فریم‌ها (۱م تا ماهانه)،
-            سپس هر ۱۲ ساعت. آپلود فایل برای جلوگیری از تداخل نویسنده‌ها غیرفعال است.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[14.5px] font-semibold">داده از Dukascopy</h3>
+              <p className="mt-1 text-[13px] leading-7 text-[var(--a-muted)]">
+                این نماد توسط worker همگام می‌شود: ۳ سال اولیه برای همهٔ تایم‌فریم‌ها (۱م تا ماهانه)،
+                سپس هر ۱۲ ساعت. آپلود فایل برای جلوگیری از تداخل نویسنده‌ها غیرفعال است.
+              </p>
+            </div>
+            <IngestChip phase={phase} />
+          </div>
           <dl className="mt-4 grid gap-3 text-[13px] sm:grid-cols-2">
             <div>
               <dt className="text-[var(--a-muted)]">شناسه</dt>
@@ -1718,6 +1932,12 @@ function DukascopyPanel({
                   : '—'}
               </dd>
             </div>
+            <div>
+              <dt className="text-[var(--a-muted)]">آخرین اجرا</dt>
+              <dd className="mt-0.5 font-medium text-white">
+                {ingest?.lastRunAt ? formatJalaliDateTime(ingest.lastRunAt, true) : '—'}
+              </dd>
+            </div>
             {ingest?.lastError ? (
               <div className="sm:col-span-2">
                 <dt className="text-[#ffb3bf]">آخرین خطا</dt>
@@ -1725,6 +1945,22 @@ function DukascopyPanel({
               </div>
             ) : null}
           </dl>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || running || lockBusy}
+              onClick={onSync}
+              className={BTN_PRIMARY}
+            >
+              {running || busy ? <Spinner /> : <Icon name="refresh" />}
+              دریافت / به‌روزرسانی کندل‌ها
+            </button>
+            {lockBusy && !running ? (
+              <span className="self-center text-[12.5px] text-[var(--a-muted)]">
+                همگام‌سازی دیگری در حال اجراست
+              </span>
+            ) : null}
+          </div>
           {detail.series.length > 0 ? (
             <ul className="mt-4 space-y-2">
               {detail.series.map((series) => (
@@ -1747,6 +1983,105 @@ function DukascopyPanel({
         </div>
       </div>
     </Panel>
+  );
+}
+
+function IngestFleetStrip({
+  fleet,
+  onPick,
+}: {
+  readonly fleet: IngestFleetSnapshot | null;
+  readonly onPick: (symbol: string) => void;
+}) {
+  if (!fleet) return null;
+  const lockActive = fleet.lock.held && !fleet.lock.stale;
+  return (
+    <Panel className="p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#3b78ff]/15 text-[#8eb6ff] ring-1 ring-[#3b78ff]/25">
+            <Icon name="cloud" className="h-4 w-4" />
+          </span>
+          <div>
+            <h3 className="text-[14px] font-semibold">همگام‌سازی Dukascopy</h3>
+            <p className="mt-0.5 text-[12.5px] text-[var(--a-muted)]">
+              {lockActive
+                ? `قفل فعال${fleet.lock.mode ? ` · ${fleet.lock.mode}` : ''}${
+                    fleet.lock.at ? ` · از ${formatJalaliDateTime(fleet.lock.at, true)}` : ''
+                  }`
+                : fleet.lock.stale
+                  ? 'قفل کهنه — worker می‌تواند دوباره بگیرد'
+                  : 'worker آزاد است'}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[12px]">
+          <FleetStat label="هدف" value={fleet.counts.targets} />
+          <FleetStat label="در حال اجرا" value={fleet.counts.running} tone="info" />
+          <FleetStat label="خطا" value={fleet.counts.errors} tone="bad" />
+          <FleetStat label="صف bootstrap" value={fleet.counts.pendingBootstrap} tone="warn" />
+          <FleetStat label="همگام" value={fleet.counts.ok} tone="ok" />
+        </div>
+      </div>
+      {fleet.running.length > 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {fleet.running.map((item) => (
+            <button
+              key={item.symbol}
+              type="button"
+              onClick={() => onPick(item.symbol)}
+              className={`inline-flex items-center gap-1.5 rounded-lg border border-[#3b78ff]/30 bg-[#3b78ff]/10 px-2.5 py-1 text-[12px] text-[#9ec0ff] transition hover:bg-[#3b78ff]/15 ${FOCUS_RING}`}
+            >
+              <Spinner className="h-3 w-3" />
+              <bdi>{item.symbol}</bdi>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {fleet.errors.length > 0 ? (
+        <ul className="mt-3 max-h-28 space-y-1.5 overflow-y-auto text-[12.5px]">
+          {fleet.errors.map((item) => (
+            <li key={item.symbol}>
+              <button
+                type="button"
+                onClick={() => onPick(item.symbol)}
+                className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-start transition hover:bg-[#ff6b81]/10 ${FOCUS_RING}`}
+              >
+                <bdi className="shrink-0 font-medium text-[#ffb3bf]">{item.symbol}</bdi>
+                <span className="min-w-0 flex-1 break-words text-[#ffd0d7]">{item.lastError}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </Panel>
+  );
+}
+
+function FleetStat({
+  label,
+  value,
+  tone = 'neutral',
+}: {
+  readonly label: string;
+  readonly value: number;
+  readonly tone?: 'neutral' | 'info' | 'bad' | 'warn' | 'ok';
+}) {
+  const colors =
+    tone === 'bad'
+      ? 'border-[#ff6b81]/25 bg-[#ff6b81]/10 text-[#ffb3bf]'
+      : tone === 'warn'
+        ? 'border-[#f5b544]/25 bg-[#f5b544]/10 text-[#f7c46a]'
+        : tone === 'ok'
+          ? 'border-[#3ecf8e]/25 bg-[#3ecf8e]/10 text-[#8ef0cf]'
+          : tone === 'info'
+            ? 'border-[#3b78ff]/25 bg-[#3b78ff]/10 text-[#9ec0ff]'
+            : 'border-white/10 bg-white/[0.04] text-[#c9d3ea]';
+  return (
+    <span className={`rounded-lg border px-2.5 py-1 ${colors}`}>
+      {label}{' '}
+      <span className="font-semibold tabular-nums">{faNum(value)}</span>
+    </span>
   );
 }
 
