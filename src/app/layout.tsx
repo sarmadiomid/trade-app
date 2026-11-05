@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Poppins } from 'next/font/google';
+import Script from 'next/script';
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from '@/lib/seo/site';
 import './globals.css';
 
@@ -30,7 +31,20 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fa" dir="rtl" className={`${poppins.variable} h-full`}>
-      <body className="h-full overflow-hidden antialiased">{children}</body>
+      <body className="h-full overflow-hidden antialiased">
+        <Script
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-TRSJQQWT"
+          strategy="afterInteractive"
+        />
+        <Script id="gtm-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+          `}
+        </Script>
+        {children}
+      </body>
     </html>
   );
 }
