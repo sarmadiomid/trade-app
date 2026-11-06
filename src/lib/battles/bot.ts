@@ -9,33 +9,8 @@ export const BOT_ELO_SCALE = 0.5;
 /** How many public standby lobbies to keep visible for cold-start. */
 export const SEED_LOBBY_TARGET = 3;
 
-/** Display names that look like normal traders (never the word bot). */
-export const BOT_NAMES = [
-  'آرین',
-  'نیما',
-  'سارا',
-  'کسری',
-  'مهسا',
-  'پارسا',
-  'الناز',
-  'کیان',
-  'هستی',
-  'رادین',
-  'نگار',
-  'امیر',
-  'یاسمن',
-  'سینا',
-  'دنیا',
-  'پویا',
-  'مریم',
-  'آرمین',
-  'شایان',
-  'نیکا',
-  'رضا',
-  'مینا',
-  'کاوه',
-  'لیلا',
-] as const;
+/** Prefix for filled-opponent display names (`Trader` + 5 digits). */
+export const BOT_NAME_PREFIX = 'Trader';
 
 /** Subset of backtest TradeAction the sparring bot emits (kept local to avoid layer edges). */
 export type BotTradeAction =
@@ -82,15 +57,11 @@ export function botRng(seed: number): () => number {
   };
 }
 
-/** A random-looking trader name; pass a seed for stable picks. */
+/** Display name like `Trader48219`; pass a seed for stable picks. */
 export function randomBotName(seed: number): string {
   const rand = botRng(seed >>> 0);
-  const base = BOT_NAMES[Math.floor(rand() * BOT_NAMES.length)]!;
-  if (rand() < 0.35) {
-    const n = 10 + Math.floor(rand() * 89);
-    return `${base}_${n}`;
-  }
-  return base;
+  const n = 10_000 + Math.floor(rand() * 90_000);
+  return `${BOT_NAME_PREFIX}${n}`;
 }
 
 const sma = (closes: readonly number[], i: number, n: number): number | null => {

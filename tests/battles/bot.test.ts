@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BOT_ELO_SCALE,
-  BOT_NAMES,
+  BOT_NAME_PREFIX,
   BOT_WAIT_MS,
   SEED_LOBBY_PRESETS,
   SEED_LOBBY_TARGET,
@@ -42,13 +42,10 @@ describe('ranked sparring fill', () => {
     expect(scaleBotEloDelta(-10)).toBe(-5);
   });
 
-  it('picks normal-looking names, never the word bot', () => {
+  it('names follow Trader + 5 digits', () => {
     for (let i = 0; i < 40; i++) {
       const name = randomBotName(i * 97 + 3);
-      expect(name.length).toBeGreaterThan(1);
-      expect(name.toLowerCase()).not.toMatch(/bot|ربات/);
-      const base = name.split('_')[0]!;
-      expect(BOT_NAMES).toContain(base);
+      expect(name).toMatch(new RegExp(`^${BOT_NAME_PREFIX}\\d{5}$`));
     }
     expect(randomBotName(1)).toBe(randomBotName(1));
   });
