@@ -33,7 +33,7 @@ export function Toasts() {
   return (
     <div
       aria-live="polite"
-      className="pointer-events-none fixed bottom-12 left-1/2 z-[60] flex -translate-x-1/2 flex-col gap-2"
+      className="pointer-events-none fixed bottom-12 left-1/2 z-[60] flex -translate-x-1/2 flex-col gap-2 [direction:rtl]"
     >
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} />

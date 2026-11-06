@@ -71,7 +71,9 @@ export function Results({
       });
       router.push(`/battle/${r.id}`);
     } catch (e) {
-      setError(e instanceof Error ? faMessage(e.message) : faMessage('Could not create the battle'));
+      setError(
+        e instanceof Error ? faMessage(e.message) : faMessage('Could not create the battle'),
+      );
       setBusy(false);
     }
   };
@@ -89,7 +91,9 @@ export function Results({
     <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6" data-testid="battle-results">
       <div className="text-center">
         <p className="text-[12px] font-semibold text-accent">نبرد تمام شد</p>
-        <h1 className="mt-2 text-[26px] font-bold sm:text-[32px]">{battleTitle(view.settings.name)}</h1>
+        <h1 className="mt-2 text-[26px] font-bold sm:text-[32px]">
+          {battleTitle(view.settings.name)}
+        </h1>
         <p className="mt-1 text-[13px] text-muted">
           {view.endReason ? faEndReason(view.endReason) : 'نتیجه نهایی'} ·{' '}
           <bdi dir="ltr">{view.symbol}</bdi>
@@ -118,7 +122,9 @@ export function Results({
                   >
                     {initials(r.name)}
                   </span>
-                  <span className="mt-2 max-w-full truncate text-[13px] font-semibold">{r.name}</span>
+                  <span className="mt-2 max-w-full truncate text-[13px] font-semibold">
+                    {r.name}
+                  </span>
                   <span className={`text-[13px] font-bold tabular-nums ${pctClass(r.returnPct)}`}>
                     {signedPct(r.returnPct)}
                   </span>
@@ -141,14 +147,16 @@ export function Results({
 
       {mine ? (
         <section
-          className="mt-8 grid gap-3 rounded-2xl border border-line bg-panel p-5 sm:grid-cols-4"
+          className="mt-8 grid gap-3 rounded-2xl border border-line bg-panel p-5 sm:grid-cols-4 [direction:rtl]"
           data-testid="my-result"
         >
           <div>
             <div className="text-[11.5px] text-muted">جایگاه تو</div>
             <div className="mt-1 text-[26px] font-black">
               {ordinal(mine.place)}
-              <span className="ms-1 text-[14px] font-medium text-muted">از {faNum(results.length)}</span>
+              <span className="ms-1 text-[14px] font-medium text-muted">
+                از {faNum(results.length)}
+              </span>
             </div>
             <div
               className={`text-[12px] ${mine.status === 'disqualified' ? 'text-down' : 'text-muted'}`}
@@ -158,12 +166,14 @@ export function Results({
           </div>
           <div>
             <div className="text-[11.5px] text-muted">بازده</div>
-            <div className={`mt-1 text-[26px] font-black tabular-nums ${pctClass(mine.returnPct)}`}>
+            <div
+              className={`mt-1 text-[26px] font-black tabular-nums text-end ${pctClass(mine.returnPct)}`}
+            >
               {signedPct(mine.returnPct)}
             </div>
             <div className="text-[12px] text-muted">
-              {compactMoney(Math.round(mine.balance))} · {faNum(mine.trades)} معامله · {faNum(mine.wins)}{' '}
-              برد
+              {compactMoney(Math.round(mine.balance))} · {faNum(mine.trades)} معامله ·{' '}
+              {faNum(mine.wins)} برد
             </div>
           </div>
           <div>
@@ -172,7 +182,9 @@ export function Results({
               <>
                 <div className="mt-1 flex items-center gap-2">
                   <RankEmblem elo={mine.eloAfter} size={30} />
-                  <span className="text-[26px] font-black tabular-nums">{faNum(mine.eloAfter)}</span>
+                  <span className="text-[26px] font-black tabular-nums">
+                    {faNum(mine.eloAfter)}
+                  </span>
                   <span
                     className={`text-[14px] font-bold tabular-nums ${mine.eloAfter >= mine.eloBefore ? 'text-up' : 'text-down'}`}
                     data-testid="elo-change"
@@ -199,38 +211,38 @@ export function Results({
           </div>
           <div>
             <div className="text-[11.5px] text-muted">امتیاز ترکیبی</div>
-            <div className="mt-1 text-[26px] font-black tabular-nums text-accent">
-              {recorded ? `+${faNum(mine.xp)}` : '…'}
+            <div className="mt-1 text-[26px] font-black tabular-nums text-accent text-end">
               <span className="ms-1 text-[14px] font-medium text-muted">امتیاز</span>
+              {recorded ? `+${faNum(mine.xp)}` : '…'}
             </div>
             <div className="text-[12px] text-muted">برای حضور، رتبه و معاملات سودده</div>
           </div>
         </section>
       ) : null}
 
-      <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel">
+      <section className="mt-6 overflow-hidden rounded-2xl border border-line bg-panel [direction:rtl]">
         <h2 className="border-b border-line px-5 py-3 text-[14px] font-semibold">
           رتبه‌بندی نهایی{winner ? ` · ${winner.name} برنده شد` : ''}
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead>
-              <tr className="text-start text-[11.5px] text-muted">
+              <tr className="text-center text-[11.5px] text-muted">
                 <th className="px-5 py-2 font-medium">رتبه</th>
-                <th className="px-3 py-2 font-medium">معامله‌گر</th>
+                <th className="px-3 py-2 text-start font-medium">معامله‌گر</th>
                 <th className="px-3 py-2 font-medium">نتیجه</th>
-                <th className="px-3 py-2 text-end font-medium">بازده</th>
-                <th className="px-3 py-2 text-end font-medium">موجودی</th>
-                <th className="px-3 py-2 text-end font-medium">معاملات</th>
-                {ranked ? <th className="px-3 py-2 text-end font-medium">الو</th> : null}
-                <th className="px-5 py-2 text-end font-medium">امتیاز</th>
+                <th className="px-3 py-2 font-medium">بازده</th>
+                <th className="px-3 py-2 font-medium">موجودی</th>
+                <th className="px-3 py-2 font-medium">معاملات</th>
+                {ranked ? <th className="px-3 py-2 font-medium">الو</th> : null}
+                <th className="px-5 py-2 font-medium">امتیاز</th>
               </tr>
             </thead>
             <tbody>
               {results.map((r) => (
                 <tr
                   key={r.userId}
-                  className={`border-t border-line ${r.userId === meId ? 'bg-accent/10' : ''}`}
+                  className={`border-t text-center border-line ${r.userId === meId ? 'bg-accent/10' : ''}`}
                 >
                   <td className="px-5 py-2.5 font-bold tabular-nums">{faNum(r.place)}</td>
                   <td className="px-3 py-2.5">
@@ -251,21 +263,19 @@ export function Results({
                         : 'حذف'
                       : STATUS_LABEL[r.status]}
                   </td>
-                  <td
-                    className={`px-3 py-2.5 text-end font-semibold tabular-nums ${pctClass(r.returnPct)}`}
-                  >
+                  <td className={`px-3 py-2.5 font-semibold tabular-nums ${pctClass(r.returnPct)}`}>
                     {signedPct(r.returnPct)}
                   </td>
-                  <td className="px-3 py-2.5 text-end tabular-nums">
+                  <td className="px-3 py-2.5 tabular-nums">
                     {compactMoney(Math.round(r.balance))}
                   </td>
-                  <td className="px-3 py-2.5 text-end tabular-nums">
+                  <td className="px-3 py-2.5 tabular-nums">
                     {faNum(r.trades)}
                     <span className="text-muted"> ({faNum(r.wins)} برد)</span>
                   </td>
                   {ranked ? (
                     <td
-                      className={`px-3 py-2.5 text-end tabular-nums ${
+                      className={`px-3 py-2.5 tabular-nums ${
                         r.eloAfter !== null && r.eloBefore !== null && r.eloAfter >= r.eloBefore
                           ? 'text-up'
                           : 'text-down'
@@ -276,7 +286,7 @@ export function Results({
                         : '—'}
                     </td>
                   ) : null}
-                  <td className="px-5 py-2.5 text-end tabular-nums text-accent">
+                  <td className="px-5 py-2.5 tabular-nums text-accent">
                     {recorded ? `+${faNum(r.xp)}` : '…'}
                   </td>
                 </tr>
@@ -286,7 +296,7 @@ export function Results({
         </div>
       </section>
 
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-2 [direction:rtl]">
         {onClose ? (
           <button
             type="button"
