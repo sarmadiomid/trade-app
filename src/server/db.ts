@@ -230,6 +230,7 @@ export interface PaymentDoc {
   /** Zarinpal authority, SEP token, or `free-…` when nothing was charged. */
   authority: string;
   status: PaymentStatus;
+  /** Gateway receipt. May be reserved on a pending SEP row before verify completes. */
   refId: string | null;
   cardPan: string | null;
   fee: number | null;

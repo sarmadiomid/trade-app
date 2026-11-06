@@ -9,6 +9,7 @@ import {
   parseSepReturn,
   parseSepToken,
   parseSepVerify,
+  sepCallbackTokenMatches,
   sepCellNumber,
   sepSendTokenUrl,
   tomanToRial,
@@ -55,7 +56,7 @@ describe('sep token parsing', () => {
 });
 
 describe('sep verify parsing', () => {
-  it('treats the first verify and a repeated verify as paid', () => {
+  it('treats the first verify and a repeated verify as parse success', () => {
     expect(
       parseSepVerify({
         TransactionDetail: {
@@ -82,6 +83,7 @@ describe('sep verify parsing', () => {
       duplicate: false,
     });
 
+    // ResultCode 2 is parse-ok; settlement must still bind it to the claiming order.
     expect(
       parseSepVerify({
         TransactionDetail: {
@@ -158,5 +160,15 @@ describe('sep return and charge helpers', () => {
       false,
     );
     expect(sepSendTokenUrl('not safe')).toBeNull();
+  });
+
+  it('binds the callback token to the stored SEP authority', () => {
+    const token = '2c3c1fefac5a48geb9f9be7e445dd9b2';
+    expect(sepCallbackTokenMatches(token, token)).toBe(true);
+    expect(sepCallbackTokenMatches(token, ` ${token} `)).toBe(true);
+    expect(sepCallbackTokenMatches(token, '9c3c1fefac5a48geb9f9be7e445dd9b2')).toBe(false);
+    expect(sepCallbackTokenMatches(token, '')).toBe(false);
+    expect(sepCallbackTokenMatches('', token)).toBe(false);
+    expect(sepCallbackTokenMatches('short', 'short')).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import {
   isSepStateOk,
   isZarinpalAuthority,
   paymentDescription,
+  sepCallbackTokenMatches,
   sepStateMessage,
   type PaymentGatewayId,
   type PaymentStatus,
@@ -194,15 +195,14 @@ export async function settleZarinpalReturn(input: {
   const payment = await payments.findOne({ authority: input.authority });
   if (!payment || payment.gateway !== 'zarinpal') return { paymentId: null, outcome: 'missing' };
   const paymentId = payment._id.toHexString();
-  if (payment.status === 'paid') return { paymentId, outcome: 'paid' };
+  if (payment.status === 'paid') {
+    await repairPaidEntitlement(payment);
+    return { paymentId, outcome: 'paid' };
+  }
 
   if (input.status.toUpperCase() !== 'OK') {
     if (payment.status === 'pending') {
-      await payments.updateOne(
-        { _id: payment._id, status: 'pending' },
-        { $set: { status: 'canceled', failureMessage: 'پرداخت لغو شد' } },
-      );
-      if (payment.code) await releaseDiscountReserve(payment.code);
+      await markPaymentTerminal(payment, 'canceled', 'پرداخت لغو شد');
     }
     return { paymentId, outcome: payment.status === 'failed' ? 'failed' : 'canceled' };
   }
@@ -213,11 +213,7 @@ export async function settleZarinpalReturn(input: {
   });
   if (!verified.ok) {
     if (!verified.retry && payment.status === 'pending') {
-      await payments.updateOne(
-        { _id: payment._id, status: 'pending' },
-        { $set: { status: 'failed', failureMessage: verified.message } },
-      );
-      if (payment.code) await releaseDiscountReserve(payment.code);
+      await markPaymentTerminal(payment, 'failed', verified.message);
     }
     return { paymentId, outcome: verified.retry ? 'error' : 'failed' };
   }
@@ -231,7 +227,7 @@ export async function settleZarinpalReturn(input: {
 
 /**
  * SEP posts (or GETs) State / RefNum / ResNum after OnlinePG. State OK still requires
- * VerifyTransaction, amount match, and a RefNum that was never spent on another order.
+ * the payment token, an exclusive RefNum claim, VerifyTransaction, and amount match.
  */
 export async function settleSepReturn(fields: SepReturnFields): Promise<GatewayReturn> {
   if (!isSepResNum(fields.resNum)) return { paymentId: null, outcome: 'missing' };
@@ -239,78 +235,77 @@ export async function settleSepReturn(fields: SepReturnFields): Promise<GatewayR
   const payment = await payments.findOne({ _id: new ObjectId(fields.resNum) });
   if (!payment || payment.gateway !== 'sep') return { paymentId: null, outcome: 'missing' };
   const paymentId = payment._id.toHexString();
-  if (payment.status === 'paid') return { paymentId, outcome: 'paid' };
+  if (payment.status === 'paid') {
+    await repairPaidEntitlement(payment);
+    return { paymentId, outcome: 'paid' };
+  }
 
   if (!isSepStateOk(fields.state)) {
     const canceled = fields.state.trim() === 'CanceledByUser';
     if (payment.status === 'pending') {
-      await payments.updateOne(
-        { _id: payment._id, status: 'pending' },
-        {
-          $set: {
-            status: canceled ? 'canceled' : 'failed',
-            failureMessage: sepStateMessage(fields.state),
-          },
-        },
+      await markPaymentTerminal(
+        payment,
+        canceled ? 'canceled' : 'failed',
+        sepStateMessage(fields.state),
       );
-      if (payment.code) await releaseDiscountReserve(payment.code);
     }
     if (payment.status === 'failed') return { paymentId, outcome: 'failed' };
     return { paymentId, outcome: canceled || payment.status === 'canceled' ? 'canceled' : 'failed' };
   }
 
+  // Bind the return to the token we stored for this order so a RefNum cannot be
+  // attached to a different pending ResNum of the same amount.
+  if (!sepCallbackTokenMatches(payment.authority, fields.token)) {
+    if (payment.status === 'pending') {
+      await markPaymentTerminal(payment, 'failed', 'توکن بازگشت سپ با سفارش یکی نیست');
+    }
+    return { paymentId, outcome: 'failed' };
+  }
+
   if (!isSepRefNum(fields.refNum)) {
     if (payment.status === 'pending') {
-      await payments.updateOne(
-        { _id: payment._id, status: 'pending' },
-        { $set: { status: 'failed', failureMessage: 'رسید دیجیتالی سپ نامعتبر است' } },
-      );
-      if (payment.code) await releaseDiscountReserve(payment.code);
+      await markPaymentTerminal(payment, 'failed', 'رسید دیجیتالی سپ نامعتبر است');
     }
     return { paymentId, outcome: 'failed' };
   }
 
-  const spent = await payments.findOne({
-    refId: fields.refNum,
-    status: 'paid',
-    _id: { $ne: payment._id },
-  });
-  if (spent) {
-    if (payment.status === 'pending') {
-      await payments.updateOne(
-        { _id: payment._id, status: 'pending' },
-        { $set: { status: 'failed', failureMessage: 'رسید دیجیتالی قبلاً مصرف شده است' } },
-      );
-      if (payment.code) await releaseDiscountReserve(payment.code);
-    }
-    return { paymentId, outcome: 'failed' };
+  // Claim RefNum on this pending row before verify. The partial unique index on
+  // refId makes cross-order reuse fail even when two callbacks race.
+  const reserved = await claimSepRefNum(payment, fields.refNum);
+  if (reserved.status === 'paid') {
+    await repairPaidEntitlement(reserved.payment);
+    return { paymentId, outcome: 'paid' };
   }
+  if (reserved.status === 'rejected') return { paymentId, outcome: 'failed' };
+  const reservedPayment = reserved.payment;
 
   const verified = await verifySepPayment({
-    amount: payment.amount,
+    amount: reservedPayment.amount,
     refNum: fields.refNum,
   });
   if (!verified.ok) {
-    if (!verified.retry && payment.status === 'pending') {
-      await payments.updateOne(
-        { _id: payment._id, status: 'pending' },
-        {
-          $set: {
-            status: 'failed',
-            failureMessage: verified.message,
-            ...(verified.amountMismatch ? { refId: verified.refNum } : {}),
-          },
-        },
-      );
-      if (payment.code) await releaseDiscountReserve(payment.code);
+    if (!verified.retry) {
+      await markPaymentTerminal(reservedPayment, 'failed', verified.message, {
+        // Keep the RefNum on mismatch so another order cannot adopt it.
+        keepRefId: true,
+      });
     }
     return { paymentId, outcome: verified.retry ? 'error' : 'failed' };
   }
 
-  return finalizePaidPayment(payment, {
+  // ResultCode 2: SEP already verified this RefNum. Only the order that claimed
+  // it may proceed; a foreign pending row never receives this claim.
+  if (verified.duplicate && reservedPayment.refId !== verified.refNum) {
+    await markPaymentTerminal(reservedPayment, 'failed', 'رسید دیجیتالی قبلاً مصرف شده است', {
+      keepRefId: true,
+    });
+    return { paymentId, outcome: 'failed' };
+  }
+
+  return finalizePaidPayment(reservedPayment, {
     refId: verified.refNum,
     cardPan: verified.cardPan ?? (fields.securePan || null),
-    fee: payment.fee,
+    fee: reservedPayment.fee,
   });
 }
 
@@ -336,6 +331,10 @@ export async function paymentReceipt(
   };
 }
 
+/**
+ * Marks the payment paid and stores the gateway receipt first. Only the winner of
+ * that claim grants the plan, so a concurrent callback cannot double-fulfill.
+ */
 async function finalizePaidPayment(
   payment: PaymentDoc,
   verified: {
@@ -345,14 +344,55 @@ async function finalizePaidPayment(
   },
 ): Promise<GatewayReturn> {
   const paymentId = payment._id.toHexString();
+  const { payments } = await collections();
+
+  let claimed: PaymentDoc | null = null;
+  try {
+    claimed = await payments.findOneAndUpdate(
+      {
+        _id: payment._id,
+        status: { $in: ['pending', 'failed', 'canceled'] },
+      },
+      {
+        $set: {
+          status: 'paid',
+          refId: verified.refId,
+          cardPan: verified.cardPan,
+          fee: verified.fee,
+          paidAt: new Date(),
+          failureMessage: null,
+          discountError: null,
+        },
+      },
+      { returnDocument: 'after' },
+    );
+  } catch (error) {
+    if (isDuplicateKey(error)) {
+      await markPaymentTerminal(payment, 'failed', 'رسید دیجیتالی قبلاً مصرف شده است', {
+        keepRefId: payment.refId === verified.refId,
+      });
+      return { paymentId, outcome: 'failed' };
+    }
+    throw error;
+  }
+
+  if (!claimed) {
+    const current = await payments.findOne({ _id: payment._id });
+    if (current?.status === 'paid') {
+      await repairPaidEntitlement(current);
+      return { paymentId, outcome: 'paid' };
+    }
+    return { paymentId, outcome: 'error' };
+  }
+
   let discountError: string | null = null;
-  if (payment.code) {
+  if (claimed.code) {
     try {
       const committed = await commitDiscountRedemption({
-        userId: payment.userId,
-        code: payment.code,
-        planId: payment.planId,
-        cycle: payment.cycle,
+        userId: claimed.userId,
+        code: claimed.code,
+        planId: claimed.planId,
+        cycle: claimed.cycle,
       });
       if (!committed.ok) {
         console.error('[billing] discount after payment', committed.error);
@@ -364,23 +404,91 @@ async function finalizePaidPayment(
     }
   }
 
-  await setUserPlan(payment.userId, payment.planId);
-  const { payments } = await collections();
-  await payments.updateOne(
-    { _id: payment._id, status: { $in: ['pending', 'failed', 'canceled'] } },
-    {
-      $set: {
-        status: 'paid',
-        refId: verified.refId,
-        cardPan: verified.cardPan,
-        fee: verified.fee,
-        paidAt: new Date(),
-        failureMessage: null,
-        ...(discountError ? { discountError } : {}),
-      },
-    },
-  );
+  await setUserPlan(claimed.userId, claimed.planId);
+  if (discountError) {
+    await payments.updateOne({ _id: claimed._id, status: 'paid' }, { $set: { discountError } });
+  }
   return { paymentId, outcome: 'paid' };
+}
+
+type SepRefClaim =
+  | { readonly status: 'reserved'; readonly payment: PaymentDoc }
+  | { readonly status: 'paid'; readonly payment: PaymentDoc }
+  | { readonly status: 'rejected' };
+
+/**
+ * Exclusive RefNum reservation on a pending SEP row. Fails when another payment
+ * already holds the receipt (unique index) or this row is no longer pending.
+ */
+async function claimSepRefNum(payment: PaymentDoc, refNum: string): Promise<SepRefClaim> {
+  const { payments } = await collections();
+  if (payment.refId && payment.refId !== refNum) {
+    await markPaymentTerminal(payment, 'failed', 'رسید دیجیتالی سپ با سفارش یکی نیست', {
+      keepRefId: true,
+    });
+    return { status: 'rejected' };
+  }
+
+  try {
+    const reserved = await payments.findOneAndUpdate(
+      {
+        _id: payment._id,
+        status: 'pending',
+        $or: [{ refId: null }, { refId: refNum }],
+      },
+      { $set: { refId: refNum } },
+      { returnDocument: 'after' },
+    );
+    if (reserved) return { status: 'reserved', payment: reserved };
+
+    const current = await payments.findOne({ _id: payment._id });
+    if (current?.status === 'paid') return { status: 'paid', payment: current };
+
+    await markPaymentTerminal(payment, 'failed', 'رسید دیجیتالی قبلاً مصرف شده است');
+    return { status: 'rejected' };
+  } catch (error) {
+    if (isDuplicateKey(error)) {
+      await markPaymentTerminal(payment, 'failed', 'رسید دیجیتالی قبلاً مصرف شده است');
+      return { status: 'rejected' };
+    }
+    throw error;
+  }
+}
+
+async function markPaymentTerminal(
+  payment: PaymentDoc,
+  status: 'canceled' | 'failed',
+  failureMessage: string,
+  options: { readonly refId?: string; readonly keepRefId?: boolean } = {},
+): Promise<void> {
+  const { payments } = await collections();
+  const $set: {
+    status: 'canceled' | 'failed';
+    failureMessage: string;
+    refId?: string | null;
+  } = { status, failureMessage };
+  if (options.refId) $set.refId = options.refId;
+  else if (!options.keepRefId && payment.status === 'pending' && payment.refId) {
+    // Drop a reservation that did not finish so a later retry can reclaim, unless
+    // the caller asked to keep it (amount mismatch / foreign duplicate).
+    $set.refId = null;
+  }
+  const updated = await payments.updateOne(
+    { _id: payment._id, status: { $in: ['pending', 'failed', 'canceled'] } },
+    { $set },
+  );
+  if (updated.modifiedCount > 0 && payment.code && payment.status === 'pending') {
+    await releaseDiscountReserve(payment.code);
+  }
+}
+
+/** Idempotent repair when the paid row was claimed but plan grant crashed. */
+async function repairPaidEntitlement(payment: PaymentDoc): Promise<void> {
+  await setUserPlan(payment.userId, payment.planId);
+}
+
+function isDuplicateKey(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 11000;
 }
 
 async function storePendingPayment(input: {

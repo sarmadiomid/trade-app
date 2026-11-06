@@ -171,6 +171,21 @@ export const MIGRATIONS: readonly Migration[] = [
       ]);
     },
   },
+  {
+    id: '012-payment-ref-unique',
+    description:
+      'One gateway receipt (refId) per payment row; null/absent refs stay unrestricted',
+    async up(db) {
+      await db.collection('payments').createIndex(
+        { refId: 1 },
+        {
+          unique: true,
+          name: 'payments_refId_unique',
+          partialFilterExpression: { refId: { $type: 'string' } },
+        },
+      );
+    },
+  },
 ];
 
 export const defaultDisplayName = (phone: string) => `Trader ${phone.slice(-4)}`;

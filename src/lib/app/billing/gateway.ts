@@ -43,6 +43,16 @@ export function isSepToken(value: string): boolean {
   return /^[A-Za-z0-9_-]{16,128}$/.test(value);
 }
 
+/**
+ * True when the callback Token is the same token we stored as `authority`.
+ * An empty or foreign token must not settle a different ResNum with a reused RefNum.
+ */
+export function sepCallbackTokenMatches(authority: string, token: string): boolean {
+  const expected = authority.trim();
+  const got = token.trim();
+  return isSepToken(expected) && isSepToken(got) && expected === got;
+}
+
 /** Digital receipt (RefNum) returned after a card charge. */
 export function isSepRefNum(value: string): boolean {
   return value.length >= 1 && value.length <= 100 && !/[\s<>]/.test(value);
@@ -359,7 +369,8 @@ export function parseSepToken(body: unknown): SepTokenOk | SepFail {
 
 /**
  * Reads a verify body. ResultCode 0 is the first successful verify.
- * ResultCode 2 means that same RefNum was already verified (still success).
+ * ResultCode 2 means that same RefNum was already verified — callers must only
+ * treat it as success for the order that already claimed that RefNum.
  */
 export function parseSepVerify(body: unknown): SepVerifyOk | SepFail {
   if (!isRecord(body)) {
