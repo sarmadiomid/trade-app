@@ -17,6 +17,7 @@ import {
   marketEnd,
   normalizeSettings,
   placesOf,
+  scaleBotEloDelta,
   sortStandings,
   validateBattleSettings,
   xpFor,
@@ -29,6 +30,7 @@ import {
 import { DAY_MS, MINUTE_MS } from '@/lib/core';
 import { deletePositionEvents, deleteScopeEvents, replacePositionEvents } from '../backtest/positions';
 import { collections, type BattleChatDoc, type BattleDoc, type BattleParticipantDoc } from '../db';
+import { botTickUpdate, isBotParticipant, type BotPlayer } from './bot';
 import { battleDataRange, bidBefore, pick, pickMarketStart, randomUnit } from './market';
 import { simulateParticipant, validateAction } from './simulate';
 import { ensureProfile } from './profiles';
@@ -45,6 +47,9 @@ export class BattleError extends Error {
 export interface Player {
   readonly _id: ObjectId;
   readonly name: string;
+  readonly isBot?: boolean;
+  readonly elo?: number;
+  readonly games?: number;
 }
 
 export const clockOf = (b: BattleDoc): BattleClock => ({
@@ -130,6 +135,7 @@ function newParticipant(
     actions: [],
     cursor: startT,
     leftT: null,
+    ...(user.isBot ? { isBot: true as const } : {}),
   };
 }
 
@@ -197,7 +203,7 @@ export async function createBattle(host: Player, input: BattleSettings): Promise
 export async function createRankedBattle(
   id: ObjectId,
   format: RankedFormat,
-  players: readonly Player[],
+  players: readonly (Player | BotPlayer)[],
 ): Promise<BattleDoc> {
   const { battles } = await collections();
   const now = Date.now();
@@ -205,10 +211,18 @@ export async function createRankedBattle(
   const symbol = pick(settings.assets);
   const marketStart = pickMarketStart(symbol, settings);
   const participants: BattleParticipantDoc[] = [];
-  for (const p of players)
+  for (const p of players) {
+    const profile = p.isBot
+      ? { elo: p.elo ?? START_ELO, rankedGames: p.games ?? 25 }
+      : await ensureProfile(p._id);
     participants.push(
-      newParticipant(p, { symbol, marketStart }, marketStart, await ensureProfile(p._id), now),
+      newParticipant(p, { symbol, marketStart }, marketStart, {
+        elo: profile.elo,
+        rankedGames: profile.rankedGames,
+      }, now),
     );
+  }
+  const vsBot = players.some((p) => p.isBot);
   const doc: BattleDoc = {
     _id: id,
     code: await uniqueCode(),
@@ -228,19 +242,27 @@ export async function createRankedBattle(
     endedAt: null,
     endReason: null,
     participants,
-    chat: [systemMessage(`Match found: ${players.map((p) => p.name).join(' vs ')}`, now)],
+    chat: [
+      systemMessage(
+        vsBot
+          ? `Match found: ${players.map((p) => p.name).join(' vs ')} (practice bot)`
+          : `Match found: ${players.map((p) => p.name).join(' vs ')}`,
+        now,
+      ),
+    ],
     results: null,
     version: 0,
   };
   const taken: ObjectId[] = [];
   try {
     for (const p of players) {
+      if (p.isBot) continue;
       await takeBattleSlot(p._id, 'ranked');
       taken.push(p._id);
     }
     await battles.insertOne(doc);
   } catch (e) {
-    await Promise.all(taken.map((id) => releaseBattleSlot(id)));
+    await Promise.all(taken.map((uid) => releaseBattleSlot(uid)));
     throw e;
   }
   return doc;
@@ -277,13 +299,27 @@ export function liveStandings(b: BattleDoc): Standing[] {
 export async function refresh(b: BattleDoc): Promise<BattleDoc> {
   for (let attempt = 0; attempt < 8; attempt++) {
     const now = Date.now();
+    if (b.status === 'live' && b.participants.some(isBotParticipant)) {
+      const botUpdate = botTickUpdate(b, now, clockOf(b));
+      if (botUpdate) {
+        const advanced = await commit(b, botUpdate);
+        if (advanced) {
+          b = advanced;
+          continue;
+        }
+        b = await loadBattle(b._id.toHexString());
+        continue;
+      }
+    }
     const update = transition(b, now);
     if (!update) return b;
     const out = await commit(b, update.set);
     if (out) {
       if (update.completed) await recordResults(out);
       else if (out.status === 'cancelled')
-        await Promise.all(out.participants.map((p) => releaseBattleSlot(p.userId)));
+        await Promise.all(
+          out.participants.filter((p) => !isBotParticipant(p)).map((p) => releaseBattleSlot(p.userId)),
+        );
       // A countdown that ended may be followed by an immediate completion check.
       b = out;
       continue;
@@ -384,28 +420,47 @@ function complete(b: BattleDoc, reason: string, now: number) {
 
 /**
  * After a battle completes (exactly once, by the request whose write won): Elo for ranked
- * battles, Composite Score and lifetime stats for everyone.
+ * battles, Composite Score and lifetime stats for everyone. Bots never get a profile; humans
+ * vs a bot get soft Elo (half K).
  */
 async function recordResults(b: BattleDoc): Promise<void> {
   const results = b.results;
   if (!results) return;
   const { battleProfiles, battles } = await collections();
+  const botIds = new Set(
+    b.participants.filter(isBotParticipant).map((p) => p.userId.toHexString()),
+  );
+  const vsBot = botIds.size > 0;
   const profiles = new Map<string, Awaited<ReturnType<typeof ensureProfile>>>();
-  for (const r of results) profiles.set(r.userId, await ensureProfile(new ObjectId(r.userId)));
+  for (const r of results) {
+    if (botIds.has(r.userId)) continue;
+    profiles.set(r.userId, await ensureProfile(new ObjectId(r.userId)));
+  }
   const ranked = b.mode === 'ranked';
+  const eloPlayers = results.map((r) => {
+    if (botIds.has(r.userId)) {
+      const part = b.participants.find((p) => p.userId.toHexString() === r.userId)!;
+      return { id: r.userId, rating: part.elo, games: part.games };
+    }
+    const prof = profiles.get(r.userId)!;
+    return { id: r.userId, rating: prof.elo, games: prof.rankedGames };
+  });
   const deltas = ranked
-    ? eloChanges(
-        results.map((r) => ({
-          id: r.userId,
-          rating: profiles.get(r.userId)!.elo,
-          games: profiles.get(r.userId)!.rankedGames,
-        })),
-        new Map(results.map((r) => [r.userId, r.place])),
-      )
+    ? eloChanges(eloPlayers, new Map(results.map((r) => [r.userId, r.place])))
     : null;
   const n = results.length;
   const out: FinalResult[] = [];
   for (const r of results) {
+    if (botIds.has(r.userId)) {
+      out.push({
+        ...r,
+        isBot: true,
+        xp: 0,
+        eloBefore: ranked ? r.elo : null,
+        eloAfter: ranked ? r.elo : null,
+      });
+      continue;
+    }
     const prof = profiles.get(r.userId)!;
     const won = n > 1 && r.place === 1 && r.status !== 'disqualified' && r.status !== 'left';
     const streak = won ? prof.winStreak + 1 : 0;
@@ -416,9 +471,16 @@ async function recordResults(b: BattleDoc): Promise<void> {
       profitableTrades: r.wins,
       winStreak: streak,
     });
-    const delta = deltas?.get(r.userId) ?? 0;
+    const raw = deltas?.get(r.userId) ?? 0;
+    const delta = vsBot ? scaleBotEloDelta(raw) : raw;
     const elo = prof.elo + delta;
-    out.push({ ...r, xp, eloBefore: ranked ? prof.elo : null, eloAfter: ranked ? elo : null });
+    out.push({
+      ...r,
+      isBot: false,
+      xp,
+      eloBefore: ranked ? prof.elo : null,
+      eloAfter: ranked ? elo : null,
+    });
     await battleProfiles.updateOne({ _id: prof._id }, [
       {
         $set: {
@@ -632,7 +694,9 @@ export async function controlBattle(id: string, user: Player, op: ControlOp): Pr
   });
   if (op === 'restart') await deleteScopeEvents('battle', battle._id.toHexString());
   if (op === 'cancel' && battle.status === 'cancelled')
-    await Promise.all(battle.participants.map((p) => releaseBattleSlot(p.userId)));
+    await Promise.all(
+      battle.participants.filter((p) => !isBotParticipant(p)).map((p) => releaseBattleSlot(p.userId)),
+    );
   return op === 'end' ? endEarly(battle) : battle;
 }
 
@@ -732,14 +796,16 @@ export async function postChat(id: string, user: Player, text: unknown): Promise
 /** Writes the trader's opens and closes from the server's simulation. */
 async function syncTrader(b: BattleDoc, userId: ObjectId, final = false): Promise<void> {
   const p = b.participants.find((x) => x.userId.equals(userId));
-  if (!p) return;
+  if (!p || isBotParticipant(p)) return;
   const done = final || b.status === 'completed' || p.leftT !== null;
   const sim = simulateParticipant(b, p, done ? endOf(b) : cursorOf(b, p), done);
   await replacePositionEvents(p.userId, 'battle', b._id.toHexString(), b.symbol, sim.account);
 }
 
 async function syncBattleAccounts(b: BattleDoc, final = false): Promise<void> {
-  await Promise.all(b.participants.map((p) => syncTrader(b, p.userId, final)));
+  await Promise.all(
+    b.participants.filter((p) => !isBotParticipant(p)).map((p) => syncTrader(b, p.userId, final)),
+  );
 }
 
 export { START_ELO };

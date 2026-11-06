@@ -89,6 +89,11 @@ export function StandingsList({
                       تو
                     </span>
                   ) : null}
+                  {s.isBot ? (
+                    <span className="shrink-0 rounded bg-hover px-1 py-0.5 text-[10px] font-semibold text-muted">
+                      ربات
+                    </span>
+                  ) : null}
                 </span>
                 <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-fg/75">
                   {showElo ? (

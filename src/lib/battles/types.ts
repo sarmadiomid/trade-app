@@ -79,6 +79,8 @@ export interface Standing {
   /** Market time the profit target was reached at. */
   readonly targetAt: number | null;
   readonly reason: string | null;
+  /** Practice opponent filled by matchmaking when the queue is empty. */
+  readonly isBot?: boolean;
 }
 
 /** Final result of one participant (written when the battle completes). */

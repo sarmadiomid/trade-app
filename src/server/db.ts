@@ -89,6 +89,8 @@ export interface BattleParticipantDoc {
   cursor?: number;
   /** Market time the trader left at (forfeit), or null. */
   leftT: number | null;
+  /** Sparring bot filled by ranked matchmaking — no billing slot or profile. */
+  isBot?: boolean;
 }
 
 export interface BattleChatDoc {

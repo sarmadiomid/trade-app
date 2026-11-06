@@ -66,6 +66,7 @@ export function simulateParticipant(
       wins: s.trades.filter((t) => t.netPnl > 0).length,
       targetAt: battle.settings.winCondition === 'profit-target' ? s.targetReachedAt : null,
       reason,
+      isBot: Boolean(p.isBot),
     },
   };
 }

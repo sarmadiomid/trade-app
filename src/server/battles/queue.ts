@@ -1,9 +1,10 @@
 import 'server-only';
 import { ObjectId } from 'mongodb';
 import { battleDenial, entitlements } from '@/lib/app/billing/entitlements';
-import { rankedFormat, type QueueStatus, type RankedFormat } from '@/lib/battles';
+import { BOT_WAIT_MS, rankedFormat, type QueueStatus, type RankedFormat } from '@/lib/battles';
 import { PlanDenied, planOf, usageOf } from '../billing';
 import { collections, type BattleQueueDoc } from '../db';
+import { makeBotPlayer } from './bot';
 import { ensureProfile } from './profiles';
 import { BattleError, createRankedBattle, type Player } from './service';
 
@@ -101,11 +102,15 @@ export async function pollQueue(user: Player): Promise<QueueStatus> {
     { sort: { joinedAt: 1 }, returnDocument: 'after' },
   );
   if (!opponent) {
-    await battleQueue.updateOne(
-      { _id: user._id, status: 'matching' },
-      { $set: { status: 'searching' } },
-    );
-    return status(await battleQueue.findOne({ _id: user._id }), now);
+    const waited = now - me.joinedAt;
+    if (waited < BOT_WAIT_MS) {
+      await battleQueue.updateOne(
+        { _id: user._id, status: 'matching' },
+        { $set: { status: 'searching' } },
+      );
+      return status(await battleQueue.findOne({ _id: user._id }), now);
+    }
+    return matchWithBot(user, me, battleId, range, now);
   }
   const format = rankedFormat(me.format) as RankedFormat;
   try {
@@ -125,6 +130,33 @@ export async function pollQueue(user: Player): Promise<QueueStatus> {
     throw e;
   }
   await battleQueue.updateOne({ _id: user._id }, { $set: { status: 'matched', battleId } });
+  return { status: 'matched', battleId: battleId.toHexString() };
+}
+
+/** After BOT_WAIT_MS alone: open a ranked duel against a labeled practice bot. */
+async function matchWithBot(
+  user: Player,
+  me: BattleQueueDoc,
+  battleId: ObjectId,
+  range: number,
+  now: number,
+): Promise<QueueStatus> {
+  const { battleQueue } = await collections();
+  const format = rankedFormat(me.format) as RankedFormat;
+  const bot = makeBotPlayer(me.elo, range);
+  try {
+    await createRankedBattle(battleId, format, [bot, { _id: user._id, name: user.name }]);
+  } catch (e) {
+    await battleQueue.updateOne(
+      { _id: user._id, status: 'matching' },
+      { $set: { status: 'searching', battleId: null } },
+    );
+    throw e;
+  }
+  await battleQueue.updateOne(
+    { _id: user._id },
+    { $set: { status: 'matched', battleId, lastSeen: now } },
+  );
   return { status: 'matched', battleId: battleId.toHexString() };
 }
 
