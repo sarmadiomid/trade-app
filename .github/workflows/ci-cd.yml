@@ -1,5 +1,8 @@
 # Lint/test/build on PR/push; deploy to VPS on push to development (or workflow_dispatch).
 #
+# Default push deploys only `app` so the long-running ingest worker is not restarted.
+# Redeploy ingest via Actions → CI/CD → Run workflow → deploy_target: ingest|both.
+#
 # Secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY, VPS_DEPLOY_PATH
 # Optional: VPS_SSH_PORT (default 22)
 
@@ -11,6 +14,16 @@ on:
   pull_request:
     branches: [development]
   workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: "Which compose service(s) to rebuild/restart on the VPS"
+        required: true
+        type: choice
+        default: app
+        options:
+          - app
+          - ingest
+          - both
 
 concurrency:
   group: trade-app-ci-cd-${{ github.ref }}
@@ -61,6 +74,16 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/development') ||
       github.event_name == 'workflow_dispatch'
     steps:
+      - name: Resolve deploy services
+        id: target
+        run: |
+          case "${{ github.event_name == 'workflow_dispatch' && inputs.deploy_target || 'app' }}" in
+            app) echo "services=app" >> "$GITHUB_OUTPUT" ;;
+            ingest) echo "services=ingest" >> "$GITHUB_OUTPUT" ;;
+            both) echo "services=app ingest" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unknown deploy_target" >&2; exit 1 ;;
+          esac
+
       - name: SSH deploy
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -75,5 +98,6 @@ jobs:
             git fetch origin development
             git checkout development
             git pull --ff-only origin development
-            docker compose up -d --build --remove-orphans
+            # Only named services are rebuilt/restarted; others keep running.
+            docker compose up -d --build --remove-orphans ${{ steps.target.outputs.services }}
             docker compose ps

@@ -110,6 +110,8 @@ export interface BattleDoc {
   format: RankedFormat['id'] | null;
   /** Null for matchmade ranked battles (nobody hosts them). */
   hostId: ObjectId | null;
+  /** Cold-start public lobby kept topped up when the queue is empty. */
+  seeded?: boolean;
   settings: BattleSettings;
   /** The market drawn from the asset pool, and where in its history the battle starts. */
   symbol: string;

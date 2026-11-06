@@ -5,10 +5,23 @@ import {
   LOBBY_MAX_AGE_MS,
   type BattleSummary,
   type BattleView,
+  type FinalResult,
   type Standing,
 } from '@/lib/battles';
 import { collections, type BattleDoc } from '../db';
+import { ensureSeededLobbies } from './bot';
 import { clockOf, cursorOf, joinBlocked, liveStandings, refresh } from './service';
+
+/** Drop server-only bot flags before sending standings to the browser. */
+function publicStanding(s: Standing): Standing {
+  const { isBot: _bot, ...rest } = s;
+  return rest;
+}
+
+function publicResult(r: FinalResult): FinalResult {
+  const { isBot: _bot, ...rest } = r;
+  return rest;
+}
 
 /** What one viewer sees of a battle (only their own actions are included). */
 export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): BattleView {
@@ -17,8 +30,8 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
   const host = member && b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
   let standings: readonly Standing[] = [];
   if (member) {
-    if (b.status === 'completed' && b.results) standings = b.results;
-    else standings = liveStandings(b);
+    if (b.status === 'completed' && b.results) standings = b.results.map(publicResult);
+    else standings = liveStandings(b).map(publicStanding);
   }
   const mine = standings.find((s) => s.userId === viewerId.toHexString());
   const privateBattle = b.settings.visibility === 'private';
@@ -55,7 +68,7 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
           system: c.system,
         }))
       : [],
-    results: member ? b.results : null,
+    results: member && b.results ? b.results.map(publicResult) : null,
     endReason: member ? b.endReason : null,
     joinBlocked: me ? null : joinBlocked(b, viewerId),
     createdAt: b.createdAt,
@@ -116,6 +129,7 @@ function stale(b: BattleDoc, now: number): boolean {
 
 /** Public battles that can still be joined or watched: in the lobby or in progress. */
 export async function browseBattles(viewerId: ObjectId): Promise<BattleSummary[]> {
+  await ensureSeededLobbies();
   const { battles } = await collections();
   const now = Date.now();
   const docs = await battles

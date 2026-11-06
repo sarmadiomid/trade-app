@@ -135,6 +135,8 @@ export function HomeShell({
   const pathname = usePathname();
   const scheme = useSyncExternalStore(subscribeScheme, readScheme, () => 'dark' as const);
   const collapsed = useSyncExternalStore(subscribeNav, readCollapsed, () => false);
+  const plan = usePlan();
+  const planReady = usePlanReady();
   const [drawer, setDrawer] = useState(false);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [supportUnread, setSupportUnread] = useState(0);
@@ -284,7 +286,7 @@ export function HomeShell({
                   collapsed ? 'px-1 py-px text-[8px] lg:hidden' : 'px-1.5 py-0.5 text-[10px]'
                 }`}
               >
-                رایگان
+                {!planReady ? '…' : plan === 'beginner' ? 'رایگان' : PLAN_LABEL[plan]}
               </span>
             </span>
             <p

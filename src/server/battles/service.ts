@@ -222,7 +222,6 @@ export async function createRankedBattle(
       }, now),
     );
   }
-  const vsBot = players.some((p) => p.isBot);
   const doc: BattleDoc = {
     _id: id,
     code: await uniqueCode(),
@@ -242,14 +241,7 @@ export async function createRankedBattle(
     endedAt: null,
     endReason: null,
     participants,
-    chat: [
-      systemMessage(
-        vsBot
-          ? `Match found: ${players.map((p) => p.name).join(' vs ')} (practice bot)`
-          : `Match found: ${players.map((p) => p.name).join(' vs ')}`,
-        now,
-      ),
-    ],
+    chat: [systemMessage(`Match found: ${players.map((p) => p.name).join(' vs ')}`, now)],
     results: null,
     version: 0,
   };
@@ -549,17 +541,25 @@ export async function joinBattle(id: string, user: Player, code?: string): Promi
       reserved = true;
     }
     const saved = await mutate(target._id, (b, now) => {
-    if (isIn(b, user._id)) return null;
-    const blocked = joinBlocked(b, user._id);
-    if (blocked) throw new BattleError(blocked, 409);
-    added = true;
-    // Everyone replays the same market from its first candle, late joiners included.
-    return {
-      $push: {
-        participants: newParticipant(user, b, b.marketStart, profile, now),
-        chat: { $each: [systemMessage(`${user.name} joined`, now)], $slice: -MAX_CHAT },
-      },
-    };
+      if (isIn(b, user._id)) return null;
+      const blocked = joinBlocked(b, user._id);
+      if (blocked) throw new BattleError(blocked, 409);
+      added = true;
+      const host = b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
+      const autoStart = Boolean(host && isBotParticipant(host) && b.status === 'standby');
+      const chat = [systemMessage(`${user.name} joined`, now)];
+      if (autoStart && host) chat.push(systemMessage(`${host.name} started the countdown`, now));
+      // Everyone replays the same market from its first candle, late joiners included.
+      // Bot-hosted cold-start lobbies start as soon as a human joins.
+      return {
+        $push: {
+          participants: newParticipant(user, b, b.marketStart, profile, now),
+          chat: { $each: chat, $slice: -MAX_CHAT },
+        },
+        ...(autoStart
+          ? { $set: { status: 'countdown' as const, countdownEndsAt: now + COUNTDOWN_MS } }
+          : {}),
+      };
     });
     if (reserved && !added) await releaseBattleSlot(user._id);
     return saved;

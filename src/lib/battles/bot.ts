@@ -1,12 +1,41 @@
 import type { Candle } from '@/lib/core';
 
-/** How long a lone searcher waits before a practice bot is offered. */
+/** How long a lone searcher waits before a sparring opponent is filled in. */
 export const BOT_WAIT_MS = 25_000;
 
-/** Elo change vs a bot is half of a normal ranked duel (soft ladder protection). */
+/** Elo change vs a filled opponent is half of a normal ranked duel. */
 export const BOT_ELO_SCALE = 0.5;
 
-export const BOT_NAME = 'ربات تمرین';
+/** How many public standby lobbies to keep visible for cold-start. */
+export const SEED_LOBBY_TARGET = 3;
+
+/** Display names that look like normal traders (never the word bot). */
+export const BOT_NAMES = [
+  'آرین',
+  'نیما',
+  'سارا',
+  'کسری',
+  'مهسا',
+  'پارسا',
+  'الناز',
+  'کیان',
+  'هستی',
+  'رادین',
+  'نگار',
+  'امیر',
+  'یاسمن',
+  'سینا',
+  'دنیا',
+  'پویا',
+  'مریم',
+  'آرمین',
+  'شایان',
+  'نیکا',
+  'رضا',
+  'مینا',
+  'کاوه',
+  'لیلا',
+] as const;
 
 /** Subset of backtest TradeAction the sparring bot emits (kept local to avoid layer edges). */
 export type BotTradeAction =
@@ -36,7 +65,7 @@ export interface BotPlanInput {
   readonly skill: number;
 }
 
-/** Maps a human Elo into a 0..1 skill for the sparring bot. */
+/** Maps a human Elo into a 0..1 skill for the sparring opponent. */
 export function botSkill(elo: number): number {
   return Math.max(0.15, Math.min(0.92, (elo - 700) / 1_200));
 }
@@ -51,6 +80,17 @@ export function botRng(seed: number): () => number {
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/** A random-looking trader name; pass a seed for stable picks. */
+export function randomBotName(seed: number): string {
+  const rand = botRng(seed >>> 0);
+  const base = BOT_NAMES[Math.floor(rand() * BOT_NAMES.length)]!;
+  if (rand() < 0.35) {
+    const n = 10 + Math.floor(rand() * 89);
+    return `${base}_${n}`;
+  }
+  return base;
 }
 
 const sma = (closes: readonly number[], i: number, n: number): number | null => {
@@ -144,5 +184,36 @@ const roundPrice = (price: number, pipSize: number) => {
   return Math.round(price * f) / f;
 };
 
-/** Scales a raw Elo delta for a human who faced a bot. */
+/** Scales a raw Elo delta for a human who faced a filled opponent. */
 export const scaleBotEloDelta = (delta: number) => Math.round(delta * BOT_ELO_SCALE);
+
+/** Presets for cold-start public lobbies (look like normal custom battles). */
+export const SEED_LOBBY_PRESETS = [
+  {
+    name: 'نبرد طلا',
+    assets: ['XAUUSD'] as const,
+    durationMin: 10,
+    speed: 30,
+    winCondition: 'time-trial' as const,
+    profitTargetPct: null,
+    maxDrawdownPct: 10,
+  },
+  {
+    name: 'دوئل یورو',
+    assets: ['EURUSD'] as const,
+    durationMin: 15,
+    speed: 30,
+    winCondition: 'time-trial' as const,
+    profitTargetPct: null,
+    maxDrawdownPct: 10,
+  },
+  {
+    name: 'اسپرینت شاخص',
+    assets: ['NAS100'] as const,
+    durationMin: 8,
+    speed: 60,
+    winCondition: 'profit-target' as const,
+    profitTargetPct: 2,
+    maxDrawdownPct: 5,
+  },
+] as const;

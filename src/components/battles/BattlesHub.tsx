@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  BOT_WAIT_MS,
   RANKED_FORMATS,
   RANKS,
   levelFor,
@@ -337,7 +336,7 @@ function PlayTab({
         <SectionTitle
           icon="bolt"
           title="رتبه‌ای"
-          text="حریف‌یابی تو را با معامله‌گری هم‌سطح جفت می‌کند. اگر کسی نباشد، بعد از چند ثانیه با ربات تمرین هم‌سطح شروع می‌کنی (الو با نیم‌وزن)."
+          text="حریف‌یابی تو را با معامله‌گری هم‌سطح خودت جفت می‌کند. نتیجه این نبردها امتیاز الو را جابه‌جا می‌کند."
         />
         {rankedOk ? null : (
           <button
@@ -590,11 +589,6 @@ function MatchmakingOverlay({
             </p>
             <p className="mt-1 text-[12px] text-muted">
               بازه الو ±{faNum(queue.range)} · {traders(queue.searching)} در جست‌وجو
-            </p>
-            <p className="mt-2 text-[12px] text-muted">
-              {waited >= Math.ceil(BOT_WAIT_MS / 1000)
-                ? 'حریفی نبود؛ در حال جفت‌شدن با ربات تمرین…'
-                : `اگر تا ${faNum(Math.ceil(BOT_WAIT_MS / 1000))} ثانیه کسی پیدا نشود، با ربات تمرین جفت می‌شوی.`}
             </p>
             <button
               type="button"

@@ -55,7 +55,6 @@ export function Results({
   const mine = results.find((r) => r.userId === meId) ?? null;
   const winner = results[0] ?? null;
   const ranked = view.mode === 'ranked';
-  const vsBot = results.some((r) => r.isBot);
   const recorded = results.some((r) => r.xp > 0);
   const byPlace = new Map<number, FinalResult>();
   results.forEach((r, i) => {
@@ -119,10 +118,7 @@ export function Results({
                   >
                     {initials(r.name)}
                   </span>
-                  <span className="mt-2 max-w-full truncate text-[13px] font-semibold">
-                    {r.name}
-                    {r.isBot ? ' · ربات' : ''}
-                  </span>
+                  <span className="mt-2 max-w-full truncate text-[13px] font-semibold">{r.name}</span>
                   <span className={`text-[13px] font-bold tabular-nums ${pctClass(r.returnPct)}`}>
                     {signedPct(r.returnPct)}
                   </span>
@@ -189,9 +185,7 @@ export function Results({
                     ? `ارتقا به ${rankLabel(mine.eloAfter)}`
                     : promoted === 'down'
                       ? `سقوط به ${rankLabel(mine.eloAfter)}`
-                      : vsBot
-                        ? `${rankLabel(mine.eloAfter)} · الو نرم در برابر ربات`
-                        : `${rankLabel(mine.eloAfter)} · قبلاً ${faNum(mine.eloBefore)}`}
+                      : `${rankLabel(mine.eloAfter)} · قبلاً ${faNum(mine.eloBefore)}`}
                 </div>
               </>
             ) : (
@@ -245,16 +239,6 @@ export function Results({
                       <span className="font-medium">{r.name}</span>
                       {r.userId === meId ? (
                         <span className="text-[10.5px] font-semibold text-accent">تو</span>
-                      ) : null}
-                      {r.isBot ? (
-                        <span className="rounded bg-hover px-1 py-0.5 text-[10px] font-semibold text-muted">
-                          ربات
-                        </span>
-                      ) : null}
-                      {r.isBot ? (
-                        <span className="rounded bg-hover px-1 py-0.5 text-[10px] font-semibold text-muted">
-                          ربات
-                        </span>
                       ) : null}
                     </span>
                   </td>

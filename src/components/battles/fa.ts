@@ -206,12 +206,8 @@ export function faChat(text: string): string {
   if (text.endsWith(' left')) return `${text.slice(0, -' left'.length)} خارج شد`;
   if (text.endsWith(' started the countdown'))
     return `${text.slice(0, -' started the countdown'.length)} شمارش را شروع کرد`;
-  if (text.startsWith('Match found: ')) {
-    const body = text.slice('Match found: '.length).replace(' vs ', ' در برابر ');
-    if (body.includes('(practice bot)'))
-      return `حریف پیدا شد: ${body.replace(' (practice bot)', '')} · تمرین با ربات`;
-    return `حریف پیدا شد: ${body}`;
-  }
+  if (text.startsWith('Match found: '))
+    return `حریف پیدا شد: ${text.slice('Match found: '.length).replace(' vs ', ' در برابر ')}`;
   if (text.startsWith('Battle over: ')) {
     const body = text.slice('Battle over: '.length);
     const mark = '. Winner: ';

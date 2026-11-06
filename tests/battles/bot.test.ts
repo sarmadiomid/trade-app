@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   BOT_ELO_SCALE,
-  BOT_NAME,
+  BOT_NAMES,
   BOT_WAIT_MS,
+  SEED_LOBBY_PRESETS,
+  SEED_LOBBY_TARGET,
   botRng,
   botSkill,
   planBotTrades,
+  randomBotName,
   scaleBotEloDelta,
 } from '@/lib/battles';
 import type { Candle } from '@/lib/core';
@@ -14,7 +17,6 @@ function bars(n: number, start = 1_700_000_000_000, step = 60_000): Candle[] {
   const out: Candle[] = [];
   let price = 100;
   for (let i = 0; i < n; i++) {
-    // Gentle wave so SMA crosses fire.
     price += Math.sin(i / 7) * 0.4 + (i % 17 === 0 ? 1.2 : 0) - (i % 19 === 0 ? 1.1 : 0);
     const open = price;
     const close = price + Math.sin(i / 5) * 0.15;
@@ -30,13 +32,25 @@ function bars(n: number, start = 1_700_000_000_000, step = 60_000): Candle[] {
   return out;
 }
 
-describe('ranked practice bot', () => {
-  it('exposes wait and soft-elo constants', () => {
+describe('ranked sparring fill', () => {
+  it('exposes wait, soft-elo, and seed lobby constants', () => {
     expect(BOT_WAIT_MS).toBe(25_000);
     expect(BOT_ELO_SCALE).toBe(0.5);
-    expect(BOT_NAME).toContain('ربات');
+    expect(SEED_LOBBY_TARGET).toBe(3);
+    expect(SEED_LOBBY_PRESETS).toHaveLength(3);
     expect(scaleBotEloDelta(17)).toBe(9);
     expect(scaleBotEloDelta(-10)).toBe(-5);
+  });
+
+  it('picks normal-looking names, never the word bot', () => {
+    for (let i = 0; i < 40; i++) {
+      const name = randomBotName(i * 97 + 3);
+      expect(name.length).toBeGreaterThan(1);
+      expect(name.toLowerCase()).not.toMatch(/bot|ربات/);
+      const base = name.split('_')[0]!;
+      expect(BOT_NAMES).toContain(base);
+    }
+    expect(randomBotName(1)).toBe(randomBotName(1));
   });
 
   it('maps Elo into a bounded skill', () => {
@@ -63,7 +77,7 @@ describe('ranked practice bot', () => {
     expect(a.every((s) => s.a.type === 'market' || s.a.type === 'close')).toBe(true);
   });
 
-  it('trades less noisily at higher skill for the same seed family', () => {
+  it('trades at both low and high skill', () => {
     const series = bars(200);
     const base = {
       bars: series,
@@ -73,10 +87,8 @@ describe('ranked practice bot', () => {
       lotMin: 0.01,
       seed: 7,
     };
-    const low = planBotTrades({ ...base, skill: 0.2 });
-    const high = planBotTrades({ ...base, skill: 0.9 });
-    expect(low.length).toBeGreaterThan(0);
-    expect(high.length).toBeGreaterThan(0);
+    expect(planBotTrades({ ...base, skill: 0.2 }).length).toBeGreaterThan(0);
+    expect(planBotTrades({ ...base, skill: 0.9 }).length).toBeGreaterThan(0);
   });
 
   it('rng is stable', () => {

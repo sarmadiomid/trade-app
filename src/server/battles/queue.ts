@@ -133,7 +133,7 @@ export async function pollQueue(user: Player): Promise<QueueStatus> {
   return { status: 'matched', battleId: battleId.toHexString() };
 }
 
-/** After BOT_WAIT_MS alone: open a ranked duel against a labeled practice bot. */
+/** After BOT_WAIT_MS alone: open a ranked duel against a filled sparring opponent. */
 async function matchWithBot(
   user: Player,
   me: BattleQueueDoc,
