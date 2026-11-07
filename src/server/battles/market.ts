@@ -73,9 +73,7 @@ export function pickMarketStart(symbol: string, settings: BattleSettings): numbe
   const poolStart =
     settings.historyStart !== null ? Math.max(range.start, settings.historyStart) : range.start;
   const poolEnd =
-    settings.historyEnd !== null
-      ? Math.min(range.end, settings.historyEnd + DAY_MS)
-      : range.end;
+    settings.historyEnd !== null ? Math.min(range.end, settings.historyEnd + DAY_MS) : range.end;
 
   // Leave chart history before the start when the pool is wide enough; keep a week otherwise.
   const lead = settings.historyStart !== null ? 7 * DAY_MS : 30 * DAY_MS;
@@ -111,3 +109,11 @@ export function pickMarketStart(symbol: string, settings: BattleSettings): numbe
 export const pick = <T>(list: readonly T[]): T => list[randomInt(0, list.length)]!;
 
 export const randomUnit = () => randomInt(0, 2 ** 31) / 2 ** 31;
+
+/** The battle market as the bots see it (the same data and rules as every trader). */
+export const battleMarket = {
+  minutes: battleMinutes,
+  bidBefore,
+  config: battleConfig,
+  pickStart: pickMarketStart,
+};

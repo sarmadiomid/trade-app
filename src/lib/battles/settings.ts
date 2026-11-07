@@ -16,6 +16,8 @@ export const COUNTDOWN_MS = 10_000;
 /** Standby lobbies older than this are cancelled on read and hidden from browse. */
 export const LOBBY_MAX_AGE_MS = 24 * HOUR_MS;
 export const MAX_CHAT = 200;
+/** How long a ranked search runs before an unrated duel is offered instead. */
+export const DUEL_OFFER_MS = 40_000;
 export const MAX_ACTIONS = 2_000;
 
 export const WIN_CONDITIONS: Readonly<Record<WinCondition, { name: string; short: string }>> = {
@@ -71,8 +73,7 @@ export function validateBattleSettings(s: BattleSettings): string | null {
   if (new Set(s.assets).size !== s.assets.length) return 'Assets must be unique';
   for (const a of s.assets)
     if (!(BATTLE_ASSETS as readonly string[]).includes(a)) return `${a} is not available`;
-  if ((s.historyStart === null) !== (s.historyEnd === null))
-    return 'History range is incomplete';
+  if ((s.historyStart === null) !== (s.historyEnd === null)) return 'History range is incomplete';
   if (s.historyStart !== null && s.historyEnd !== null) {
     if (!Number.isFinite(s.historyStart) || !Number.isFinite(s.historyEnd))
       return 'History range is invalid';

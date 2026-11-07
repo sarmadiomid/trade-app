@@ -126,5 +126,7 @@ export type QueueStatus =
       readonly since: number;
       readonly range: number;
       readonly searching: number;
+      /** True once an unrated duel (same rules, no Elo) can be started instead. */
+      readonly offer?: boolean;
     }
   | { readonly status: 'matched'; readonly battleId: string };

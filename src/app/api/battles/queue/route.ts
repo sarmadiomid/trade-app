@@ -1,8 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { battleRoute } from '@/server/battles/http';
-import { clearMatched, joinQueue, leaveQueue, pollQueue } from '@/server/battles/queue';
+import { clearMatched, joinQueue, leaveQueue, pollQueue, startDuel } from '@/server/battles/queue';
 
-/** Ranked matchmaking: GET polls (and tries to pair), POST `{ format }` joins, DELETE leaves. */
+/**
+ * Ranked matchmaking: GET polls (and tries to pair), POST `{ format }` joins, POST
+ * `{ format, duel: true }` accepts the unrated duel offered after a long search, DELETE leaves.
+ */
 export function GET(req: NextRequest) {
   return battleRoute(req, async (me) => {
     const s = await pollQueue(me);
@@ -13,7 +16,9 @@ export function GET(req: NextRequest) {
 }
 
 export function POST(req: NextRequest) {
-  return battleRoute(req, (me, body) => joinQueue(me, body.format));
+  return battleRoute(req, (me, body) =>
+    body.duel === true ? startDuel(me, body.format) : joinQueue(me, body.format),
+  );
 }
 
 export function DELETE(req: NextRequest) {

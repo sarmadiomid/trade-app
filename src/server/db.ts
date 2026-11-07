@@ -89,9 +89,51 @@ export interface BattleParticipantDoc {
   cursor?: number;
   /** Market time the trader left at (forfeit), or null. */
   leftT: number | null;
-  /** Sparring bot filled by ranked matchmaking — no billing slot or profile. */
+  /**
+   * A bot (see docs/BATTLE-BOTS.md): never a real account, no billing slot, no profile, never in
+   * ranked battles. `bot` holds its seat state (pool identity, plan status).
+   */
   isBot?: boolean;
+  bot?: BotSeatDoc;
 }
+
+/** A bot's seat in one battle. */
+export interface BotSeatDoc {
+  /** Identity in the bot pool (name, persona). */
+  index: number;
+  /** Battle time (ms, pauses excluded) the bot joined at; 0 when it joined before the start. */
+  joinElapsed: number;
+  /** True once its action log for this run of the battle has been computed and stored. */
+  planned: boolean;
+  /** Market time it forfeits at (from its plan), or null. */
+  leaveT: number | null;
+}
+
+/** Bot activity attached to a battle (lobby schedule, pending chat). */
+export interface BattleBotsDoc {
+  /** world: a bot-hosted public battle · fill: bots joining a user's public battle · duel. */
+  origin: 'world' | 'fill' | 'duel';
+  seed: number;
+  /** Field lean toward weaker / stronger traders (−1…1). */
+  tilt: number;
+  /** Upcoming wall-clock lobby events (joins, leaves, chat, host start / close), in order. */
+  events: BotLobbyEventDoc[];
+  /** Bots joining after the start, at battle time `atElapsed`. */
+  late: { atElapsed: number; index: number }[];
+  /** In-battle chat at battle time `atElapsed`. */
+  chat: { atElapsed: number; index: number; text: string }[];
+  /** A bot host's start, brought forward when a real user joined. */
+  startAt: number | null;
+  /** Set once the end-of-battle chat has been scheduled. */
+  endChat: boolean;
+}
+
+export type BotLobbyEventDoc =
+  | { kind: 'join'; at: number; index: number }
+  | { kind: 'leave'; at: number; index: number }
+  | { kind: 'chat'; at: number; index: number; text: string }
+  | { kind: 'start'; at: number }
+  | { kind: 'cancel'; at: number };
 
 export interface BattleChatDoc {
   id: string;
@@ -110,7 +152,9 @@ export interface BattleDoc {
   format: RankedFormat['id'] | null;
   /** Null for matchmade ranked battles (nobody hosts them). */
   hostId: ObjectId | null;
-  /** Cold-start public lobby kept topped up when the queue is empty. */
+  /** Bot activity of this battle (absent: no bots, or a battle from before the bot system). */
+  bots?: BattleBotsDoc;
+  /** Legacy flag of the first bot implementation (retired by migration 013). */
   seeded?: boolean;
   settings: BattleSettings;
   /** The market drawn from the asset pool, and where in its history the battle starts. */
@@ -154,6 +198,19 @@ export interface BattleProfileDoc {
   returnSum: number;
   bestReturn: number | null;
   updatedAt: number;
+  /**
+   * The subset of `battles` / `wins` / `podiums` played in battles with bots in them, so every
+   * human-vs-human figure stays exact (wins − vsBots.wins …).
+   */
+  vsBots?: { battles: number; wins: number; podiums: number };
+}
+
+/** Bot world state: `_id: 'world'` (schedule cursor) and `_id: 'config'` (operator override). */
+export interface BattleWorldDoc {
+  _id: string;
+  cursor?: number;
+  config?: Record<string, unknown>;
+  updatedAt?: number;
 }
 
 /** One backtest session owned by a user. The account inside is the server's simulation. */
@@ -404,6 +461,7 @@ export interface Collections {
   battles: Collection<BattleDoc>;
   battleProfiles: Collection<BattleProfileDoc>;
   battleQueue: Collection<BattleQueueDoc>;
+  battleWorld: Collection<BattleWorldDoc>;
   backtestSessions: Collection<BacktestSessionDoc>;
   positionEvents: Collection<PositionEventDoc>;
   backtestShots: Collection<BacktestShotDoc>;
@@ -423,7 +481,7 @@ export interface Collections {
  * Bump when `Collections` gains a field. Dev hot reload keeps the previous promise on
  * globalThis, and that object would not have the new collections.
  */
-const COLLECTIONS_VERSION = 5;
+const COLLECTIONS_VERSION = 6;
 
 const globalForMongo = globalThis as unknown as {
   __mongo?: { version: number; client: Promise<MongoClient>; ready: Promise<Collections> };
@@ -442,6 +500,7 @@ async function init(clientPromise: Promise<MongoClient>): Promise<Collections> {
     battles: db.collection<BattleDoc>('battles'),
     battleProfiles: db.collection<BattleProfileDoc>('battle_profiles'),
     battleQueue: db.collection<BattleQueueDoc>('battle_queue'),
+    battleWorld: db.collection<BattleWorldDoc>('battle_world'),
     backtestSessions: db.collection<BacktestSessionDoc>('backtest_sessions'),
     positionEvents: db.collection<PositionEventDoc>('position_events'),
     backtestShots: db.collection<BacktestShotDoc>('backtest_shots'),

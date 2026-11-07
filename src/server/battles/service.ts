@@ -1,9 +1,16 @@
 import 'server-only';
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { ObjectId, type Filter, type UpdateFilter } from 'mongodb';
+import { isGreeting } from '@/lib/app/battle/bots/chat';
 import { tradeActionSchema, type TradeAction } from '@/lib/backtest';
 import { historyDenial } from '@/lib/app/billing/entitlements';
-import { PlanDenied, assertBattleChat, planOf, releaseBattleSlot, takeBattleSlot } from '../billing';
+import {
+  PlanDenied,
+  assertBattleChat,
+  planOf,
+  releaseBattleSlot,
+  takeBattleSlot,
+} from '../billing';
 import {
   COUNTDOWN_MS,
   LOBBY_MAX_AGE_MS,
@@ -17,21 +24,44 @@ import {
   marketEnd,
   normalizeSettings,
   placesOf,
-  scaleBotEloDelta,
   sortStandings,
   validateBattleSettings,
   xpFor,
-  type BattleClock,
   type BattleSettings,
   type FinalResult,
   type RankedFormat,
   type Standing,
 } from '@/lib/battles';
 import { DAY_MS, MINUTE_MS } from '@/lib/core';
-import { deletePositionEvents, deleteScopeEvents, replacePositionEvents } from '../backtest/positions';
+import {
+  deletePositionEvents,
+  deleteScopeEvents,
+  replacePositionEvents,
+} from '../backtest/positions';
 import { collections, type BattleChatDoc, type BattleDoc, type BattleParticipantDoc } from '../db';
-import { botTickUpdate, isBotParticipant, type BotPlayer } from './bot';
-import { battleDataRange, bidBefore, pick, pickMarketStart, randomUnit } from './market';
+import {
+  botStanding,
+  clockOf,
+  evictBotFor,
+  hasHuman,
+  isBot,
+  onHumanChat,
+  onHumanJoined,
+  pumpBattle,
+  pumpNeedsBusy,
+  seatCursor,
+  seatsTaken,
+  tiltFor,
+} from './bot-room';
+import { botXp, busyBots, fillFor, noteHumanActivity } from './bots';
+import {
+  battleDataRange,
+  battleMarket,
+  bidBefore,
+  pick,
+  pickMarketStart,
+  randomUnit,
+} from './market';
 import { simulateParticipant, validateAction } from './simulate';
 import { ensureProfile } from './profiles';
 
@@ -44,30 +74,22 @@ export class BattleError extends Error {
   }
 }
 
+/** A signed-in user (bots are never Players: they only exist as battle seats). */
 export interface Player {
   readonly _id: ObjectId;
   readonly name: string;
-  readonly isBot?: boolean;
-  readonly elo?: number;
-  readonly games?: number;
 }
 
-export const clockOf = (b: BattleDoc): BattleClock => ({
-  status: b.status,
-  startedAt: b.startedAt,
-  pausedAt: b.pausedAt,
-  pausedMs: b.pausedMs,
-  endedAt: b.endedAt,
-  marketStart: b.marketStart,
-  speed: b.settings.speed,
-  durationMin: b.settings.durationMin,
-});
+export { clockOf };
 
 const endOf = (b: BattleDoc) => marketEnd(clockOf(b));
 
-/** Market time a trader has replayed up to (they step through the candles themselves). */
-export const cursorOf = (b: BattleDoc, p: BattleParticipantDoc) =>
-  Math.min(endOf(b), Math.max(p.startT, p.cursor ?? p.startT));
+/**
+ * Market time a trader has replayed up to (they step through the candles themselves). A bot's
+ * cursor is derived from battle time and its pace.
+ */
+export const cursorOf = (b: BattleDoc, p: BattleParticipantDoc, now = Date.now()) =>
+  seatCursor(b, p, now, battleMarket);
 
 const floorMinute = (t: number) => Math.floor(t / MINUTE_MS) * MINUTE_MS;
 
@@ -135,11 +157,10 @@ function newParticipant(
     actions: [],
     cursor: startT,
     leftT: null,
-    ...(user.isBot ? { isBot: true as const } : {}),
   };
 }
 
-async function uniqueCode(): Promise<string> {
+export async function uniqueCode(): Promise<string> {
   const { battles } = await collections();
   for (;;) {
     const code = battleCode(randomUnit);
@@ -189,6 +210,9 @@ export async function createBattle(host: Player, input: BattleSettings): Promise
     results: null,
     version: 0,
   };
+  // Public lobbies of real users get company; private ones never do (strangers can't join).
+  const bots = await fillFor(doc, tiltFor(profile.battles));
+  if (bots) doc.bots = bots;
   await takeBattleSlot(host._id, 'join');
   try {
     await battles.insertOne(doc);
@@ -200,10 +224,11 @@ export async function createBattle(host: Player, input: BattleSettings): Promise
 }
 
 /** A matchmade ranked battle; the countdown starts right away. */
+/** A matchmade ranked battle between real users (bots never play ranked: Elo stays real). */
 export async function createRankedBattle(
   id: ObjectId,
   format: RankedFormat,
-  players: readonly (Player | BotPlayer)[],
+  players: readonly Player[],
 ): Promise<BattleDoc> {
   const { battles } = await collections();
   const now = Date.now();
@@ -212,14 +237,18 @@ export async function createRankedBattle(
   const marketStart = pickMarketStart(symbol, settings);
   const participants: BattleParticipantDoc[] = [];
   for (const p of players) {
-    const profile = p.isBot
-      ? { elo: p.elo ?? START_ELO, rankedGames: p.games ?? 25 }
-      : await ensureProfile(p._id);
+    const profile = await ensureProfile(p._id);
     participants.push(
-      newParticipant(p, { symbol, marketStart }, marketStart, {
-        elo: profile.elo,
-        rankedGames: profile.rankedGames,
-      }, now),
+      newParticipant(
+        p,
+        { symbol, marketStart },
+        marketStart,
+        {
+          elo: profile.elo,
+          rankedGames: profile.rankedGames,
+        },
+        now,
+      ),
     );
   }
   const doc: BattleDoc = {
@@ -248,7 +277,6 @@ export async function createRankedBattle(
   const taken: ObjectId[] = [];
   try {
     for (const p of players) {
-      if (p.isBot) continue;
       await takeBattleSlot(p._id, 'ranked');
       taken.push(p._id);
     }
@@ -265,18 +293,14 @@ export async function createRankedBattle(
 const standingsCache = new Map<string, Standing[]>();
 const STANDINGS_CACHE_SIZE = 200;
 
-/**
- * Every participant's live standing at their own replay cursor, in leaderboard order.
- * Memoised per battle version: every trader polls about once a second, and the result only
- * changes when someone steps their replay or acts (both bump the version).
- */
-export function liveStandings(b: BattleDoc): Standing[] {
+/** Real users' standings, memoised per battle version (they only change when someone acts). */
+function humanStandings(b: BattleDoc): Standing[] {
   const key = `${b._id.toHexString()}:${b.version}`;
   const cached = standingsCache.get(key);
   if (cached) return cached;
-  const out = sortStandings(
-    b.participants.map((p) => simulateParticipant(b, p, cursorOf(b, p)).standing),
-  );
+  const out = b.participants
+    .filter((p) => !isBot(p) || !p.bot)
+    .map((p) => simulateParticipant(b, p, cursorOf(b, p)).standing);
   standingsCache.set(key, out);
   if (standingsCache.size > STANDINGS_CACHE_SIZE)
     standingsCache.delete(standingsCache.keys().next().value!);
@@ -284,22 +308,33 @@ export function liveStandings(b: BattleDoc): Standing[] {
 }
 
 /**
- * Applies time-driven transitions: lobby expiry, the countdown ending, the timer running out, a
- * profit target being reached or every trader being out. Called on every read, so battles
- * advance without a background worker.
+ * Every participant's live standing at their own replay cursor, in leaderboard order. Real users
+ * are re-simulated once per battle version; bots are a lookup in their precomputed timelines
+ * at their derived cursor, so polling costs nothing per bot.
+ */
+export function liveStandings(b: BattleDoc, now = Date.now()): Standing[] {
+  const humans = humanStandings(b);
+  const bots = b.participants
+    .filter((p) => isBot(p) && p.bot)
+    .map((p) => botStanding(b, p, now, battleMarket));
+  return sortStandings([...humans, ...bots]);
+}
+
+/**
+ * Applies time-driven transitions: due bot events (lobby joins, a bot host's start, plans,
+ * forfeits, chat), lobby expiry, the countdown ending, the timer running out, a profit target
+ * being reached or every trader being out. Called on every read, so battles advance without a
+ * background worker.
  */
 export async function refresh(b: BattleDoc): Promise<BattleDoc> {
   for (let attempt = 0; attempt < 8; attempt++) {
     const now = Date.now();
-    if (b.status === 'live' && b.participants.some(isBotParticipant)) {
-      const botUpdate = botTickUpdate(b, now, clockOf(b));
+    if (b.bots) {
+      const busy = pumpNeedsBusy(b, now) ? await busyBots(b._id) : new Set<number>();
+      const botUpdate = pumpBattle(b, now, { market: battleMarket, busy });
       if (botUpdate) {
         const advanced = await commit(b, botUpdate);
-        if (advanced) {
-          b = advanced;
-          continue;
-        }
-        b = await loadBattle(b._id.toHexString());
+        b = advanced ?? (await loadBattle(b._id.toHexString()));
         continue;
       }
     }
@@ -310,7 +345,7 @@ export async function refresh(b: BattleDoc): Promise<BattleDoc> {
       if (update.completed) await recordResults(out);
       else if (out.status === 'cancelled')
         await Promise.all(
-          out.participants.filter((p) => !isBotParticipant(p)).map((p) => releaseBattleSlot(p.userId)),
+          out.participants.filter((p) => !isBot(p)).map((p) => releaseBattleSlot(p.userId)),
         );
       // A countdown that ended may be followed by an immediate completion check.
       b = out;
@@ -351,7 +386,9 @@ function transition(
   const clock = clockOf(b);
   if (elapsedMs(clock, now) >= durationMs(clock)) return complete(b, 'Time is up', now);
   if (b.status === 'paused') return null;
-  const standings = liveStandings(b);
+  // Nobody real is watching a bot-only battle: it simply runs out its time (no simulation).
+  if (!hasHuman(b)) return null;
+  const standings = liveStandings(b, now);
   if (b.settings.winCondition === 'profit-target') {
     const hit = standings.filter((s) => s.status === 'target' && s.targetAt !== null);
     if (hit.length > 0) {
@@ -364,7 +401,7 @@ function transition(
   if (standings.every(out)) return complete(b, 'Every trader is out', now);
   const end = endOf(b);
   const done = b.participants.every(
-    (p) => out(standingOf(standings, p)) || cursorOf(b, p) >= end,
+    (p) => out(standingOf(standings, p)) || cursorOf(b, p, now) >= end,
   );
   if (done) return complete(b, 'Every trader reached the end of the market', now);
   return null;
@@ -373,10 +410,21 @@ function transition(
 const standingOf = (standings: readonly Standing[], p: BattleParticipantDoc) =>
   standings.find((s) => s.userId === p.userId.toHexString())!;
 
+/** A bot that has reached its planned forfeit counts as gone (even before the pump wrote it). */
+function settled(b: BattleDoc, p: BattleParticipantDoc, now: number): BattleParticipantDoc {
+  if (!p.bot || p.leftT !== null || p.bot.leaveT === null) return p;
+  return cursorOf(b, p, now) >= p.bot.leaveT ? { ...p, leftT: p.bot.leaveT } : p;
+}
+
 function complete(b: BattleDoc, reason: string, now: number) {
-  const finals = sortStandings(
-    b.participants.map((p) => simulateParticipant(b, p, cursorOf(b, p), true).standing),
-  );
+  // Final accounts come from the same re-simulation for everyone, bots included.
+  const finals = hasHuman(b)
+    ? sortStandings(
+        b.participants.map(
+          (p) => simulateParticipant(b, settled(b, p, now), cursorOf(b, p, now), true).standing,
+        ),
+      )
+    : [];
   const places = placesOf(finals);
   const results: FinalResult[] = finals.map((s) => ({
     ...s,
@@ -412,59 +460,59 @@ function complete(b: BattleDoc, reason: string, now: number) {
 
 /**
  * After a battle completes (exactly once, by the request whose write won): Elo for ranked
- * battles, Composite Score and lifetime stats for everyone. Bots never get a profile; humans
- * vs a bot get soft Elo (half K).
+ * battles, Composite Score and lifetime stats for real users.
+ *
+ * Bots never get a profile and never touch Elo (they are never in ranked battles; a legacy
+ * ranked battle with a bot is recorded unrated). With bots in the field, XP placement bonuses
+ * are earned among real users only, so beating bots can't inflate XP or its leaderboard; wins
+ * and podiums count in the user's totals (matching the results screen) and again in
+ * `vsBots`, so human-vs-human figures stay exact.
  */
 async function recordResults(b: BattleDoc): Promise<void> {
   const results = b.results;
   if (!results) return;
   const { battleProfiles, battles } = await collections();
-  const botIds = new Set(
-    b.participants.filter(isBotParticipant).map((p) => p.userId.toHexString()),
-  );
-  const vsBot = botIds.size > 0;
+  const botIds = new Set(b.participants.filter(isBot).map((p) => p.userId.toHexString()));
+  const withBots = botIds.size > 0;
   const profiles = new Map<string, Awaited<ReturnType<typeof ensureProfile>>>();
   for (const r of results) {
     if (botIds.has(r.userId)) continue;
     profiles.set(r.userId, await ensureProfile(new ObjectId(r.userId)));
   }
-  const ranked = b.mode === 'ranked';
-  const eloPlayers = results.map((r) => {
-    if (botIds.has(r.userId)) {
-      const part = b.participants.find((p) => p.userId.toHexString() === r.userId)!;
-      return { id: r.userId, rating: part.elo, games: part.games };
-    }
-    const prof = profiles.get(r.userId)!;
-    return { id: r.userId, rating: prof.elo, games: prof.rankedGames };
-  });
+  const ranked = b.mode === 'ranked' && !withBots;
+  const humans = results.filter((r) => !botIds.has(r.userId));
+  const humanPlaces = new Map(
+    humans.map((r) => [r.userId, 1 + humans.filter((o) => o.place < r.place).length]),
+  );
   const deltas = ranked
-    ? eloChanges(eloPlayers, new Map(results.map((r) => [r.userId, r.place])))
+    ? eloChanges(
+        humans.map((r) => {
+          const prof = profiles.get(r.userId)!;
+          return { id: r.userId, rating: prof.elo, games: prof.rankedGames };
+        }),
+        new Map(humans.map((r) => [r.userId, r.place])),
+      )
     : null;
   const n = results.length;
   const out: FinalResult[] = [];
   for (const r of results) {
     if (botIds.has(r.userId)) {
-      out.push({
-        ...r,
-        isBot: true,
-        xp: 0,
-        eloBefore: ranked ? r.elo : null,
-        eloAfter: ranked ? r.elo : null,
-      });
+      out.push({ ...r, isBot: true, xp: botXp(r, n), eloBefore: null, eloAfter: null });
       continue;
     }
     const prof = profiles.get(r.userId)!;
     const won = n > 1 && r.place === 1 && r.status !== 'disqualified' && r.status !== 'left';
+    const podium = n >= 3 && r.place <= 3;
     const streak = won ? prof.winStreak + 1 : 0;
+    const hp = humanPlaces.get(r.userId) ?? r.place;
     const xp = xpFor({
-      place: r.place,
-      participants: n,
+      place: withBots ? hp : r.place,
+      participants: withBots ? humans.length : n,
       status: r.status,
       profitableTrades: r.wins,
-      winStreak: streak,
+      winStreak: withBots && humans.length < 2 ? 0 : streak,
     });
-    const raw = deltas?.get(r.userId) ?? 0;
-    const delta = vsBot ? scaleBotEloDelta(raw) : raw;
+    const delta = deltas?.get(r.userId) ?? 0;
     const elo = prof.elo + delta;
     out.push({
       ...r,
@@ -478,7 +526,7 @@ async function recordResults(b: BattleDoc): Promise<void> {
         $set: {
           battles: { $add: ['$battles', 1] },
           wins: { $add: ['$wins', won ? 1 : 0] },
-          podiums: { $add: ['$podiums', n >= 3 && r.place <= 3 ? 1 : 0] },
+          podiums: { $add: ['$podiums', podium ? 1 : 0] },
           xp: { $add: ['$xp', xp] },
           trades: { $add: ['$trades', r.trades] },
           winningTrades: { $add: ['$winningTrades', r.wins] },
@@ -493,6 +541,15 @@ async function recordResults(b: BattleDoc): Promise<void> {
             ],
           },
           updatedAt: Date.now(),
+          ...(withBots
+            ? {
+                vsBots: {
+                  battles: { $add: [{ $ifNull: ['$vsBots.battles', 0] }, 1] },
+                  wins: { $add: [{ $ifNull: ['$vsBots.wins', 0] }, won ? 1 : 0] },
+                  podiums: { $add: [{ $ifNull: ['$vsBots.podiums', 0] }, podium ? 1 : 0] },
+                },
+              }
+            : {}),
           ...(ranked
             ? {
                 elo: { $add: ['$elo', delta] },
@@ -503,13 +560,12 @@ async function recordResults(b: BattleDoc): Promise<void> {
             : {}),
         },
       },
-      ...(ranked
-        ? ([{ $set: { peakElo: { $max: ['$peakElo', '$elo'] } } }] as const)
-        : []),
+      ...(ranked ? ([{ $set: { peakElo: { $max: ['$peakElo', '$elo'] } } }] as const) : []),
     ]);
   }
   await battles.updateOne({ _id: b._id }, { $set: { results: out } });
   await syncBattleAccounts(b, true);
+  noteHumanActivity();
 }
 
 // ---- participation -----------------------------------------------------------------------
@@ -517,12 +573,18 @@ async function recordResults(b: BattleDoc): Promise<void> {
 const isIn = (b: BattleDoc, userId: ObjectId) =>
   b.participants.some((p) => p.userId.equals(userId));
 
-/** Why `userId` can't join `b` (null when they can). */
+/** A bot whose seat a real user can take (never the host). */
+const movableBot = (b: BattleDoc) =>
+  b.participants.some(
+    (p) => isBot(p) && p.leftT === null && !(b.hostId && p.userId.equals(b.hostId)),
+  );
+
+/** Why `userId` can't join `b` (null when they can). Real users always get a bot's seat. */
 export function joinBlocked(b: BattleDoc, userId: ObjectId): string | null {
   if (isIn(b, userId)) return null;
   if (b.mode === 'ranked') return 'Ranked battles are matchmade';
   if (b.status === 'completed' || b.status === 'cancelled') return 'This battle has ended';
-  if (b.participants.length >= b.settings.maxParticipants) return 'This battle is full';
+  if (seatsTaken(b) >= b.settings.maxParticipants && !movableBot(b)) return 'This battle is full';
   if ((b.status === 'live' || b.status === 'paused') && !b.settings.allowLateJoin)
     return 'This battle does not accept late entries';
   return null;
@@ -545,24 +607,25 @@ export async function joinBattle(id: string, user: Player, code?: string): Promi
       const blocked = joinBlocked(b, user._id);
       if (blocked) throw new BattleError(blocked, 409);
       added = true;
-      const host = b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
-      const autoStart = Boolean(host && isBotParticipant(host) && b.status === 'standby');
-      const chat = [systemMessage(`${user.name} joined`, now)];
-      if (autoStart && host) chat.push(systemMessage(`${host.name} started the countdown`, now));
+      // A real user takes priority: in a full battle a bot gives up its seat.
+      const evicted =
+        seatsTaken(b) >= b.settings.maxParticipants ? evictBotFor(b, now, battleMarket) : null;
+      const chat = evicted ? [evicted.message] : [];
+      chat.push(systemMessage(`${user.name} joined`, now));
       // Everyone replays the same market from its first candle, late joiners included.
-      // Bot-hosted cold-start lobbies start as soon as a human joins.
+      const me = newParticipant(user, b, b.marketStart, profile, now);
+      const participants = [...(evicted?.participants ?? b.participants), me];
+      const full = participants.length >= b.settings.maxParticipants;
+      const bots = b.bots ? onHumanJoined(b.bots, { ...b, participants }, now, full) : null;
       return {
-        $push: {
-          participants: newParticipant(user, b, b.marketStart, profile, now),
-          chat: { $each: chat, $slice: -MAX_CHAT },
-        },
-        ...(autoStart
-          ? { $set: { status: 'countdown' as const, countdownEndsAt: now + COUNTDOWN_MS } }
-          : {}),
+        $set: { participants, ...(bots ? { bots } : {}) },
+        $push: { chat: { $each: chat, $slice: -MAX_CHAT } },
       };
     });
     if (reserved && !added) await releaseBattleSlot(user._id);
-    return saved;
+    noteHumanActivity();
+    // Joining a running battle with bots: their plans are made now (one write).
+    return saved.status === 'live' && saved.bots ? refresh(saved) : saved;
   } catch (e) {
     if (reserved) await releaseBattleSlot(user._id);
     if (e instanceof PlanDenied) throw new BattleError(e.message, e.status);
@@ -590,10 +653,23 @@ export async function leaveBattle(id: string, user: Player): Promise<BattleDoc> 
           $set: { status: 'cancelled', participants: rest, endReason: 'Everyone left' },
           $push: { chat: msg },
         };
+      const nextHost = rest.find((p) => !isBot(p)) ?? rest[0]!;
+      // Only bots left in a user's lobby: they drift away and the lobby closes.
+      const bots =
+        b.bots && !hasHuman({ participants: rest })
+          ? {
+              ...b.bots,
+              events: [
+                ...b.bots.events.filter((e) => e.kind === 'chat'),
+                { kind: 'cancel' as const, at: now + randomInt(20_000, 90_000) },
+              ],
+            }
+          : null;
       return {
         $set: {
           participants: rest,
-          ...(b.hostId?.equals(user._id) ? { hostId: rest[0]!.userId } : {}),
+          ...(b.hostId?.equals(user._id) ? { hostId: nextHost.userId } : {}),
+          ...(bots ? { bots } : {}),
         },
         $push: { chat: msg },
       };
@@ -605,9 +681,8 @@ export async function leaveBattle(id: string, user: Player): Promise<BattleDoc> 
     const stillActive = b.participants.filter(
       (p) => p.leftT === null && !p.userId.equals(user._id),
     );
-    const hostPatch =
-      b.hostId?.equals(user._id) ?
-        { hostId: stillActive[0]?.userId ?? null }
+    const hostPatch = b.hostId?.equals(user._id)
+      ? { hostId: (stillActive.find((p) => !isBot(p)) ?? stillActive[0])?.userId ?? null }
       : {};
     return {
       $set: { [`participants.${i}.leftT`]: cursorOf(b, me), ...hostPatch },
@@ -665,7 +740,9 @@ export async function controlBattle(id: string, user: Player, op: ControlOp): Pr
             startBid: bidBefore(b.symbol, b.marketStart),
             actions: [],
             cursor: b.marketStart,
+            ...(p.bot ? { bot: { ...p.bot, planned: false, leaveT: null, joinElapsed: 0 } } : {}),
           }));
+        const bots = b.bots ? { ...b.bots, chat: [], late: [] } : null;
         return {
           $set: {
             participants,
@@ -675,6 +752,7 @@ export async function controlBattle(id: string, user: Player, op: ControlOp): Pr
             pausedAt: null,
             pausedMs: 0,
             endedAt: null,
+            ...(bots ? { bots } : {}),
           },
           $push: { chat: say('The host restarted the battle') },
         };
@@ -695,7 +773,7 @@ export async function controlBattle(id: string, user: Player, op: ControlOp): Pr
   if (op === 'restart') await deleteScopeEvents('battle', battle._id.toHexString());
   if (op === 'cancel' && battle.status === 'cancelled')
     await Promise.all(
-      battle.participants.filter((p) => !isBotParticipant(p)).map((p) => releaseBattleSlot(p.userId)),
+      battle.participants.filter((p) => !isBot(p)).map((p) => releaseBattleSlot(p.userId)),
     );
   return op === 'end' ? endEarly(battle) : battle;
 }
@@ -789,14 +867,18 @@ export async function postChat(id: string, user: Player, text: unknown): Promise
       at: now,
       system: false,
     };
-    return { $push: { chat: { $each: [msg], $slice: -MAX_CHAT } } };
+    const bots = b.bots && isGreeting(body) ? onHumanChat(b.bots, b, now) : null;
+    return {
+      $push: { chat: { $each: [msg], $slice: -MAX_CHAT } },
+      ...(bots ? { $set: { bots } } : {}),
+    };
   });
 }
 
 /** Writes the trader's opens and closes from the server's simulation. */
 async function syncTrader(b: BattleDoc, userId: ObjectId, final = false): Promise<void> {
   const p = b.participants.find((x) => x.userId.equals(userId));
-  if (!p || isBotParticipant(p)) return;
+  if (!p || isBot(p)) return;
   const done = final || b.status === 'completed' || p.leftT !== null;
   const sim = simulateParticipant(b, p, done ? endOf(b) : cursorOf(b, p), done);
   await replacePositionEvents(p.userId, 'battle', b._id.toHexString(), b.symbol, sim.account);
@@ -804,7 +886,7 @@ async function syncTrader(b: BattleDoc, userId: ObjectId, final = false): Promis
 
 async function syncBattleAccounts(b: BattleDoc, final = false): Promise<void> {
   await Promise.all(
-    b.participants.filter((p) => !isBotParticipant(p)).map((p) => syncTrader(b, p.userId, final)),
+    b.participants.filter((p) => !isBot(p)).map((p) => syncTrader(b, p.userId, final)),
   );
 }
 

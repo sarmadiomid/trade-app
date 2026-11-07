@@ -1,12 +1,14 @@
 import 'server-only';
 import { ObjectId } from 'mongodb';
 import { battleDenial, entitlements } from '@/lib/app/billing/entitlements';
-import { BOT_WAIT_MS, rankedFormat, type QueueStatus, type RankedFormat } from '@/lib/battles';
-import { PlanDenied, planOf, usageOf } from '../billing';
+import { DUEL_OFFER_MS, rankedFormat, type QueueStatus, type RankedFormat } from '@/lib/battles';
+import { PlanDenied, planOf, usageOf, releaseBattleSlot, takeBattleSlot } from '../billing';
 import { collections, type BattleQueueDoc } from '../db';
-import { makeBotPlayer } from './bot';
+import { duelBattle, tiltFor } from './bot-room';
+import { botConfig, busyBots, noteHumanActivity } from './bots';
+import { battleMarket, bidBefore, pick } from './market';
 import { ensureProfile } from './profiles';
-import { BattleError, createRankedBattle, type Player } from './service';
+import { BattleError, createRankedBattle, uniqueCode, type Player } from './service';
 
 /** A searcher who hasn't polled for this long is considered gone. */
 const ALIVE_MS = 12_000;
@@ -29,12 +31,15 @@ async function status(doc: BattleQueueDoc | null, now: number): Promise<QueueSta
     status: { $ne: 'matched' },
     lastSeen: { $gt: now - ALIVE_MS },
   });
+  const config = await botConfig();
   return {
     status: 'searching',
     format: doc.format,
     since: doc.joinedAt,
     range: searchRange(now - doc.joinedAt),
     searching,
+    // Nobody in range for a while: an unrated duel with the same rules is offered instead.
+    offer: config.enabled && config.duel && now - doc.joinedAt >= DUEL_OFFER_MS,
   };
 }
 
@@ -44,7 +49,8 @@ export async function joinQueue(user: Player, formatId: unknown): Promise<QueueS
   if (!format) throw new BattleError('Unknown ranked format');
   const plan = await planOf(user._id);
   const denial = battleDenial(plan, 'ranked', (await usageOf(user._id)).battles);
-  if (denial || !entitlements(plan).ranked) throw new PlanDenied(denial ?? 'نبرد رتبه‌ای برای طرح متوسط و بالاتر است.');
+  if (denial || !entitlements(plan).ranked)
+    throw new PlanDenied(denial ?? 'نبرد رتبه‌ای برای طرح متوسط و بالاتر است.');
   const { battleQueue } = await collections();
   const profile = await ensureProfile(user._id);
   const now = Date.now();
@@ -102,15 +108,12 @@ export async function pollQueue(user: Player): Promise<QueueStatus> {
     { sort: { joinedAt: 1 }, returnDocument: 'after' },
   );
   if (!opponent) {
-    const waited = now - me.joinedAt;
-    if (waited < BOT_WAIT_MS) {
-      await battleQueue.updateOne(
-        { _id: user._id, status: 'matching' },
-        { $set: { status: 'searching' } },
-      );
-      return status(await battleQueue.findOne({ _id: user._id }), now);
-    }
-    return matchWithBot(user, me, battleId, range, now);
+    // Ranked games are between real users only, so Elo always means something.
+    await battleQueue.updateOne(
+      { _id: user._id, status: 'matching' },
+      { $set: { status: 'searching' } },
+    );
+    return status(await battleQueue.findOne({ _id: user._id }), now);
   }
   const format = rankedFormat(me.format) as RankedFormat;
   try {
@@ -133,31 +136,58 @@ export async function pollQueue(user: Player): Promise<QueueStatus> {
   return { status: 'matched', battleId: battleId.toHexString() };
 }
 
-/** After BOT_WAIT_MS alone: open a ranked duel against a filled sparring opponent. */
-async function matchWithBot(
-  user: Player,
-  me: BattleQueueDoc,
-  battleId: ObjectId,
-  range: number,
-  now: number,
-): Promise<QueueStatus> {
-  const { battleQueue } = await collections();
-  const format = rankedFormat(me.format) as RankedFormat;
-  const bot = makeBotPlayer(me.elo, range);
+/**
+ * Accepts the unrated duel offered after a long search: leaves the queue and starts a casual
+ * 1v1 with the format's rules against a trader looking for a casual duel. Elo never moves.
+ */
+export async function startDuel(user: Player, formatId: unknown): Promise<QueueStatus> {
+  const format = typeof formatId === 'string' ? rankedFormat(formatId) : null;
+  if (!format) throw new BattleError('Unknown ranked format');
+  const config = await botConfig();
+  if (!config.enabled || !config.duel) throw new BattleError('No duel available right now', 409);
+  const { battleQueue, battles } = await collections();
+  const me = await battleQueue.findOne({ _id: user._id });
+  if (me?.status === 'matched' && me.battleId)
+    return { status: 'matched', battleId: me.battleId.toHexString() };
+  const profile = await ensureProfile(user._id);
+  const now = Date.now();
+  const id = new ObjectId();
+  const symbol = pick(format.settings.assets);
+  const marketStart = battleMarket.pickStart(symbol, format.settings);
+  const doc = duelBattle({
+    id,
+    code: await uniqueCode(),
+    format,
+    human: {
+      userId: user._id,
+      name: user.name,
+      joinedAt: now,
+      startT: marketStart,
+      startBid: bidBefore(symbol, marketStart),
+      elo: profile.elo,
+      games: profile.rankedGames,
+      actions: [],
+      cursor: marketStart,
+      leftT: null,
+    },
+    now,
+    busy: await busyBots(),
+    tilt: tiltFor(profile.battles),
+    market: battleMarket,
+    symbol,
+    marketStart,
+  });
+  if (!doc) throw new BattleError('No duel available right now', 409);
+  await takeBattleSlot(user._id, 'join');
   try {
-    await createRankedBattle(battleId, format, [bot, { _id: user._id, name: user.name }]);
+    await battles.insertOne(doc);
   } catch (e) {
-    await battleQueue.updateOne(
-      { _id: user._id, status: 'matching' },
-      { $set: { status: 'searching', battleId: null } },
-    );
+    await releaseBattleSlot(user._id);
     throw e;
   }
-  await battleQueue.updateOne(
-    { _id: user._id },
-    { $set: { status: 'matched', battleId, lastSeen: now } },
-  );
-  return { status: 'matched', battleId: battleId.toHexString() };
+  await battleQueue.deleteOne({ _id: user._id, status: { $ne: 'matched' } });
+  noteHumanActivity();
+  return { status: 'matched', battleId: id.toHexString() };
 }
 
 export async function queueStatus(user: Player): Promise<QueueStatus> {

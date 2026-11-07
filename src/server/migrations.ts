@@ -173,8 +173,7 @@ export const MIGRATIONS: readonly Migration[] = [
   },
   {
     id: '012-payment-ref-unique',
-    description:
-      'One gateway receipt (refId) per payment row; null/absent refs stay unrestricted',
+    description: 'One gateway receipt (refId) per payment row; null/absent refs stay unrestricted',
     async up(db) {
       await db.collection('payments').createIndex(
         { refId: 1 },
@@ -184,6 +183,20 @@ export const MIGRATIONS: readonly Migration[] = [
           partialFilterExpression: { refId: { $type: 'string' } },
         },
       );
+    },
+  },
+  {
+    id: '013-battle-bots',
+    description:
+      'Retire the first bot lobbies (seeded) and index battles by status for the bot world',
+    async up(db) {
+      await db
+        .collection('battles')
+        .updateMany(
+          { seeded: true, status: { $in: ['standby', 'countdown'] } },
+          { $set: { status: 'cancelled', endReason: 'Lobby expired' } },
+        );
+      await db.collection('battles').createIndex({ status: 1, createdAt: -1 });
     },
   },
 ];

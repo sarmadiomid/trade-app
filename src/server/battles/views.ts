@@ -9,10 +9,11 @@ import {
   type Standing,
 } from '@/lib/battles';
 import { collections, type BattleDoc } from '../db';
-import { ensureSeededLobbies } from './bot';
+import { seatsTaken } from './bot-room';
+import { worldTick } from './bots';
 import { clockOf, cursorOf, joinBlocked, liveStandings, refresh } from './service';
 
-/** Drop server-only bot flags before sending standings to the browser. */
+/** Drop server-only bot flags before anything reaches the browser. */
 function publicStanding(s: Standing): Standing {
   const { isBot: _bot, ...rest } = s;
   return rest;
@@ -31,7 +32,7 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
   let standings: readonly Standing[] = [];
   if (member) {
     if (b.status === 'completed' && b.results) standings = b.results.map(publicResult);
-    else standings = liveStandings(b).map(publicStanding);
+    else standings = liveStandings(b, now).map(publicStanding);
   }
   const mine = standings.find((s) => s.userId === viewerId.toHexString());
   const privateBattle = b.settings.visibility === 'private';
@@ -46,7 +47,7 @@ export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): 
     clock: clockOf(b),
     countdownEndsAt: b.countdownEndsAt,
     serverNow: now,
-    cursor: me ? cursorOf(b, me) : b.marketStart,
+    cursor: me ? cursorOf(b, me, now) : b.marketStart,
     host: host ? { id: host.userId.toHexString(), name: host.name } : null,
     isHost: Boolean(member && me?.leftT === null && b.hostId?.equals(viewerId)),
     standings,
@@ -96,9 +97,11 @@ export function battleSummary(b: BattleDoc, viewerId: ObjectId): BattleSummary {
     visibility: s.visibility,
     allowLateJoin: s.allowLateJoin,
     hostName: host?.name ?? null,
-    participants: b.participants.length,
+    participants: seatsTaken(b),
     maxParticipants: s.maxParticipants,
-    participantNames: b.participants.map((p) => p.name),
+    participantNames: b.participants
+      .filter((p) => !(p.isBot && p.leftT !== null))
+      .map((p) => p.name),
     createdAt: b.createdAt,
     startedAt: b.startedAt,
     endsAt:
@@ -129,7 +132,8 @@ function stale(b: BattleDoc, now: number): boolean {
 
 /** Public battles that can still be joined or watched: in the lobby or in progress. */
 export async function browseBattles(viewerId: ObjectId): Promise<BattleSummary[]> {
-  await ensureSeededLobbies();
+  // Bot-hosted public battles on the world schedule (throttled, cheap when nothing is due).
+  await worldTick().catch((e: unknown) => console.error('[bots] world tick', e));
   const { battles } = await collections();
   const now = Date.now();
   const docs = await battles

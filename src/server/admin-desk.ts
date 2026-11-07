@@ -55,7 +55,11 @@ export async function adminOverview() {
   ] = await Promise.all([
     users.countDocuments(),
     supportTickets.countDocuments({ status: 'open' }),
-    battles.countDocuments({ status: { $in: ['standby', 'countdown', 'live', 'paused'] } }),
+    // Only battles with a real user in them (bot-only battles are not activity).
+    battles.countDocuments({
+      status: { $in: ['standby', 'countdown', 'live', 'paused'] },
+      participants: { $elemMatch: { isBot: { $ne: true } } },
+    }),
     backtestSessions.countDocuments(),
     instruments.countDocuments(),
     users
@@ -225,6 +229,8 @@ export async function listBattles() {
       mode: string;
       createdAt: number;
       traders: number;
+      bots: number;
+      origin: string | null;
     }>([
       { $sort: { createdAt: -1 } },
       { $limit: 40 },
@@ -236,7 +242,17 @@ export async function listBattles() {
           status: 1,
           mode: 1,
           createdAt: 1,
-          traders: { $size: '$participants' },
+          traders: {
+            $size: {
+              $filter: { input: '$participants', cond: { $ne: ['$$this.isBot', true] } },
+            },
+          },
+          bots: {
+            $size: {
+              $filter: { input: '$participants', cond: { $eq: ['$$this.isBot', true] } },
+            },
+          },
+          origin: { $ifNull: ['$bots.origin', null] },
         },
       },
     ])

@@ -5,4 +5,3 @@ export * from './ranks';
 export * from './elo';
 export * from './scoring';
 export * from './view';
-export * from './bot';
