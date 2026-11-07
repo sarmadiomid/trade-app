@@ -99,22 +99,29 @@ optimistic concurrency (`version`), and the request whose completion write wins 
 and stats exactly once. Live standings are memoised per battle version and cursor. Public
 browse also hides lobbies older than 24h.
 
+### Bots
+
+During cold start, bots keep the lobby alive. They host public battles, fill users' public
+lobbies and offer an unrated duel when ranked matchmaking finds nobody. They trade on the same
+engine and are re-simulated like everyone else, but never play ranked or appear on a
+leaderboard. See [BATTLE-BOTS.md](BATTLE-BOTS.md).
+
 ## API
 
-| Method & path                        | Body / query                | Does                                             |
-| ------------------------------------ | --------------------------- | ------------------------------------------------ |
-| `GET /api/battles`                   | `?tab=browse` · `?tab=mine` | Public lobbies / battles in progress, or yours   |
-| `POST /api/battles`                  | `{ settings }`              | Creates a custom battle → `{ id, code }`         |
-| `GET /api/battles/:id`               |                             | The battle as you see it (polled ~1/s)           |
-| `POST /api/battles/:id/join`         | `{ code? }`                 | Joins (code required for private battles)        |
-| `POST /api/battles/join-code`        | `{ code }`                  | Finds a battle by ID and joins it → `{ id }`     |
-| `POST /api/battles/:id/leave`        |                             | Leaves the lobby, or forfeits a running battle   |
-| `POST /api/battles/:id/control`      | `{ op }`                    | Host: start, pause, resume, restart, end, cancel |
-| `POST /api/battles/:id/actions`      | `{ t, action }`             | A trade action at market time `t`                |
-| `POST /api/battles/:id/chat`         | `{ text }`                  | Chat message                                     |
-| `GET/POST/DELETE /api/battles/queue` | `{ format }` · `?ack=1`     | Ranked matchmaking: poll, join, leave            |
-| `GET /api/battles/leaderboard`       | `?sort=elo` · `?sort=xp`    | Global leaderboard                               |
-| `GET/PATCH /api/battles/profile`     | `{ name }`                  | Your profile and active battle; rename           |
+| Method & path                        | Body / query                   | Does                                                                   |
+| ------------------------------------ | ------------------------------ | ---------------------------------------------------------------------- |
+| `GET /api/battles`                   | `?tab=browse` · `?tab=mine`    | Public lobbies / battles in progress, or yours                         |
+| `POST /api/battles`                  | `{ settings }`                 | Creates a custom battle → `{ id, code }`                               |
+| `GET /api/battles/:id`               |                                | The battle as you see it (polled ~1/s)                                 |
+| `POST /api/battles/:id/join`         | `{ code? }`                    | Joins (code required for private battles)                              |
+| `POST /api/battles/join-code`        | `{ code }`                     | Finds a battle by ID and joins it → `{ id }`                           |
+| `POST /api/battles/:id/leave`        |                                | Leaves the lobby, or forfeits a running battle                         |
+| `POST /api/battles/:id/control`      | `{ op }`                       | Host: start, pause, resume, restart, end, cancel                       |
+| `POST /api/battles/:id/actions`      | `{ t, action }`                | A trade action at market time `t`                                      |
+| `POST /api/battles/:id/chat`         | `{ text }`                     | Chat message                                                           |
+| `GET/POST/DELETE /api/battles/queue` | `{ format, duel? }` · `?ack=1` | Ranked matchmaking: poll, join, leave; `duel` accepts the unrated duel |
+| `GET /api/battles/leaderboard`       | `?sort=elo` · `?sort=xp`       | Global leaderboard                                                     |
+| `GET/PATCH /api/battles/profile`     | `{ name }`                     | Your profile and active battle; rename                                 |
 
 All routes need a signed-in user; writes are same-origin only.
 
@@ -127,6 +134,8 @@ first connection, recorded in `migrations`, guarded by a lock):
 - `002-user-display-names`: `users.displayName` ("Trader 1234"), shown on leaderboards.
 - `003-battles`: indexes for `battles`, `battle_profiles` and `battle_queue` (stale queue
   entries expire after 10 minutes).
+- `013-battle-bots`: retires the first implementation's seeded lobbies and indexes battles by
+  status (`battle_world` holds the bot world cursor and the admin override).
 
 | Collection        | Holds                                                                                                   |
 | ----------------- | ------------------------------------------------------------------------------------------------------- |
