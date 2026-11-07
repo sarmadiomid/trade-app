@@ -322,6 +322,22 @@ function PlayTab({
     return () => window.clearInterval(t);
   }, [queue, onMatched]);
 
+  // Nobody in range for a while: start the unrated duel (same rules, Elo untouched).
+  const duel = async () => {
+    if (queue.status !== 'searching') return;
+    try {
+      setQueue(
+        await api<QueueStatus>('/api/battles/queue', {
+          method: 'POST',
+          body: { format: queue.format, duel: true },
+        }),
+      );
+    } catch (e) {
+      const message = e instanceof Error ? faMessage(e.message) : faMessage('Could not join');
+      if (!isPlanLimitMessage(message)) setError(message);
+    }
+  };
+
   const cancel = async () => {
     try {
       setQueue(await api<QueueStatus>('/api/battles/queue', { method: 'DELETE' }));
@@ -415,7 +431,12 @@ function PlayTab({
       </section>
 
       {queue.status !== 'idle' ? (
-        <MatchmakingOverlay queue={queue} profile={profile} onCancel={() => void cancel()} />
+        <MatchmakingOverlay
+          queue={queue}
+          profile={profile}
+          onCancel={() => void cancel()}
+          onDuel={() => void duel()}
+        />
       ) : null}
     </div>
   );
@@ -540,10 +561,12 @@ function MatchmakingOverlay({
   queue,
   profile,
   onCancel,
+  onDuel,
 }: {
   readonly queue: QueueStatus;
   readonly profile: BattleProfile | null;
   readonly onCancel: () => void;
+  readonly onDuel: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -590,6 +613,23 @@ function MatchmakingOverlay({
             <p className="mt-1 text-[12px] text-muted">
               بازه الو ±{faNum(queue.range)} · {traders(queue.searching)} در جست‌وجو
             </p>
+            {queue.offer ? (
+              <div className="mt-4 rounded-xl border border-line bg-hover/40 p-3 text-[12.5px] leading-6">
+                <p>حریف رتبه‌ای هم‌سطح تو الان در صف نیست.</p>
+                <p className="text-muted">
+                  یک دوئل آزاد با همین قوانین بازی کن؛ امتیاز الو تغییر نمی‌کند و جست‌وجو را
+                  می‌توانی بعدا ادامه بدهی.
+                </p>
+                <button
+                  type="button"
+                  onClick={onDuel}
+                  data-testid="start-duel"
+                  className="mt-2 inline-flex h-9 items-center rounded-lg bg-accent px-4 text-[13px] font-semibold text-accent-fg"
+                >
+                  دوئل آزاد
+                </button>
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={onCancel}
