@@ -24,18 +24,46 @@ function publicResult(r: FinalResult): FinalResult {
   return rest;
 }
 
+/**
+ * The traders of a public battle as an outsider sees them: names, Elo and seats only. Results
+ * stay hidden until they join; a late joiner starts at the first candle, so others' returns
+ * would give away where the market goes.
+ */
+function roster(b: BattleDoc): Standing[] {
+  return b.participants
+    .filter((p) => p.leftT === null)
+    .map((p) => ({
+      userId: p.userId.toHexString(),
+      name: p.name,
+      elo: p.elo,
+      status: 'active' as const,
+      balance: b.settings.startingBalance,
+      equity: b.settings.startingBalance,
+      returnPct: 0,
+      openPositions: 0,
+      trades: 0,
+      wins: 0,
+      targetAt: null,
+      reason: null,
+    }));
+}
+
 /** What one viewer sees of a battle (only their own actions are included). */
 export function battleView(b: BattleDoc, viewerId: ObjectId, now = Date.now()): BattleView {
   const me = b.participants.find((p) => p.userId.equals(viewerId)) ?? null;
   const member = me !== null;
-  const host = member && b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
+  const privateBattle = b.settings.visibility === 'private';
+  // A public lobby shows who is in it to anyone deciding whether to join.
+  const visible = member || !privateBattle;
+  const host = visible && b.hostId ? b.participants.find((p) => p.userId.equals(b.hostId!)) : null;
   let standings: readonly Standing[] = [];
   if (member) {
     if (b.status === 'completed' && b.results) standings = b.results.map(publicResult);
     else standings = liveStandings(b, now).map(publicStanding);
+  } else if (visible && b.status !== 'completed' && b.status !== 'cancelled') {
+    standings = roster(b);
   }
   const mine = standings.find((s) => s.userId === viewerId.toHexString());
-  const privateBattle = b.settings.visibility === 'private';
   return {
     id: b._id.toHexString(),
     code: member || !privateBattle ? b.code : '',
