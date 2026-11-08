@@ -637,13 +637,23 @@ export function fillMeta(input: {
         r.chance(0.5 * input.presence) ? 1 : 0,
       )
     : [];
+  // Poisson fills can come up empty on an unlucky seed; a public lobby with presence always
+  // gets at least one companion (first arrival usually 15–90 s — see docs/BATTLE-BOTS.md).
+  let events = lobby.events.filter(
+    (e) => e.kind !== 'start' && e.kind !== 'cancel',
+  ) as BotLobbyEventDoc[];
+  if (!events.some((e) => e.kind === 'join')) {
+    const who = drawIdentities(seedOf(seed, 'fill-min'), 1, input.busy, input.tilt)[0];
+    if (who) {
+      const at = input.createdAt + Math.round(botRng(seedOf(seed, 'fill-min-at')).range(15, 90) * 1000);
+      events = [{ kind: 'join', at, index: who.index }, ...events].sort((a, b) => a.at - b.at);
+    }
+  }
   return {
     origin: 'fill',
     seed,
     tilt: input.tilt,
-    events: lobby.events.filter(
-      (e) => e.kind !== 'start' && e.kind !== 'cancel',
-    ) as BotLobbyEventDoc[],
+    events,
     late,
     chat: [],
     startAt: null,

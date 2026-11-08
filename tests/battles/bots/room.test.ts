@@ -272,17 +272,20 @@ describe('real users take priority', () => {
       visibility,
       maxParticipants: 8,
     });
+    // Presence > 0 always brings company, even on unlucky Poisson seeds.
+    for (let i = 0; i < 40; i++) {
+      const pub = fillMeta({
+        battleId: new ObjectId(),
+        createdAt: 0,
+        settings: settings('public'),
+        presence: 1,
+        busy: new Set(),
+        tilt: 0,
+      });
+      expect(pub!.events.filter((e) => e.kind === 'join').length).toBeGreaterThan(0);
+      expect(pub!.events.some((e) => e.kind === 'start' || e.kind === 'cancel')).toBe(false);
+    }
     const id = new ObjectId();
-    const pub = fillMeta({
-      battleId: id,
-      createdAt: 0,
-      settings: settings('public'),
-      presence: 1,
-      busy: new Set(),
-      tilt: 0,
-    });
-    expect(pub!.events.filter((e) => e.kind === 'join').length).toBeGreaterThan(0);
-    expect(pub!.events.some((e) => e.kind === 'start' || e.kind === 'cancel')).toBe(false);
     expect(
       fillMeta({
         battleId: id,
