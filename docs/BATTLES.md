@@ -88,8 +88,9 @@ with the Price Skipper (play / pause, next candle, ticker value, frequency; forw
 rewind), up to the market's last candle (`marketStart + duration × speed`). The browser reports
 its position (`POST /api/battles/:id/cursor`) and every action moves it too; standings are
 computed at each trader's own position. The battle
-start is a random weekday morning in the instrument's history, early enough that the whole
-replay (`duration × speed`, at most one trading week) never crosses a weekend.
+start is a random point in the instrument's history (or inside the host's history window).
+Short replays (`duration × speed` within one trading week) stay before the Friday close;
+longer bot windows (20–30 market days) may include weekends as empty market time.
 
 ### No background worker
 

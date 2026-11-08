@@ -72,8 +72,9 @@ experience (battles played), so a newcomer meets a softer field and a regular me
 
 - **Deterministic schedule.** Public bot-hosted battles come from a seeded slot schedule over
   wall-clock time. The rate follows a Tehran-time diurnal curve: busy evenings, quiet nights,
-  a livelier Friday. Settings follow what real hosts create: mostly gold, 5–30 minutes, usually 30×,
-  6–10 seats, some duels, about a quarter Profit Target.
+  a livelier Friday. Settings: mostly gold, a random 20 or 30 day market window drawn from the
+  last two years (replayed at 1440× so the real timer is 20 or 30 minutes), 6–10 seats, some
+  duels, about a quarter Profit Target.
 - **No backlog effect.** The first visitor after an idle period sees battles that were created
   minutes ago and are filling or already running, not a burst of brand-new lobbies. The world
   cursor is persisted, so a slot is decided once and battles never flicker in and out.

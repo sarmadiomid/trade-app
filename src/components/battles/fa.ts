@@ -116,8 +116,8 @@ const EXACT: Readonly<Record<string, string>> = {
   'History range is outside available data': 'بازه تاریخ بیرون از دادهٔ موجود است',
   'End date must be on or after the start date': 'تاریخ پایان باید همان روز شروع یا بعد از آن باشد',
   'Unknown replay speed': 'سرعت بازپخش شناخته نشد',
-  'This duration at this speed replays more than one trading week':
-    'با این مدت و این سرعت، بازپخش از یک هفته معاملاتی بیشتر می‌شود',
+  'This duration at this speed replays more than 30 market days':
+    'با این مدت و این سرعت، بازپخش از ۳۰ روز بازار بیشتر می‌شود',
   'Profit Target battles need a profit target': 'نبرد هدف سود، بدون هدف سود ساخته نمی‌شود',
   'Profit target must be 0.1–100%': 'هدف سود باید بین ۰٫۱ تا ۱۰۰ درصد باشد',
   'Max drawdown must be 0.5–99%': 'حداکثر افت باید بین ۰٫۵ تا ۹۹ درصد باشد',

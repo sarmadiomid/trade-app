@@ -17,21 +17,32 @@ export function bidBefore(symbol: string, t: number): number {
   return res.bars[0]?.close ?? 0;
 }
 
-/** A weekday start whose replay fits before the Friday close (like pickMarketStart). */
+/** A start whose replay fits the settings (week-fit for short spans, any slot for long ones). */
 export function marketStartFor(symbol: string, settings: BattleSettings, seed: number): number {
   const r = botRng(seed);
   const range = provider.dataRange(symbol);
   const span = marketSpanMs(settings);
+  const poolStart =
+    settings.historyStart !== null ? Math.max(range.start, settings.historyStart) : range.start;
+  const poolEnd =
+    settings.historyEnd !== null ? Math.min(range.end, settings.historyEnd + DAY_MS) : range.end;
+  const weekFit = 4 * DAY_MS + 19 * HOUR_MS;
+  if (span > weekFit) {
+    const earliest = Math.max(poolStart, range.start);
+    const latest = Math.max(earliest, poolEnd - span);
+    const slots = Math.max(1, Math.floor((latest - earliest) / (15 * MINUTE_MS)));
+    return earliest + r.int(0, slots - 1) * 15 * MINUTE_MS;
+  }
   const firstMonday = (t: number) => {
     const d = Math.floor(t / DAY_MS) * DAY_MS;
     return d + ((8 - new Date(d).getUTCDay()) % 7) * DAY_MS;
   };
-  const first = firstMonday(range.start + 30 * DAY_MS);
-  const weeks = Math.floor((range.end - 7 * DAY_MS - first) / (7 * DAY_MS));
-  const monday = first + r.int(0, weeks - 1) * 7 * DAY_MS;
-  const earliest = monday + HOUR_MS;
-  const latest = monday + 4 * DAY_MS + 20 * HOUR_MS - span;
-  const slots = Math.max(1, Math.floor((latest - earliest) / (15 * MINUTE_MS)));
+  const first = firstMonday(Math.max(poolStart, range.start + 30 * DAY_MS));
+  const weeks = Math.floor((poolEnd - 7 * DAY_MS - first) / (7 * DAY_MS));
+  const monday = first + r.int(0, Math.max(0, weeks - 1)) * 7 * DAY_MS;
+  const earliest = Math.max(monday + HOUR_MS, poolStart);
+  const latest = Math.min(monday + 4 * DAY_MS + 20 * HOUR_MS - span, poolEnd - span);
+  const slots = Math.max(1, Math.floor((Math.max(earliest, latest) - earliest) / (15 * MINUTE_MS)));
   return earliest + r.int(0, slots - 1) * 15 * MINUTE_MS;
 }
 
@@ -48,7 +59,16 @@ export interface SimBattle {
 
 export function simBattle(seed: number, patch: Partial<BattleSettings> = {}): SimBattle {
   const r = botRng(seedOf(seed, 'battle'));
-  const settings = { ...presetSettings(r).settings, ...patch };
+  // Bot lobbies use 20–30 day / 1440× presets; keep the harness on a short week-fitting replay
+  // unless the caller opts into a longer span (planner tests stay fast).
+  const settings = {
+    ...presetSettings(r, 1_700_000_000_000).settings,
+    durationMin: 15,
+    speed: 30,
+    historyStart: null,
+    historyEnd: null,
+    ...patch,
+  };
   const symbol = settings.assets[r.int(0, settings.assets.length - 1)]!;
   const marketStart = marketStartFor(symbol, settings, seedOf(seed, 'start'));
   const end = marketEnd({ ...settings, marketStart });

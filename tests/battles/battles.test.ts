@@ -61,8 +61,12 @@ describe('battle settings', () => {
     ).toMatch(/End date/);
   });
 
-  it('keeps every battle inside one trading week', () => {
+  it('allows up to 30 market days (bot long-span speed)', () => {
     expect(validateBattleSettings(settings({ durationMin: 99, speed: 60 }))).toBeNull();
+    expect(validateBattleSettings(settings({ durationMin: 30, speed: 1440 }))).toBeNull();
+    expect(validateBattleSettings(settings({ durationMin: 31, speed: 1440 }))).toMatch(
+      /30 market days/,
+    );
   });
 
   it('makes readable battle IDs', () => {

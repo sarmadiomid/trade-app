@@ -63,9 +63,9 @@ const firstMonday = (t: number) => {
 };
 
 /**
- * A random point in the instrument's history to replay: a week day morning far enough from the
- * weekly close that the whole battle fits before it. Players never know the date in advance.
- * When the host set a history window, the start is drawn from that window (still a weekday slot).
+ * A random point in the instrument's history to replay. Short battles stay inside one trading
+ * week (Monday morning → Friday close). Longer spans (bot 20–30 day windows) start at a random
+ * 15-minute slot that fits inside the host's history pool; weekends are empty market time.
  */
 export function pickMarketStart(symbol: string, settings: BattleSettings): number {
   const range = store().provider.dataRange(symbol);
@@ -74,6 +74,15 @@ export function pickMarketStart(symbol: string, settings: BattleSettings): numbe
     settings.historyStart !== null ? Math.max(range.start, settings.historyStart) : range.start;
   const poolEnd =
     settings.historyEnd !== null ? Math.min(range.end, settings.historyEnd + DAY_MS) : range.end;
+
+  // Multi-week replays cannot fit before Friday close — pick any slot inside the pool.
+  const weekFit = 4 * DAY_MS + 19 * HOUR_MS;
+  if (span > weekFit) {
+    const earliest = Math.max(poolStart, range.start);
+    const latest = Math.max(earliest, poolEnd - span);
+    const slots = Math.max(1, Math.floor((latest - earliest) / (15 * MINUTE_MS)));
+    return earliest + randomInt(0, slots) * 15 * MINUTE_MS;
+  }
 
   // Leave chart history before the start when the pool is wide enough; keep a week otherwise.
   const lead = settings.historyStart !== null ? 7 * DAY_MS : 30 * DAY_MS;

@@ -5,8 +5,14 @@ import type { BattleSettings, WinCondition } from './types';
 export const BATTLE_ASSETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'AUDUSD', 'NAS100'] as const;
 export const MAX_ASSETS = 5;
 
-/** Market minutes per real minute. */
+/** Market minutes per real minute (shown in the New Battle dialog). */
 export const BATTLE_SPEEDS = [15, 30, 60] as const;
+/**
+ * Extra speeds bots may use so a 20–30 day market window still finishes in 20–30 real minutes
+ * (1440× → one market day per real minute).
+ */
+export const BOT_BATTLE_SPEEDS = [1440] as const;
+const ALLOWED_SPEEDS: ReadonlySet<number> = new Set([...BATTLE_SPEEDS, ...BOT_BATTLE_SPEEDS]);
 export const STARTING_BALANCES = [5_000, 10_000, 25_000, 50_000, 100_000, 200_000] as const;
 export const MIN_DURATION = 1;
 export const MAX_DURATION = 99;
@@ -56,10 +62,10 @@ export const marketSpanMs = (s: Pick<BattleSettings, 'durationMin' | 'speed'>) =
   s.durationMin * s.speed * MINUTE_MS;
 
 /**
- * Longest replay that fits in one trading week (Monday 01:00 → Friday 20:00 UTC), so a battle
- * never sits through a weekend.
+ * Longest market replay allowed. Short human battles stay inside a trading week; bot-hosted
+ * lobbies may replay a 20–30 day window (weekends included as empty market time).
  */
-export const MAX_MARKET_SPAN_MS = 4 * DAY_MS + 19 * HOUR_MS;
+export const MAX_MARKET_SPAN_MS = 30 * DAY_MS;
 
 /** Problems with a battle's settings, or null. */
 export function validateBattleSettings(s: BattleSettings): string | null {
@@ -87,9 +93,9 @@ export function validateBattleSettings(s: BattleSettings): string | null {
     s.durationMin > MAX_DURATION
   )
     return `Duration must be ${MIN_DURATION}–${MAX_DURATION} minutes`;
-  if (!(BATTLE_SPEEDS as readonly number[]).includes(s.speed)) return 'Unknown replay speed';
+  if (!ALLOWED_SPEEDS.has(s.speed)) return 'Unknown replay speed';
   if (marketSpanMs(s) > MAX_MARKET_SPAN_MS)
-    return 'This duration at this speed replays more than one trading week';
+    return 'This duration at this speed replays more than 30 market days';
   if (s.winCondition === 'profit-target' && s.profitTargetPct === null)
     return 'Profit Target battles need a profit target';
   if (s.profitTargetPct !== null && !(s.profitTargetPct >= 0.1 && s.profitTargetPct <= 100))

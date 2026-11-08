@@ -1,8 +1,15 @@
-import type { BattleSettings } from '@/lib/battles';
+import { utcDay, type BattleSettings } from '@/lib/battles';
+import { DAY_MS } from '@/lib/core';
 import { objectIdHex } from './identity';
 import { botRng, clamp, seedOf, type BotRng } from './rng';
 
 const MINUTE_MS = 60_000;
+/** Bot lobbies replay this many market days (real duration equals the day count at 1440×). */
+const MARKET_DAYS = [20, 30] as const;
+/** How far back from the battle's creation day the random history window may start. */
+const HISTORY_LOOKBACK_MS = 2 * 365 * DAY_MS;
+/** 1440× → one market day per real minute, so durationMin = market days. */
+const LONG_SPAN_SPEED = 1440;
 /** Tehran is UTC+3:30 (no daylight saving since 2022). */
 const TEHRAN_OFFSET_MS = 3.5 * 60 * MINUTE_MS;
 
@@ -100,11 +107,19 @@ function pickAssets(r: BotRng): { assets: string[]; kind: keyof typeof NAMES } {
   return { assets: out, kind: 'any' };
 }
 
-/** Settings a real host would pick (validated by the same rules as the New Battle dialog). */
-export function presetSettings(r: BotRng): { settings: BattleSettings; appeal: number } {
+/**
+ * Settings for a bot-hosted public lobby: a random 20 or 30 day market window drawn from the
+ * two years before `createdAt`, replayed at 1440× so the real timer matches the day count.
+ */
+export function presetSettings(
+  r: BotRng,
+  createdAt = Date.now(),
+): { settings: BattleSettings; appeal: number } {
   const { assets, kind } = pickAssets(r);
-  const durationMin = [5, 8, 10, 15, 20, 30][r.weighted([8, 4, 18, 22, 10, 6])]!;
-  const speed = [15, 30, 60][r.weighted([6, 74, 20])]!;
+  const days = r.pick(MARKET_DAYS);
+  const { historyStart, historyEnd } = pickHistoryWindow(r, createdAt, days);
+  const durationMin = days;
+  const speed = LONG_SPAN_SPEED;
   const maxParticipants = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20][
     r.weighted([14, 4, 9, 8, 10, 14, 22, 6, 6, 7])
   ]!;
@@ -121,8 +136,8 @@ export function presetSettings(r: BotRng): { settings: BattleSettings; appeal: n
     winCondition: target ? 'profit-target' : 'time-trial',
     startingBalance,
     assets,
-    historyStart: null,
-    historyEnd: null,
+    historyStart,
+    historyEnd,
     durationMin,
     speed,
     profitTargetPct: target ? [1, 1.5, 2, 2, 3, 5][r.int(0, 5)]! : null,
@@ -140,13 +155,30 @@ export function presetSettings(r: BotRng): { settings: BattleSettings; appeal: n
   };
   const appeal = clamp(
     (assets.includes('XAUUSD') ? 1.15 : 0.9) *
-      (durationMin <= 15 ? 1.08 : 0.85) *
+      (days <= 20 ? 1.08 : 0.92) *
       (maxParticipants === 2 ? 0.8 : 1) *
       r.logNormal(1, 0.2),
     0.5,
     1.5,
   );
   return { settings, appeal };
+}
+
+/** Inclusive UTC-day window of `days` length ending on or before `createdAt`, within 2 years. */
+function pickHistoryWindow(
+  r: BotRng,
+  createdAt: number,
+  days: number,
+): { historyStart: number; historyEnd: number } {
+  const today = utcDay(createdAt);
+  const windowMs = days * DAY_MS;
+  const earliest = today - HISTORY_LOOKBACK_MS;
+  // historyEnd is inclusive; pool covers [historyStart, historyEnd + DAY_MS).
+  const maxStart = today - windowMs + DAY_MS;
+  const startSlots = Math.max(0, Math.floor((maxStart - earliest) / DAY_MS));
+  const historyStart = earliest + r.int(0, startSlots) * DAY_MS;
+  const historyEnd = historyStart + windowMs - DAY_MS;
+  return { historyStart, historyEnd };
 }
 
 /** The battle slot `slot` would open (deterministic; whether it opens depends on `roll`). */
@@ -164,7 +196,7 @@ export function extraBattle(seed: number, createdAt: number): WorldBattleSpec {
 }
 
 function specAt(seed: number, r: BotRng, createdAt: number, slot: number, roll: number) {
-  const { settings, appeal } = presetSettings(r);
+  const { settings, appeal } = presetSettings(r, createdAt);
   return {
     slot,
     id: objectIdHex(seedOf(seed, 'id'), createdAt / 1000),

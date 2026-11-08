@@ -238,12 +238,26 @@ describe('world schedule', () => {
 
   it('creates battles a real host would, always valid', () => {
     const r = botRng(7);
+    const createdAt = Date.UTC(2026, 10, 8);
     const assets = new Map<string, number>();
+    const dayCounts = new Map<number, number>();
     let duels = 0;
     for (let k = 0; k < 2000; k++) {
-      const { settings } = presetSettings(r);
+      const { settings } = presetSettings(r, createdAt);
       expect(validateBattleSettings(settings)).toBeNull();
       expect(settings.visibility).toBe('public');
+      expect([20, 30]).toContain(settings.durationMin);
+      expect(settings.speed).toBe(1440);
+      expect(settings.historyStart).not.toBeNull();
+      expect(settings.historyEnd).not.toBeNull();
+      const days =
+        (settings.historyEnd! - settings.historyStart!) / (24 * 60 * 60 * 1000) + 1;
+      expect(days).toBe(settings.durationMin);
+      expect(settings.historyEnd!).toBeLessThanOrEqual(createdAt);
+      expect(settings.historyStart!).toBeGreaterThanOrEqual(
+        createdAt - 2 * 365 * 24 * 60 * 60 * 1000 - 24 * 60 * 60 * 1000,
+      );
+      dayCounts.set(days, (dayCounts.get(days) ?? 0) + 1);
       if (settings.winCondition === 'profit-target') expect(settings.allowLateJoin).toBe(false);
       for (const a of settings.assets) assets.set(a, (assets.get(a) ?? 0) + 1);
       if (settings.maxParticipants === 2) duels += 1;
@@ -251,6 +265,8 @@ describe('world schedule', () => {
     // Iranian traders love gold.
     expect(assets.get('XAUUSD')!).toBeGreaterThan(assets.get('EURUSD')! * 2);
     expect(duels / 2000).toBeGreaterThan(0.05);
+    expect(dayCounts.get(20)!).toBeGreaterThan(700);
+    expect(dayCounts.get(30)!).toBeGreaterThan(700);
   });
 
   it('keeps a joinable lobby open at normal hours, not before dawn', () => {
