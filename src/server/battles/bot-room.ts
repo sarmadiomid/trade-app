@@ -646,7 +646,7 @@ export function fillMeta(input: {
     const who = drawIdentities(seedOf(seed, 'fill-min'), 1, input.busy, input.tilt)[0];
     if (who) {
       const at = input.createdAt + Math.round(botRng(seedOf(seed, 'fill-min-at')).range(15, 90) * 1000);
-      events = [{ kind: 'join', at, index: who.index }, ...events].sort((a, b) => a.at - b.at);
+      events = [{ kind: 'join' as const, at, index: who.index }, ...events].sort((a, b) => a.at - b.at);
     }
   }
   return {
