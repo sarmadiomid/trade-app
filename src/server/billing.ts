@@ -77,6 +77,7 @@ export async function takeSessionSlot(userId: ObjectId): Promise<void> {
   );
 }
 
+/** Only for failed create rollback. Delete must not free a lifetime session slot. */
 export const releaseSessionSlot = (userId: ObjectId) => releaseQuota(userId, 'usageSessions');
 
 export async function takeBattleSlot(userId: ObjectId, kind: 'join' | 'ranked'): Promise<void> {
@@ -139,7 +140,8 @@ export async function syncStrategyTags(userId: ObjectId): Promise<void> {
   await users.updateOne({ _id: userId }, { $set: { strategyTags } });
 }
 
+/** Clears derived practice state. Keeps usageSessions so account reset cannot refill the quota. */
 export async function resetPracticeUsage(userId: ObjectId): Promise<void> {
   const { users } = await collections();
-  await users.updateOne({ _id: userId }, { $set: { usageSessions: 0, strategyTags: [] } });
+  await users.updateOne({ _id: userId }, { $set: { strategyTags: [] } });
 }

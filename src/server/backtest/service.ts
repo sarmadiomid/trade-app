@@ -513,7 +513,8 @@ export async function removeSession(userId: ObjectId, id: string): Promise<void>
   const { backtestSessions, backtestShots } = await collections();
   const res = await backtestSessions.deleteOne({ _id: id, userId });
   if (res.deletedCount === 0) throw new BacktestError('جلسه پیدا نشد', 404);
-  await Promise.all([releaseSessionSlot(userId), syncStrategyTags(userId)]);
+  // Lifetime quota: deleting does not free a backtest session slot.
+  await syncStrategyTags(userId);
   await Promise.all([
     deletePositionEvents(userId, 'backtest', id),
     backtestShots.deleteMany({ userId, sessionId: id }),

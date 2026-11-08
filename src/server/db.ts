@@ -27,7 +27,7 @@ export interface UserDoc {
   displayName?: string;
   /** Missing means Beginner (migration 005 backfills it). */
   plan?: PlanId;
-  /** Backtest sessions this account has created. Released when a session is deleted. */
+  /** Backtest sessions this account has created. Not released on delete (lifetime quota). */
   usageSessions?: number;
   /** Battles this account has joined. Released only when they leave before the start. */
   usageBattles?: number;
