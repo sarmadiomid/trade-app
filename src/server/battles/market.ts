@@ -64,7 +64,7 @@ const firstMonday = (t: number) => {
 
 /**
  * A random point in the instrument's history to replay. Short battles stay inside one trading
- * week (Monday morning → Friday close). Longer spans (bot 20–30 day windows) start at a random
+ * week (Monday morning → Friday close). Longer spans (10-day profit-target / bot windows) start at a random
  * 15-minute slot that fits inside the host's history pool; weekends are empty market time.
  */
 export function pickMarketStart(symbol: string, settings: BattleSettings): number {

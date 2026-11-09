@@ -59,7 +59,7 @@ export interface SimBattle {
 
 export function simBattle(seed: number, patch: Partial<BattleSettings> = {}): SimBattle {
   const r = botRng(seedOf(seed, 'battle'));
-  // Bot lobbies use 20–30 day / 1440× presets; keep the harness on a short week-fitting replay
+  // Bot lobbies use 10 day / 1440× presets; keep the harness on a short week-fitting replay
   // unless the caller opts into a longer span (planner tests stay fast).
   const settings = {
     ...presetSettings(r, 1_700_000_000_000).settings,

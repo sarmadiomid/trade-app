@@ -5,14 +5,16 @@ import type { BattleSettings, WinCondition } from './types';
 export const BATTLE_ASSETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'AUDUSD', 'NAS100'] as const;
 export const MAX_ASSETS = 5;
 
-/** Market minutes per real minute (shown in the New Battle dialog). */
+/** Market minutes per real minute (shown in the New Battle dialog for time trials). */
 export const BATTLE_SPEEDS = [15, 30, 60] as const;
 /**
- * Extra speeds bots may use so a 20–30 day market window still finishes in 20–30 real minutes
- * (1440× → one market day per real minute).
+ * Long-span replay: one market day per real minute. Used by bot lobbies and every profit-target
+ * battle so a 10% target has a realistic 10-day market window.
  */
-export const BOT_BATTLE_SPEEDS = [1440] as const;
-const ALLOWED_SPEEDS: ReadonlySet<number> = new Set([...BATTLE_SPEEDS, ...BOT_BATTLE_SPEEDS]);
+export const LONG_SPAN_MARKET_DAYS = 10;
+export const LONG_SPAN_SPEED = 1440;
+export const BOT_BATTLE_SPEEDS = [LONG_SPAN_SPEED] as const;
+const ALLOWED_SPEEDS: ReadonlySet<number> = new Set([...BATTLE_SPEEDS, LONG_SPAN_SPEED]);
 export const STARTING_BALANCES = [5_000, 10_000, 25_000, 50_000, 100_000, 200_000] as const;
 export const MIN_DURATION = 1;
 export const MAX_DURATION = 99;
@@ -62,8 +64,8 @@ export const marketSpanMs = (s: Pick<BattleSettings, 'durationMin' | 'speed'>) =
   s.durationMin * s.speed * MINUTE_MS;
 
 /**
- * Longest market replay allowed. Short human battles stay inside a trading week; bot-hosted
- * lobbies may replay a 20–30 day window (weekends included as empty market time).
+ * Longest market replay allowed. Short time trials stay inside a trading week; profit-target
+ * and bot lobbies replay a 10-day window (weekends included as empty market time).
  */
 export const MAX_MARKET_SPAN_MS = 30 * DAY_MS;
 
@@ -117,11 +119,20 @@ export function validateBattleSettings(s: BattleSettings): string | null {
 
 /** Normalises user input (trimmed name, no target outside Profit Target battles). */
 export function normalizeSettings(s: BattleSettings): BattleSettings {
-  return {
+  const base: BattleSettings = {
     ...s,
     name: s.name.trim(),
     profitTargetPct: s.winCondition === 'profit-target' ? s.profitTargetPct : null,
   };
+  // Profit targets need a multi-day market window; lock to the long-span preset.
+  if (base.winCondition === 'profit-target') {
+    return {
+      ...base,
+      durationMin: LONG_SPAN_MARKET_DAYS,
+      speed: LONG_SPAN_SPEED,
+    };
+  }
+  return base;
 }
 
 /** Matchmade ranked formats (fixed rules so every ranked game is comparable). */
@@ -157,7 +168,7 @@ export const RANKED_FORMATS: readonly RankedFormat[] = [
   {
     id: 'sprint',
     name: 'اسپرینت رتبه‌ای',
-    summary: 'یک‌به‌یک · ۵ دقیقه · اولین رسیدن به ۲٪+',
+    summary: 'یک‌به‌یک · ۱۰ دقیقه · ۱۰ روز بازار · اولین رسیدن به ۲٪+',
     settings: {
       name: 'اسپرینت رتبه‌ای',
       winCondition: 'profit-target',
@@ -165,8 +176,8 @@ export const RANKED_FORMATS: readonly RankedFormat[] = [
       assets: [...BATTLE_ASSETS],
       historyStart: null,
       historyEnd: null,
-      durationMin: 5,
-      speed: 60,
+      durationMin: LONG_SPAN_MARKET_DAYS,
+      speed: LONG_SPAN_SPEED,
       profitTargetPct: 2,
       maxDrawdownPct: 5,
       maxDailyDrawdownPct: 5,

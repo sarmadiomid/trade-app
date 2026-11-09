@@ -263,7 +263,7 @@ describe('world schedule', () => {
       const { settings } = presetSettings(r, createdAt);
       expect(validateBattleSettings(settings)).toBeNull();
       expect(settings.visibility).toBe('public');
-      expect([20, 30]).toContain(settings.durationMin);
+      expect(settings.durationMin).toBe(10);
       expect(settings.speed).toBe(1440);
       expect(settings.historyStart).not.toBeNull();
       expect(settings.historyEnd).not.toBeNull();
@@ -282,8 +282,7 @@ describe('world schedule', () => {
     // Iranian traders love gold.
     expect(assets.get('XAUUSD')!).toBeGreaterThan(assets.get('EURUSD')! * 2);
     expect(duels / 2000).toBeGreaterThan(0.05);
-    expect(dayCounts.get(20)!).toBeGreaterThan(700);
-    expect(dayCounts.get(30)!).toBeGreaterThan(700);
+    expect(dayCounts.get(10)).toBe(2000);
   });
 
   it('keeps a joinable lobby open at normal hours, not before dawn', () => {

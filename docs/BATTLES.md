@@ -90,7 +90,7 @@ its position (`POST /api/battles/:id/cursor`) and every action moves it too; sta
 computed at each trader's own position. The battle
 start is a random point in the instrument's history (or inside the host's history window).
 Short replays (`duration × speed` within one trading week) stay before the Friday close;
-longer bot windows (20–30 market days) may include weekends as empty market time.
+longer windows (10 market days for profit-target and bot lobbies) may include weekends as empty market time.
 
 ### No background worker
 

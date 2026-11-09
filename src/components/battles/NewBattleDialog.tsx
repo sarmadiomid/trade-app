@@ -5,6 +5,8 @@ import {
   BATTLE_ASSETS,
   BATTLE_SPEEDS,
   DEFAULT_SETTINGS,
+  LONG_SPAN_MARKET_DAYS,
+  LONG_SPAN_SPEED,
   MAX_ASSETS,
   MAX_DURATION,
   MAX_PARTICIPANTS,
@@ -240,6 +242,17 @@ export function NewBattleDialog({
                       set({
                         winCondition: w,
                         profitTargetPct: w === 'profit-target' ? (s.profitTargetPct ?? 5) : null,
+                        ...(w === 'profit-target'
+                          ? {
+                              durationMin: LONG_SPAN_MARKET_DAYS,
+                              speed: LONG_SPAN_SPEED,
+                            }
+                          : s.speed === LONG_SPAN_SPEED
+                            ? {
+                                durationMin: DEFAULT_SETTINGS.durationMin,
+                                speed: DEFAULT_SETTINGS.speed,
+                              }
+                            : {}),
                       })
                     }
                     icon={w === 'time-trial' ? 'clock' : 'target'}
@@ -341,52 +354,70 @@ export function NewBattleDialog({
                 ))}
               </div>
             </div>
-            <label className="block">
-              <span className="mb-1.5 flex items-baseline justify-between font-medium">
-                مدت
-                <span className="text-[13px] font-semibold tabular-nums">
-                  {minutes(s.durationMin)}
-                </span>
-              </span>
-              <input
-                type="range"
-                min={MIN_DURATION}
-                max={MAX_DURATION}
-                value={s.durationMin}
-                onChange={(e) => set({ durationMin: Number(e.target.value) })}
-                className="w-full"
-                aria-label="مدت به دقیقه"
-                data-testid="duration"
-              />
-              <span className="flex justify-between text-[11px] text-muted">
-                <span>{minutes(MIN_DURATION)}</span>
-                <span>{minutes(MAX_DURATION)}</span>
-              </span>
-            </label>
-            <div>
-              <span className="mb-1.5 block font-medium">سرعت بازپخش</span>
-              <div className="grid grid-cols-3 gap-2">
-                {BATTLE_SPEEDS.map((sp) => (
-                  <button
-                    key={sp}
-                    type="button"
-                    aria-pressed={s.speed === sp}
-                    onClick={() => set({ speed: sp })}
-                    className={`rounded-lg border px-3 py-2 text-start transition ${
-                      s.speed === sp ? 'border-accent bg-accent/10' : 'border-line hover:bg-hover'
-                    }`}
-                  >
-                    <span className="block font-semibold tabular-nums">{faNum(sp)}×</span>
-                    <span className="block text-[11px] text-muted">
-                      هر کندل یک‌دقیقه‌ای، {faNum(60 / sp)} ثانیه
-                    </span>
-                  </button>
-                ))}
+            {s.winCondition === 'profit-target' ? (
+              <div className="rounded-lg border border-line px-3 py-3">
+                <p className="font-medium">بازهٔ بازپخش</p>
+                <p className="mt-1 text-[12.5px] text-muted">
+                  نبردهای هدف سود همیشه {faNum(LONG_SPAN_MARKET_DAYS)} روز بازار را در{' '}
+                  {minutes(LONG_SPAN_MARKET_DAYS)} واقعی بازپخش می‌کنند تا رسیدن به هدف ممکن باشد.
+                </p>
+                <p className="mt-2 text-[12.5px] font-semibold tabular-nums">
+                  {minutes(LONG_SPAN_MARKET_DAYS)} · {faNum(LONG_SPAN_SPEED)}× ·{' '}
+                  {duration(LONG_SPAN_MARKET_DAYS * LONG_SPAN_SPEED * 60_000)}
+                </p>
               </div>
-              <p className="mt-1.5 text-[11.5px] text-muted">
-                {duration(marketSpanMs(s))} از تاریخ بازار بازپخش می‌شود.
-              </p>
-            </div>
+            ) : (
+              <>
+                <label className="block">
+                  <span className="mb-1.5 flex items-baseline justify-between font-medium">
+                    مدت
+                    <span className="text-[13px] font-semibold tabular-nums">
+                      {minutes(s.durationMin)}
+                    </span>
+                  </span>
+                  <input
+                    type="range"
+                    min={MIN_DURATION}
+                    max={MAX_DURATION}
+                    value={s.durationMin}
+                    onChange={(e) => set({ durationMin: Number(e.target.value) })}
+                    className="w-full"
+                    aria-label="مدت به دقیقه"
+                    data-testid="duration"
+                  />
+                  <span className="flex justify-between text-[11px] text-muted">
+                    <span>{minutes(MIN_DURATION)}</span>
+                    <span>{minutes(MAX_DURATION)}</span>
+                  </span>
+                </label>
+                <div>
+                  <span className="mb-1.5 block font-medium">سرعت بازپخش</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {BATTLE_SPEEDS.map((sp) => (
+                      <button
+                        key={sp}
+                        type="button"
+                        aria-pressed={s.speed === sp}
+                        onClick={() => set({ speed: sp })}
+                        className={`rounded-lg border px-3 py-2 text-start transition ${
+                          s.speed === sp
+                            ? 'border-accent bg-accent/10'
+                            : 'border-line hover:bg-hover'
+                        }`}
+                      >
+                        <span className="block font-semibold tabular-nums">{faNum(sp)}×</span>
+                        <span className="block text-[11px] text-muted">
+                          هر کندل یک‌دقیقه‌ای، {faNum(60 / sp)} ثانیه
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-1.5 text-[11.5px] text-muted">
+                    {duration(marketSpanMs(s))} از تاریخ بازار بازپخش می‌شود.
+                  </p>
+                </div>
+              </>
+            )}
             {admin ? (
               <div className="rounded-lg border border-line px-3 py-3">
                 <label className="flex cursor-pointer items-center justify-between gap-3">
@@ -530,7 +561,12 @@ export function NewBattleDialog({
                 ['نمایش', s.visibility === 'public' ? 'عمومی' : 'خصوصی'],
                 ['نمادها', s.assets.join('، ')],
                 ['موجودی اولیه', compactMoney(s.startingBalance)],
-                ['مدت', `${minutes(s.durationMin)} با سرعت ${faNum(s.speed)}×`],
+                [
+                  'مدت',
+                  s.winCondition === 'profit-target'
+                    ? `${minutes(LONG_SPAN_MARKET_DAYS)} · ${faNum(LONG_SPAN_MARKET_DAYS)} روز بازار`
+                    : `${minutes(s.durationMin)} با سرعت ${faNum(s.speed)}×`,
+                ],
                 [
                   'هدف سود',
                   s.winCondition === 'profit-target' && s.profitTargetPct !== null

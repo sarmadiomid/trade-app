@@ -11,7 +11,10 @@ import {
   levelFor,
   marketCursor,
   marketEnd,
+  LONG_SPAN_MARKET_DAYS,
+  LONG_SPAN_SPEED,
   normalizeCode,
+  normalizeSettings,
   placesOf,
   rankFor,
   rankProgress,
@@ -67,6 +70,24 @@ describe('battle settings', () => {
     expect(validateBattleSettings(settings({ durationMin: 31, speed: 1440 }))).toMatch(
       /30 market days/,
     );
+  });
+
+  it('locks profit-target battles to a 10-day market window', () => {
+    const out = normalizeSettings(
+      settings({
+        winCondition: 'profit-target',
+        profitTargetPct: 10,
+        durationMin: 15,
+        speed: 30,
+      }),
+    );
+    expect(out.durationMin).toBe(LONG_SPAN_MARKET_DAYS);
+    expect(out.speed).toBe(LONG_SPAN_SPEED);
+    expect(out.profitTargetPct).toBe(10);
+
+    const trial = normalizeSettings(settings({ durationMin: 15, speed: 30 }));
+    expect(trial.durationMin).toBe(15);
+    expect(trial.speed).toBe(30);
   });
 
   it('makes readable battle IDs', () => {

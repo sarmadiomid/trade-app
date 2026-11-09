@@ -1,15 +1,13 @@
-import { utcDay, type BattleSettings } from '@/lib/battles';
+import { LONG_SPAN_MARKET_DAYS, LONG_SPAN_SPEED, utcDay, type BattleSettings } from '@/lib/battles';
 import { DAY_MS } from '@/lib/core';
 import { objectIdHex } from './identity';
 import { botRng, clamp, seedOf, type BotRng } from './rng';
 
 const MINUTE_MS = 60_000;
 /** Bot lobbies replay this many market days (real duration equals the day count at 1440×). */
-const MARKET_DAYS = [20, 30] as const;
+const MARKET_DAYS = [LONG_SPAN_MARKET_DAYS] as const;
 /** How far back from the battle's creation day the random history window may start. */
 const HISTORY_LOOKBACK_MS = 2 * 365 * DAY_MS;
-/** 1440× → one market day per real minute, so durationMin = market days. */
-const LONG_SPAN_SPEED = 1440;
 /** Tehran is UTC+3:30 (no daylight saving since 2022). */
 const TEHRAN_OFFSET_MS = 3.5 * 60 * MINUTE_MS;
 
@@ -120,7 +118,7 @@ function pickAssets(r: BotRng): { assets: string[]; kind: keyof typeof NAMES } {
 }
 
 /**
- * Settings for a bot-hosted public lobby: a random 20 or 30 day market window drawn from the
+ * Settings for a bot-hosted public lobby: a random 10-day market window drawn from the
  * two years before `createdAt`, replayed at 1440× so the real timer matches the day count.
  */
 export function presetSettings(
@@ -167,7 +165,6 @@ export function presetSettings(
   };
   const appeal = clamp(
     (assets.includes('XAUUSD') ? 1.15 : 0.9) *
-      (days <= 20 ? 1.08 : 0.92) *
       (maxParticipants === 2 ? 0.8 : 1) *
       r.logNormal(1, 0.2),
     0.5,
