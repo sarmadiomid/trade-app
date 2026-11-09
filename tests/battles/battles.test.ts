@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { battleAccountConfig } from '@/lib/app/battle/battle-config';
+import { battleAccountConfig, battleSessionSettings } from '@/lib/app/battle/battle-config';
 import { ExecutionEngine, resimulate, type LoggedAction } from '@/lib/backtest';
 import {
   DEFAULT_SETTINGS,
@@ -13,6 +13,9 @@ import {
   marketEnd,
   LONG_SPAN_MARKET_DAYS,
   LONG_SPAN_SPEED,
+  USER_SPAN_MARKET_DAYS,
+  historyDayCount,
+  longSpanFromDays,
   normalizeCode,
   normalizeSettings,
   placesOf,
@@ -26,7 +29,7 @@ import {
   type BattleSettings,
   type Standing,
 } from '@/lib/battles';
-import { MINUTE_MS } from '@/lib/core';
+import { DAY_MS, MINUTE_MS } from '@/lib/core';
 import { MockMarketProvider, instrumentSpec } from '@/lib/data';
 
 const settings = (patch: Partial<BattleSettings> = {}): BattleSettings => ({
@@ -88,6 +91,35 @@ describe('battle settings', () => {
     const trial = normalizeSettings(settings({ durationMin: 15, speed: 30 }));
     expect(trial.durationMin).toBe(15);
     expect(trial.speed).toBe(30);
+  });
+
+  it('maps an admin history window to a matching long-span replay', () => {
+    const start = Date.UTC(2024, 0, 1);
+    const end = Date.UTC(2024, 0, 30); // inclusive → 30 calendar days
+    expect(historyDayCount(start, end)).toBe(30);
+    expect(longSpanFromDays(30)).toEqual({ durationMin: 30, speed: LONG_SPAN_SPEED });
+    expect(longSpanFromDays(45)).toEqual({ durationMin: 30, speed: LONG_SPAN_SPEED });
+    expect(longSpanFromDays(1)).toEqual({ durationMin: 1, speed: LONG_SPAN_SPEED });
+
+    const marketStart = start + DAY_MS;
+    const session = battleSessionSettings(
+      settings({ ...longSpanFromDays(30), historyStart: start, historyEnd: end }),
+      'XAUUSD',
+      instrumentSpec('XAUUSD')!,
+      marketStart,
+    );
+    // Inclusive end day → 30 calendar days; sessionEnd aligns with marketEnd.
+    expect(session.endDate - session.startDate).toBe(29 * DAY_MS);
+    expect(session.endDate + DAY_MS - session.startDate).toBe(30 * DAY_MS);
+  });
+
+  it('gives normal user time-trials a 15-day market window', () => {
+    expect(USER_SPAN_MARKET_DAYS).toBe(15);
+    expect(longSpanFromDays(USER_SPAN_MARKET_DAYS)).toEqual({
+      durationMin: 15,
+      speed: LONG_SPAN_SPEED,
+    });
+    expect(validateBattleSettings(settings(longSpanFromDays(USER_SPAN_MARKET_DAYS)))).toBeNull();
   });
 
   it('makes readable battle IDs', () => {

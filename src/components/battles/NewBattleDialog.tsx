@@ -9,11 +9,15 @@ import {
   LONG_SPAN_SPEED,
   MAX_ASSETS,
   MAX_DURATION,
+  MAX_MARKET_DAYS,
   MAX_PARTICIPANTS,
   MIN_DURATION,
   MIN_PARTICIPANTS,
   STARTING_BALANCES,
+  USER_SPAN_MARKET_DAYS,
   WIN_CONDITIONS,
+  historyDayCount,
+  longSpanFromDays,
   marketSpanMs,
   MAX_MARKET_SPAN_MS,
   normalizeSettings,
@@ -21,6 +25,7 @@ import {
   type BattleSettings,
   type WinCondition,
 } from '@/lib/battles';
+
 import { defaultHistoryWindow, isPlanLimitMessage } from '@/lib/app';
 import { DAY_MS } from '@/lib/core';
 import { faNum } from '@/lib/locale/jalali';
@@ -46,6 +51,7 @@ const BATTLE_ASSET_SET = new Set<string>(BATTLE_ASSETS);
 const battleMarket = new MockMarketProvider();
 
 const STEPS = ['نوع نبرد', 'بازار', 'قانون‌ها', 'بازبینی'] as const;
+const USER_SPAN = longSpanFromDays(USER_SPAN_MARKET_DAYS);
 
 const field =
   'h-9 w-full rounded-lg border border-line bg-chart px-3 text-[13px] outline-none focus:border-accent';
@@ -64,10 +70,16 @@ export function NewBattleDialog({
   readonly onCreated: (id: string) => void;
 }) {
   const [step, setStep] = useState(0);
-  const [s, setS] = useState<BattleSettings>({ ...DEFAULT_SETTINGS, name: `نبرد ${hostName}` });
+  const [s, setS] = useState<BattleSettings>({
+    ...DEFAULT_SETTINGS,
+    name: `نبرد ${hostName}`,
+    // Normal hosts always replay a fixed multi-day window; admins keep the short custom defaults.
+    ...(admin ? {} : USER_SPAN),
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const historyOn = admin && s.historyStart !== null && s.historyEnd !== null;
+  const userReplay = !admin && s.winCondition === 'time-trial';
   const catalogTick = useSyncExternalStore(subscribeCustomCatalog, customCatalogVersion, () => 0);
   const instruments = useMemo(() => {
     if (catalogTick < 0) return [];
@@ -97,15 +109,44 @@ export function NewBattleDialog({
     return { start: range.start, end: range.end, lastDay: range.end - DAY_MS };
   }, [s.assets]);
 
+  /** Custom history windows drive the chart length (same long-span rule as bot lobbies). */
+  const historyReplay =
+    historyOn && s.historyStart !== null && s.historyEnd !== null
+      ? longSpanFromDays(historyDayCount(s.historyStart, s.historyEnd))
+      : null;
+
   const enableHistory = () => {
     const window = defaultHistoryWindow(historyRange);
-    set({ historyStart: window.start, historyEnd: window.end });
+    set({
+      historyStart: window.start,
+      historyEnd: window.end,
+      ...(s.winCondition === 'time-trial'
+        ? longSpanFromDays(historyDayCount(window.start, window.end))
+        : {}),
+    });
+  };
+
+  const clearHistory = () => {
+    set({
+      historyStart: null,
+      historyEnd: null,
+      ...(s.winCondition === 'time-trial'
+        ? { durationMin: DEFAULT_SETTINGS.durationMin, speed: DEFAULT_SETTINGS.speed }
+        : {}),
+    });
   };
 
   const setHistoryDay = (which: 'historyStart' | 'historyEnd', value: string) => {
     const day = fromDateInput(value);
     if (day === null) return;
-    set({ [which]: day });
+    const start = which === 'historyStart' ? day : s.historyStart;
+    const end = which === 'historyEnd' ? day : s.historyEnd;
+    set({
+      [which]: day,
+      ...(s.winCondition === 'time-trial' && start !== null && end !== null && end >= start
+        ? longSpanFromDays(historyDayCount(start, end))
+        : {}),
+    });
   };
 
   const stepError = (i: number): string | null => {
@@ -136,9 +177,18 @@ export function NewBattleDialog({
   };
 
   const create = async () => {
-    const settings = normalizeSettings(
-      admin ? s : { ...s, historyStart: null, historyEnd: null },
-    );
+    const raw = admin ? s : { ...s, historyStart: null, historyEnd: null };
+    // Admin history window → chart length; normal time-trials → fixed 15 market days.
+    const synced =
+      admin &&
+      raw.winCondition === 'time-trial' &&
+      raw.historyStart !== null &&
+      raw.historyEnd !== null
+        ? { ...raw, ...longSpanFromDays(historyDayCount(raw.historyStart, raw.historyEnd)) }
+        : !admin && raw.winCondition === 'time-trial'
+          ? { ...raw, ...USER_SPAN }
+          : raw;
+    const settings = normalizeSettings(synced);
     const e = validateBattleSettings(settings);
     if (e) return setError(faMessage(e));
     setBusy(true);
@@ -247,12 +297,16 @@ export function NewBattleDialog({
                               durationMin: LONG_SPAN_MARKET_DAYS,
                               speed: LONG_SPAN_SPEED,
                             }
-                          : s.speed === LONG_SPAN_SPEED
-                            ? {
-                                durationMin: DEFAULT_SETTINGS.durationMin,
-                                speed: DEFAULT_SETTINGS.speed,
-                              }
-                            : {}),
+                          : historyOn && s.historyStart !== null && s.historyEnd !== null
+                            ? longSpanFromDays(historyDayCount(s.historyStart, s.historyEnd))
+                            : !admin
+                              ? USER_SPAN
+                              : s.speed === LONG_SPAN_SPEED
+                                ? {
+                                    durationMin: DEFAULT_SETTINGS.durationMin,
+                                    speed: DEFAULT_SETTINGS.speed,
+                                  }
+                                : {}),
                       })
                     }
                     icon={w === 'time-trial' ? 'clock' : 'target'}
@@ -366,6 +420,36 @@ export function NewBattleDialog({
                   {duration(LONG_SPAN_MARKET_DAYS * LONG_SPAN_SPEED * 60_000)}
                 </p>
               </div>
+            ) : userReplay ? (
+              <div className="rounded-lg border border-line px-3 py-3">
+                <p className="font-medium">بازهٔ بازپخش</p>
+                <p className="mt-1 text-[12.5px] text-muted">
+                  نقطهٔ شروع از تاریخ بازار به‌صورت تصادفی انتخاب می‌شود و {faNum(USER_SPAN_MARKET_DAYS)}{' '}
+                  روز بازار در {minutes(USER_SPAN_MARKET_DAYS)} واقعی بازپخش می‌شود.
+                </p>
+                <p className="mt-2 text-[12.5px] font-semibold tabular-nums">
+                  {minutes(USER_SPAN_MARKET_DAYS)} · {faNum(LONG_SPAN_SPEED)}× ·{' '}
+                  {duration(marketSpanMs(USER_SPAN))}
+                </p>
+              </div>
+            ) : historyReplay ? (
+              <div className="rounded-lg border border-line px-3 py-3">
+                <p className="font-medium">بازهٔ بازپخش</p>
+                <p className="mt-1 text-[12.5px] text-muted">
+                  با بازهٔ تاریخ نماد، چارت همان {faNum(historyReplay.durationMin)} روز بازار را در{' '}
+                  {minutes(historyReplay.durationMin)} واقعی بازپخش می‌کند
+                  {s.historyStart !== null &&
+                  s.historyEnd !== null &&
+                  historyDayCount(s.historyStart, s.historyEnd) > MAX_MARKET_DAYS
+                    ? ` (سقف ${faNum(MAX_MARKET_DAYS)} روز؛ شروع تصادفی داخل بازه)`
+                    : ''}
+                  .
+                </p>
+                <p className="mt-2 text-[12.5px] font-semibold tabular-nums">
+                  {minutes(historyReplay.durationMin)} · {faNum(LONG_SPAN_SPEED)}× ·{' '}
+                  {duration(marketSpanMs(historyReplay))}
+                </p>
+              </div>
             ) : (
               <>
                 <label className="block">
@@ -424,17 +508,15 @@ export function NewBattleDialog({
                   <span>
                     <span className="block font-medium">بازه تاریخ نماد</span>
                     <span className="block text-[11.5px] text-muted">
-                      نقطهٔ شروع بازپخش از این بازه به‌صورت تصادفی انتخاب می‌شود
+                      {s.winCondition === 'profit-target'
+                        ? `نقطهٔ شروع بازپخش ${faNum(LONG_SPAN_MARKET_DAYS)} روزه از این بازه انتخاب می‌شود`
+                        : `طول چارت نبرد از این بازه می‌آید (حداکثر ${faNum(MAX_MARKET_DAYS)} روز بازار)`}
                     </span>
                   </span>
                   <input
                     type="checkbox"
                     checked={historyOn}
-                    onChange={(e) =>
-                      e.target.checked
-                        ? enableHistory()
-                        : set({ historyStart: null, historyEnd: null })
-                    }
+                    onChange={(e) => (e.target.checked ? enableHistory() : clearHistory())}
                     className="h-4 w-4 accent-[var(--tc-accent)]"
                     data-testid="battle-history-toggle"
                     aria-label="تعیین بازه تاریخ نماد"
@@ -465,8 +547,9 @@ export function NewBattleDialog({
                       />
                     </label>
                     <p className="text-[11.5px] text-muted sm:col-span-2">
-                      داده از {utcDate(historyRange.start)} تا {utcDate(historyRange.lastDay)}.
-                      تاریخ شمسی است.
+                      {faNum(historyDayCount(s.historyStart, s.historyEnd))} روز انتخاب‌شده · داده از{' '}
+                      {utcDate(historyRange.start)} تا {utcDate(historyRange.lastDay)}. تاریخ شمسی
+                      است.
                     </p>
                   </div>
                 ) : (
@@ -565,7 +648,11 @@ export function NewBattleDialog({
                   'مدت',
                   s.winCondition === 'profit-target'
                     ? `${minutes(LONG_SPAN_MARKET_DAYS)} · ${faNum(LONG_SPAN_MARKET_DAYS)} روز بازار`
-                    : `${minutes(s.durationMin)} با سرعت ${faNum(s.speed)}×`,
+                    : userReplay
+                      ? `${minutes(USER_SPAN_MARKET_DAYS)} · ${faNum(USER_SPAN_MARKET_DAYS)} روز بازار`
+                      : historyReplay
+                        ? `${minutes(historyReplay.durationMin)} · ${faNum(historyReplay.durationMin)} روز بازار`
+                        : `${minutes(s.durationMin)} با سرعت ${faNum(s.speed)}×`,
                 ],
                 [
                   'هدف سود',

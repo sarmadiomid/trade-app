@@ -22,7 +22,9 @@ export function battleSessionSettings(
     symbol,
     startingBalance: settings.startingBalance,
     startDate: day(marketStart),
-    endDate: day(marketStart + marketSpanMs(settings)),
+    // Inclusive last day so sessionEnd (== endDate + 1d) lines up with marketEnd, and
+    // PriceSkipperBar's "days left" matches the replay length (not length + 1).
+    endDate: day(marketStart + marketSpanMs(settings) - 1),
     spreadEnabled: true,
     spread: spec.defaultSpread,
     commissionEnabled: spec.defaultCommissionPerLot > 0,

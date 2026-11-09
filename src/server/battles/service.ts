@@ -23,6 +23,8 @@ import {
   elapsedMs,
   durationMs,
   marketEnd,
+  USER_SPAN_MARKET_DAYS,
+  longSpanFromDays,
   normalizeSettings,
   placesOf,
   sortStandings,
@@ -173,7 +175,18 @@ export async function uniqueCode(): Promise<string> {
 
 /** A host's custom (casual) battle, waiting in the lobby. */
 export async function createBattle(host: Player, input: BattleSettings): Promise<BattleDoc> {
-  const settings = normalizeSettings(input);
+  const isAdmin = !!(host.phone && isAdminPhone(host.phone));
+  // Normal hosts get a fixed 15-day random replay; only admins may pin a custom history window
+  // or short-span duration/speed for time trials.
+  const incoming = isAdmin
+    ? input
+    : {
+        ...input,
+        historyStart: null,
+        historyEnd: null,
+        ...(input.winCondition === 'time-trial' ? longSpanFromDays(USER_SPAN_MARKET_DAYS) : {}),
+      };
+  const settings = normalizeSettings(incoming);
   const error = validateBattleSettings(settings);
   if (error) throw new BattleError(error);
   const symbol = pick(settings.assets);
@@ -183,7 +196,7 @@ export async function createBattle(host: Player, input: BattleSettings): Promise
     if (settings.historyStart < range.start || settings.historyEnd > lastDay)
       throw new BattleError('History range is outside available data');
     // Admins may pick any stored window; everyone else stays on their plan's history limit.
-    if (!(host.phone && isAdminPhone(host.phone))) {
+    if (!isAdmin) {
       const plan = await planOf(host._id);
       const denial = historyDenial(plan, settings.historyStart, range);
       if (denial) throw new PlanDenied(denial);

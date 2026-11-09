@@ -12,6 +12,8 @@ export const BATTLE_SPEEDS = [15, 30, 60] as const;
  * battle so a 10% target has a realistic 10-day market window.
  */
 export const LONG_SPAN_MARKET_DAYS = 10;
+/** Custom time-trial battles created by normal users: 15 market days at long-span speed. */
+export const USER_SPAN_MARKET_DAYS = 15;
 export const LONG_SPAN_SPEED = 1440;
 export const BOT_BATTLE_SPEEDS = [LONG_SPAN_SPEED] as const;
 const ALLOWED_SPEEDS: ReadonlySet<number> = new Set([...BATTLE_SPEEDS, LONG_SPAN_SPEED]);
@@ -68,6 +70,20 @@ export const marketSpanMs = (s: Pick<BattleSettings, 'durationMin' | 'speed'>) =
  * and bot lobbies replay a 10-day window (weekends included as empty market time).
  */
 export const MAX_MARKET_SPAN_MS = 30 * DAY_MS;
+/** Inclusive UTC-day count of a history window (`historyEnd` is inclusive). */
+export const historyDayCount = (start: number, end: number) =>
+  Math.floor((end - start) / DAY_MS) + 1;
+/** Max market days a battle may replay (`durationMin` at {@link LONG_SPAN_SPEED}). */
+export const MAX_MARKET_DAYS = Math.floor(MAX_MARKET_SPAN_MS / DAY_MS);
+
+/**
+ * Duration/speed so the chart covers `days` of market time (1 real minute per market day),
+ * matching bot lobbies. Clamped to the allowed market-span ceiling.
+ */
+export function longSpanFromDays(days: number): Pick<BattleSettings, 'durationMin' | 'speed'> {
+  const n = Math.min(MAX_MARKET_DAYS, Math.max(MIN_DURATION, Math.floor(days)));
+  return { durationMin: n, speed: LONG_SPAN_SPEED };
+}
 
 /** Problems with a battle's settings, or null. */
 export function validateBattleSettings(s: BattleSettings): string | null {
