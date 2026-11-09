@@ -64,7 +64,13 @@ function readTab(raw: string | null): Tab {
 }
 
 /** `/battle`: the Battles home: play (ranked matchmaking, custom battles), browse, history, leaderboard. */
-export default function BattlesHub({ user }: { readonly user: Me }) {
+export default function BattlesHub({
+  user,
+  admin = false,
+}: {
+  readonly user: Me;
+  readonly admin?: boolean;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [tab, setTab] = useState<Tab>(readTab(params.get('tab')));
@@ -189,6 +195,7 @@ export default function BattlesHub({ user }: { readonly user: Me }) {
       {creating ? (
         <NewBattleDialog
           hostName={name}
+          admin={admin}
           onClose={() => setCreating(false)}
           onCreated={(id) => router.push(`/battle/${id}`)}
         />

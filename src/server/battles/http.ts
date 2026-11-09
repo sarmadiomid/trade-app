@@ -27,7 +27,9 @@ export async function battleRoute(req: NextRequest, handler: Handler): Promise<R
         if (req.method !== 'DELETE') return json({ error: 'Invalid JSON' }, 400);
       }
     }
-    return json(await handler({ _id: user._id, id: user.id, name: user.name }, body));
+    return json(
+      await handler({ _id: user._id, id: user.id, name: user.name, phone: user.phone }, body),
+    );
   } catch (e) {
     if (e instanceof PlanDenied || e instanceof BattleError)
       return json({ error: e.message }, e.status);

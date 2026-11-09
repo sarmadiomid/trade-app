@@ -10,8 +10,14 @@ const hubLoading = () => <div className="home-shell h-full w-full" />;
 const Hub = dynamic(() => import('./BattlesHub'), { ssr: false, loading: hubLoading });
 const Room = dynamic(() => import('./room/BattleRoom'), { ssr: false, loading });
 
-export function BattlesHubClient({ user }: { readonly user: Me }) {
-  return <Hub user={user} />;
+export function BattlesHubClient({
+  user,
+  admin = false,
+}: {
+  readonly user: Me;
+  readonly admin?: boolean;
+}) {
+  return <Hub user={user} admin={admin} />;
 }
 
 export function BattleRoomClient({ id, user }: { readonly id: string; readonly user: Me }) {

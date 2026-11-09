@@ -4,6 +4,7 @@ import { ObjectId, type Filter, type UpdateFilter } from 'mongodb';
 import { isGreeting } from '@/lib/app/battle/bots/chat';
 import { tradeActionSchema, type TradeAction } from '@/lib/backtest';
 import { historyDenial } from '@/lib/app/billing/entitlements';
+import { isAdminPhone } from '../admin-http';
 import {
   PlanDenied,
   assertBattleChat,
@@ -78,6 +79,8 @@ export class BattleError extends Error {
 export interface Player {
   readonly _id: ObjectId;
   readonly name: string;
+  /** Present on API-created battles; used for admin-only settings. */
+  readonly phone?: string;
 }
 
 export { clockOf };
@@ -179,9 +182,12 @@ export async function createBattle(host: Player, input: BattleSettings): Promise
   if (settings.historyStart !== null && settings.historyEnd !== null) {
     if (settings.historyStart < range.start || settings.historyEnd > lastDay)
       throw new BattleError('History range is outside available data');
-    const plan = await planOf(host._id);
-    const denial = historyDenial(plan, settings.historyStart, range);
-    if (denial) throw new PlanDenied(denial);
+    // Admins may pick any stored window; everyone else stays on their plan's history limit.
+    if (!(host.phone && isAdminPhone(host.phone))) {
+      const plan = await planOf(host._id);
+      const denial = historyDenial(plan, settings.historyStart, range);
+      if (denial) throw new PlanDenied(denial);
+    }
   }
   const { battles } = await collections();
   const now = Date.now();

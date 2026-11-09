@@ -19,25 +19,29 @@ import {
   type BattleSettings,
   type WinCondition,
 } from '@/lib/battles';
+import { defaultHistoryWindow, isPlanLimitMessage } from '@/lib/app';
+import { DAY_MS } from '@/lib/core';
 import { faNum } from '@/lib/locale/jalali';
 import {
+  MockMarketProvider,
   customCatalogVersion,
   customInstruments,
   ensureCustomCatalog,
   subscribeCustomCatalog,
 } from '@/lib/data';
-import { isPlanLimitMessage } from '@/lib/app';
 import { api } from '../platform/api';
 import { Button } from '../ui/Button';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
-import { duration } from '../backtest/format';
+import { JalaliDateField } from '../backtest/JalaliField';
+import { duration, fromDateInput, toDateInput, utcDate } from '../backtest/format';
 import { SymbolField } from '../market/SymbolField';
 import { ASSET_COLORS, WIN_FA, compactMoney, faMessage, minutes } from './format';
 
 /** Battle engine still replays mock builtins; only show ones also published in the DB catalogue. */
 const BATTLE_ASSET_SET = new Set<string>(BATTLE_ASSETS);
+const battleMarket = new MockMarketProvider();
 
 const STEPS = ['نوع نبرد', 'بازار', 'قانون‌ها', 'بازبینی'] as const;
 
@@ -47,10 +51,13 @@ const field =
 /** "New Battle": a four-step setup (type → market & account → rules → review). */
 export function NewBattleDialog({
   hostName,
+  admin = false,
   onClose,
   onCreated,
 }: {
   readonly hostName: string;
+  /** Admins can pin the market history window the battle is drawn from. */
+  readonly admin?: boolean;
   readonly onClose: () => void;
   readonly onCreated: (id: string) => void;
 }) {
@@ -58,6 +65,7 @@ export function NewBattleDialog({
   const [s, setS] = useState<BattleSettings>({ ...DEFAULT_SETTINGS, name: `نبرد ${hostName}` });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const historyOn = admin && s.historyStart !== null && s.historyEnd !== null;
   const catalogTick = useSyncExternalStore(subscribeCustomCatalog, customCatalogVersion, () => 0);
   const instruments = useMemo(() => {
     if (catalogTick < 0) return [];
@@ -81,11 +89,35 @@ export function NewBattleDialog({
     setError(null);
   };
 
+  const historyRange = useMemo(() => {
+    const symbol = s.assets[0] ?? 'XAUUSD';
+    const range = battleMarket.dataRange(symbol);
+    return { start: range.start, end: range.end, lastDay: range.end - DAY_MS };
+  }, [s.assets]);
+
+  const enableHistory = () => {
+    const window = defaultHistoryWindow(historyRange);
+    set({ historyStart: window.start, historyEnd: window.end });
+  };
+
+  const setHistoryDay = (which: 'historyStart' | 'historyEnd', value: string) => {
+    const day = fromDateInput(value);
+    if (day === null) return;
+    set({ [which]: day });
+  };
+
   const stepError = (i: number): string | null => {
     if (i === 0) return s.name.trim() ? null : faMessage('Battle name is required');
     if (i === 1) {
       if (s.assets.length === 0) return faMessage('Pick at least one asset');
       if (marketSpanMs(s) > MAX_MARKET_SPAN_MS) return faMessage('Lower the duration or the speed');
+      if (admin && (s.historyStart === null) !== (s.historyEnd === null))
+        return faMessage('History range is incomplete');
+      if (admin && s.historyStart !== null && s.historyEnd !== null) {
+        if (s.historyEnd < s.historyStart) return faMessage('End date must be on or after the start date');
+        if (s.historyStart < historyRange.start || s.historyEnd > historyRange.lastDay)
+          return faMessage('History range is outside available data');
+      }
       return null;
     }
     if (i === 2) {
@@ -102,7 +134,9 @@ export function NewBattleDialog({
   };
 
   const create = async () => {
-    const settings = normalizeSettings(s);
+    const settings = normalizeSettings(
+      admin ? s : { ...s, historyStart: null, historyEnd: null },
+    );
     const e = validateBattleSettings(settings);
     if (e) return setError(faMessage(e));
     setBusy(true);
@@ -353,6 +387,64 @@ export function NewBattleDialog({
                 {duration(marketSpanMs(s))} از تاریخ بازار بازپخش می‌شود.
               </p>
             </div>
+            {admin ? (
+              <div className="rounded-lg border border-line px-3 py-3">
+                <label className="flex cursor-pointer items-center justify-between gap-3">
+                  <span>
+                    <span className="block font-medium">بازه تاریخ نماد</span>
+                    <span className="block text-[11.5px] text-muted">
+                      نقطهٔ شروع بازپخش از این بازه به‌صورت تصادفی انتخاب می‌شود
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={historyOn}
+                    onChange={(e) =>
+                      e.target.checked
+                        ? enableHistory()
+                        : set({ historyStart: null, historyEnd: null })
+                    }
+                    className="h-4 w-4 accent-[var(--tc-accent)]"
+                    data-testid="battle-history-toggle"
+                    aria-label="تعیین بازه تاریخ نماد"
+                  />
+                </label>
+                {historyOn && s.historyStart !== null && s.historyEnd !== null ? (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-1.5 block text-[12px] font-medium">تاریخ شروع</span>
+                      <JalaliDateField
+                        ariaLabel="تاریخ شروع بازه نماد"
+                        className={field}
+                        value={toDateInput(s.historyStart)}
+                        min={toDateInput(historyRange.start)}
+                        max={toDateInput(historyRange.lastDay)}
+                        onChange={(v) => setHistoryDay('historyStart', v)}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1.5 block text-[12px] font-medium">تاریخ پایان</span>
+                      <JalaliDateField
+                        ariaLabel="تاریخ پایان بازه نماد"
+                        className={field}
+                        value={toDateInput(s.historyEnd)}
+                        min={toDateInput(s.historyStart)}
+                        max={toDateInput(historyRange.lastDay)}
+                        onChange={(v) => setHistoryDay('historyEnd', v)}
+                      />
+                    </label>
+                    <p className="text-[11.5px] text-muted sm:col-span-2">
+                      داده از {utcDate(historyRange.start)} تا {utcDate(historyRange.lastDay)}.
+                      تاریخ شمسی است.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11.5px] text-muted">
+                    بدون بازهٔ سفارشی، از همهٔ تاریخ‌های ذخیره‌شده استفاده می‌شود.
+                  </p>
+                )}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
@@ -457,7 +549,17 @@ export function NewBattleDialog({
                 ],
                 ['نفرات', `تا ${faNum(s.maxParticipants)} نفر`],
                 ['ورود دیرهنگام', s.allowLateJoin ? 'مجاز' : 'غیرمجاز'],
-              ] as const
+                ...(admin
+                  ? [
+                      [
+                        'بازه تاریخ نماد',
+                        s.historyStart !== null && s.historyEnd !== null
+                          ? `${utcDate(s.historyStart)} تا ${utcDate(s.historyEnd)}`
+                          : 'خودکار (همه تاریخ‌ها)',
+                      ],
+                    ]
+                  : []),
+              ] as Array<[string, string]>
             ).map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3 px-4 py-2">
                 <dt className="text-muted">{k}</dt>

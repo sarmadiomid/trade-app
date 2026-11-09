@@ -1,10 +1,16 @@
 import type { Metadata } from 'next';
 import { BattlesHubClient } from '@/components/battles/BattleClient';
+import { isAdminPhone } from '@/server/admin-http';
 import { requireUser } from '@/server/guard';
 
 export const metadata: Metadata = { title: 'نبردها | Candelo' };
 
 export default async function BattlesPage() {
   const user = await requireUser('/battle');
-  return <BattlesHubClient user={{ id: user.id, name: user.name, phone: user.phone }} />;
+  return (
+    <BattlesHubClient
+      user={{ id: user.id, name: user.name, phone: user.phone }}
+      admin={isAdminPhone(user.phone)}
+    />
+  );
 }
