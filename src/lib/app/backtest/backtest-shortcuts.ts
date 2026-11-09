@@ -39,7 +39,14 @@ export function backtestShortcuts(get: Get): Array<ShortcutDefinition<ChartApp>>
     def('freq-up', ['Alt+3'], 'زیاد کردن سرعت پخش', (c) => c.shiftFrequency(1)),
     def('ticker-down', ['Alt+4'], 'کوچک کردن گام کندل', (c) => c.shiftTickerValue(-1)),
     def('ticker-up', ['Alt+5'], 'بزرگ کردن گام کندل', (c) => c.shiftTickerValue(1)),
-    def('rewind', ['Alt+Z'], 'یک کندل به عقب', (c) => c.requestRewind(), true),
+    def(
+      'rewind',
+      ['Alt+Z'],
+      'یک کندل به عقب',
+      (c) => c.requestRewind(),
+      true,
+      (c) => c.allowRewind,
+    ),
     def('new-order', ['Alt+,'], 'سفارش جدید', (c) =>
       c.command({ type: 'order-ticket', orderType: null }),
     ),

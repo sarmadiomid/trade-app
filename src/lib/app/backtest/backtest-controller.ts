@@ -78,6 +78,10 @@ export interface BacktestControllerDeps {
   readonly persistAction?: (action: LoggedAction) => Promise<void>;
   /** Market time the replay stops at, when not the end of the session's last day (battles). */
   readonly end?: number;
+  /**
+   * Step-back / replay-to-bar. Off in a battle (forward only). Defaults to true for practice.
+   */
+  readonly allowRewind?: boolean;
 }
 
 const MINUTE_MS = 60_000;
@@ -169,6 +173,11 @@ export class BacktestController {
 
   get end(): number {
     return this.deps.end ?? sessionEnd(this.session.settings);
+  }
+
+  /** False in a battle: only forward stepping is allowed. */
+  get allowRewind(): boolean {
+    return this.deps.allowRewind !== false;
   }
 
   async start(): Promise<void> {
@@ -268,6 +277,7 @@ export class BacktestController {
 
   /** Rewinds to `time` (re-simulates the session up to it). */
   async rewindTo(time: number, force = false): Promise<RewindCheck> {
+    if (!this.allowRewind) return { ok: true, removed: 0, reopened: 0 };
     if (this.tradeLock) {
       this.notice('error', 'معامله در حال ثبت روی سرور است');
       return { ok: true, removed: 0, reopened: 0 };

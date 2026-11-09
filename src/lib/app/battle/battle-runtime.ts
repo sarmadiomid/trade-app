@@ -141,6 +141,7 @@ export class BattleRuntime {
       cursorRef: this.cursorRef,
       persistAction,
       end: this.end,
+      allowRewind: false,
     });
     this.controllerRef = c;
     const to = Math.min(this.end, Math.max(this.seat.startT, cursor));
