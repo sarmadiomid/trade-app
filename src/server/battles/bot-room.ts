@@ -318,6 +318,14 @@ export interface PumpContext {
   readonly busy: ReadonlySet<number>;
 }
 
+/** True when a bot lobby has wall-clock work due (joins, start, cancel, chat, …). */
+export function botLobbyDue(b: BattleDoc, now: number): boolean {
+  const m = b.bots;
+  if (!m || b.status !== 'standby') return false;
+  if (m.startAt !== null && m.startAt <= now) return true;
+  return m.events.some((e) => e.at <= now);
+}
+
 /** True when the pump has a due join that needs the busy set. */
 export function pumpNeedsBusy(b: BattleDoc, now: number): boolean {
   const m = b.bots;

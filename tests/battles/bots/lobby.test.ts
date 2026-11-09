@@ -14,10 +14,14 @@ import { botRng, seedOf } from '@/lib/app/battle/bots/rng';
 import {
   activityAt,
   extraBattle,
+  floorToOpen,
   openLobbyFloor,
   presetSettings,
   slotChance,
+  worldInsertBudget,
   worldSlot,
+  WORLD_MAX_ACTIVE,
+  WORLD_PEAK_BATTLES,
   WORLD_SLOT_MS,
 } from '@/lib/app/battle/bots/world';
 import { botConfigFromEnv, botPresence, DEFAULT_BOT_CONFIG } from '@/lib/app/battle/bots/config';
@@ -231,9 +235,22 @@ describe('world schedule', () => {
   it('keeps a believable number of battles open (steady state)', () => {
     // Expected open battles = arrivals per minute × average visible life.
     const perMinute = (a: number) => slotChance(a, 1) * (MIN / WORLD_SLOT_MS);
-    expect(perMinute(1) * 19).toBeGreaterThan(8);
-    expect(perMinute(1) * 19).toBeLessThan(16);
+    expect(WORLD_PEAK_BATTLES).toBe(10);
+    expect(WORLD_MAX_ACTIVE).toBe(10);
+    expect(perMinute(1) * 19).toBeCloseTo(WORLD_PEAK_BATTLES, 5);
     expect(perMinute(0.12) * 19).toBeLessThan(3);
+  });
+
+  it('hard-caps new world opens and does not floor-top-up over zombies', () => {
+    expect(worldInsertBudget(0)).toBe(10);
+    expect(worldInsertBudget(7)).toBe(3);
+    expect(worldInsertBudget(10)).toBe(0);
+    expect(worldInsertBudget(40)).toBe(0);
+    // Old standbys still count: floor sees them, so no extras while room exists for slots.
+    expect(floorToOpen(2, 5, 10)).toBe(0);
+    expect(floorToOpen(2, 0, 10)).toBe(2);
+    expect(floorToOpen(2, 1, 1)).toBe(1);
+    expect(floorToOpen(2, 0, 0)).toBe(0);
   });
 
   it('creates battles a real host would, always valid', () => {

@@ -11,12 +11,15 @@ import {
 } from '@/lib/app/battle/bots/config';
 import { botIndexOf } from '@/lib/app/battle/bots/identity';
 import {
+  WORLD_MAX_ACTIVE,
   WORLD_SLOT_MS,
   activityAt,
   extraBattle,
+  floorToOpen,
   openLobbyFloor,
   slotChance,
   slotOf,
+  worldInsertBudget,
   worldSlot,
 } from '@/lib/app/battle/bots/world';
 import { collections, type BattleBotsDoc, type BattleDoc } from '../db';
@@ -35,6 +38,10 @@ const TICK_MS = 5_000;
 const WORLD_HORIZON_MS = 75 * 60_000;
 const CLEANUP_MS = 60_000;
 const BOT_ONLY_KEEP_MS = 15 * 60_000;
+/** Bot-only lobbies that never got pumped are cancelled after this (host patience ≤ ~16 min). */
+const BOT_LOBBY_ZOMBIE_MS = 25 * 60_000;
+/** Match for battles with no real trader seated. */
+const BOT_ONLY = { participants: { $not: { $elemMatch: { isBot: { $ne: true } } } } };
 
 const g = globalThis as unknown as {
   __bots?: {
@@ -189,10 +196,17 @@ export async function worldTick(now = Date.now()): Promise<number> {
 
   const presence = botPresence(config, await humanActivity());
   if (presence <= 0) return 0;
+  const activeWorld = await battles.countDocuments({
+    'bots.origin': 'world',
+    status: { $in: [...ACTIVE_STATUSES] },
+  });
+  let room = worldInsertBudget(activeWorld, WORLD_MAX_ACTIVE);
+  if (room <= 0) return 0;
+
   const from = Math.max(cursor, now - WORLD_HORIZON_MS);
   let opened = 0;
   let busy: Set<number> | null = null;
-  for (let slot = slotOf(from) + 1; slot <= slotOf(now); slot++) {
+  for (let slot = slotOf(from) + 1; slot <= slotOf(now) && room > 0; slot++) {
     const spec = worldSlot(slot);
     if (spec.createdAt > now || spec.createdAt <= from) continue;
     if (spec.roll >= slotChance(activityAt(spec.createdAt), presence)) continue;
@@ -202,6 +216,7 @@ export async function worldTick(now = Date.now()): Promise<number> {
     try {
       await battles.insertOne(battle);
       opened += 1;
+      room -= 1;
       for (const p of battle.participants) if (p.bot) busy.add(p.bot.index);
     } catch {
       // Another instance opened it (same _id), or its code collided: skip the slot.
@@ -209,13 +224,13 @@ export async function worldTick(now = Date.now()): Promise<number> {
   }
   // Keep a joinable lobby around at normal hours (a new lobby appears, like a host creating one).
   const floor = openLobbyFloor(activityAt(now), presence);
-  if (floor > 0) {
+  if (floor > 0 && room > 0) {
     const open = await battles.countDocuments({
       'bots.origin': 'world',
       status: 'standby',
-      createdAt: { $gt: now - 30 * 60_000 },
     });
-    for (let k = open; k < floor; k++) {
+    const need = floorToOpen(floor, open, room);
+    for (let k = 0; k < need; k++) {
       busy ??= await busyBots();
       for (let attempt = 0; attempt < 6; attempt++) {
         const spec = extraBattle(randomInt(0, 2 ** 31), now - randomInt(5_000, 70_000));
@@ -224,6 +239,7 @@ export async function worldTick(now = Date.now()): Promise<number> {
         try {
           await battles.insertOne(battle);
           opened += 1;
+          room -= 1;
           for (const p of battle.participants) if (p.bot) busy.add(p.bot.index);
         } catch {
           // Code collision: try another.
@@ -236,17 +252,92 @@ export async function worldTick(now = Date.now()): Promise<number> {
   return opened;
 }
 
-/** Bot-only battles that are over are deleted (nobody real ever saw their results). */
+/**
+ * Housekeeping: cancel/complete overdue bot-only rooms that never got pumped, then delete
+ * finished bot-only docs nobody real ever saw.
+ */
 async function cleanup(now: number): Promise<void> {
   const s = state();
   if (now - s.lastCleanup < CLEANUP_MS) return;
   s.lastCleanup = now;
   const { battles } = await collections();
+  // Standby lobbies whose host should have started or closed long ago (hub never pumped them).
+  await battles.updateMany(
+    {
+      'bots.origin': { $in: ['world', 'fill'] },
+      status: 'standby',
+      createdAt: { $lt: now - BOT_LOBBY_ZOMBIE_MS },
+      ...BOT_ONLY,
+    },
+    {
+      $set: {
+        status: 'cancelled',
+        endReason: 'Closed by the host',
+        updatedAt: now,
+      },
+    },
+  );
+  // Countdown that should already have finished its whole battle clock.
+  await battles.updateMany(
+    {
+      'bots.origin': { $in: ['world', 'fill'] },
+      status: 'countdown',
+      countdownEndsAt: { $ne: null, $lte: now },
+      ...BOT_ONLY,
+      $expr: {
+        $lte: [
+          {
+            $add: [
+              '$countdownEndsAt',
+              { $multiply: ['$settings.durationMin', 60_000] },
+              '$pausedMs',
+            ],
+          },
+          now,
+        ],
+      },
+    },
+    {
+      $set: {
+        status: 'completed',
+        endedAt: now,
+        endReason: 'Time is up',
+        results: [],
+        updatedAt: now,
+      },
+    },
+  );
+  // Live/paused bot-only battles past their timer (nobody real is watching).
+  await battles.updateMany(
+    {
+      'bots.origin': { $in: ['world', 'fill'] },
+      status: { $in: ['live', 'paused'] },
+      startedAt: { $ne: null },
+      ...BOT_ONLY,
+      $expr: {
+        $lte: [
+          {
+            $add: ['$startedAt', '$pausedMs', { $multiply: ['$settings.durationMin', 60_000] }],
+          },
+          now,
+        ],
+      },
+    },
+    {
+      $set: {
+        status: 'completed',
+        endedAt: now,
+        endReason: 'Time is up',
+        results: [],
+        updatedAt: now,
+      },
+    },
+  );
   await battles.deleteMany({
     'bots.origin': { $in: ['world', 'fill'] },
     status: { $in: ['completed', 'cancelled'] },
     updatedAt: { $lt: now - BOT_ONLY_KEEP_MS },
-    participants: { $not: { $elemMatch: { isBot: { $ne: true } } } },
+    ...BOT_ONLY,
   });
 }
 

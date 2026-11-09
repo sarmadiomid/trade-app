@@ -9,7 +9,7 @@ import {
   type Standing,
 } from '@/lib/battles';
 import { collections, type BattleDoc } from '../db';
-import { seatsTaken } from './bot-room';
+import { botLobbyDue, seatsTaken } from './bot-room';
 import { worldTick } from './bots';
 import { clockOf, cursorOf, joinBlocked, liveStandings, refresh } from './service';
 
@@ -147,9 +147,15 @@ export function battleSummary(b: BattleDoc, viewerId: ObjectId): BattleSummary {
   };
 }
 
-/** A battle whose lobby, countdown or timer has run out but that nobody has read since. */
-function stale(b: BattleDoc, now: number): boolean {
-  if (b.status === 'standby') return now - b.createdAt >= LOBBY_MAX_AGE_MS;
+/**
+ * A battle that needs `refresh` before it can be shown: lobby expiry, due bot lobby events,
+ * countdown ending, or a running timer (live is always refreshed so bot rooms advance).
+ */
+export function battleNeedsRefresh(b: BattleDoc, now: number): boolean {
+  if (b.status === 'standby') {
+    if (now - b.createdAt >= LOBBY_MAX_AGE_MS) return true;
+    return botLobbyDue(b, now);
+  }
   if (b.status === 'countdown') return b.countdownEndsAt !== null && now >= b.countdownEndsAt;
   if (b.status === 'live' || b.status === 'paused') {
     const c = clockOf(b);
@@ -175,7 +181,7 @@ export async function browseBattles(viewerId: ObjectId): Promise<BattleSummary[]
     .toArray();
   const out: BattleSummary[] = [];
   for (let b of docs) {
-    if (stale(b, now)) b = await refresh(b);
+    if (battleNeedsRefresh(b, now)) b = await refresh(b);
     if (b.status === 'completed' || b.status === 'cancelled') continue;
     out.push(battleSummary(b, viewerId));
   }
@@ -193,7 +199,7 @@ export async function myBattles(viewerId: ObjectId): Promise<BattleSummary[]> {
     .toArray();
   const out: BattleSummary[] = [];
   for (let b of docs) {
-    if (stale(b, now)) b = await refresh(b);
+    if (battleNeedsRefresh(b, now)) b = await refresh(b);
     if (b.status === 'cancelled') continue;
     out.push(battleSummary(b, viewerId));
   }

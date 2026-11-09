@@ -34,8 +34,20 @@ export function activityAt(now: number): number {
 /** World schedule granularity: every slot may open one public battle. */
 export const WORLD_SLOT_MS = 30_000;
 /** Public battles on show at peak activity, and how long one stays visible on average. */
-export const WORLD_PEAK_BATTLES = 12;
+export const WORLD_PEAK_BATTLES = 10;
+/** Hard cap on concurrent active world (bot-hosted) battles. */
+export const WORLD_MAX_ACTIVE = WORLD_PEAK_BATTLES;
 const AVG_VISIBLE_MIN = 19;
+
+/** How many new world battles may open given current active count. */
+export function worldInsertBudget(activeWorld: number, max = WORLD_MAX_ACTIVE): number {
+  return Math.max(0, max - Math.max(0, activeWorld));
+}
+
+/** Extra floor lobbies to open: min(floor − openStandby, room under the concurrent cap). */
+export function floorToOpen(floor: number, openStandby: number, roomUnderCap: number): number {
+  return Math.min(Math.max(0, floor - openStandby), Math.max(0, roomUnderCap));
+}
 
 /** Probability that slot `slot` opens a battle, at activity `a` and presence `presence`. */
 export function slotChance(a: number, presence: number): number {

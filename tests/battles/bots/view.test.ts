@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { ObjectId } from 'mongodb';
 import { worldSlot } from '@/lib/app/battle/bots/world';
-import { materializeWorld } from '@/server/battles/bot-room';
+import { botLobbyDue, materializeWorld, pumpBattle } from '@/server/battles/bot-room';
 import { battleMarket } from '@/server/battles/market';
-import { battleView } from '@/server/battles/views';
+import { battleNeedsRefresh, battleView } from '@/server/battles/views';
 import type { BattleDoc } from '@/server/db';
 
 const ctx = { market: battleMarket, busy: new Set<number>(), presence: 1 };
@@ -51,5 +51,40 @@ describe('what an outsider sees of a public battle', () => {
     expect(v.standings).toHaveLength(0);
     expect(v.host).toBeNull();
     expect(v.code).toBe('');
+  });
+});
+
+describe('hub refresh of bot lobbies', () => {
+  it('marks standby stale when bot start/cancel is due, and pump advances it', () => {
+    const { b, now } = find('standby');
+    // Fresh materialization has only future events — not due yet.
+    expect(botLobbyDue(b, now)).toBe(false);
+    expect(battleNeedsRefresh(b, now)).toBe(false);
+
+    const dueAt = now - 1_000;
+    const withDue: BattleDoc = {
+      ...b,
+      bots: {
+        ...b.bots!,
+        events: [{ kind: 'cancel', at: dueAt }],
+        startAt: null,
+      },
+    };
+    expect(botLobbyDue(withDue, now)).toBe(true);
+    expect(battleNeedsRefresh(withDue, now)).toBe(true);
+
+    const u = pumpBattle(withDue, now, { market: battleMarket, busy: new Set() });
+    expect(u).not.toBeNull();
+    expect((u!.$set as { status?: string }).status).toBe('cancelled');
+  });
+
+  it('marks standby stale when startAt is due', () => {
+    const { b, now } = find('standby');
+    const withStart: BattleDoc = {
+      ...b,
+      bots: { ...b.bots!, events: [], startAt: now - 500 },
+    };
+    expect(botLobbyDue(withStart, now)).toBe(true);
+    expect(battleNeedsRefresh(withStart, now)).toBe(true);
   });
 });

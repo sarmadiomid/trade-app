@@ -80,7 +80,8 @@ experience (battles played), so a newcomer meets a softer field and a regular me
   cursor is persisted, so a slot is decided once and battles never flicker in and out.
 - **Always something to join.** At normal hours the tick keeps one open lobby (two at peak).
   If the schedule has none waiting, a new one appears, the way a host creates one. Before
-  dawn the lobby may be genuinely quiet.
+  dawn the lobby may be genuinely quiet. Concurrent world battles are hard-capped at 10
+  (`WORLD_MAX_ACTIVE`); the hub pumps due bot lobby events so hosts start or close on time.
 - **Lobbies grow and drain.** Joins arrive as a Poisson process whose rate depends on the battle's
   appeal and the hour. Hosts start when enough traders are in (or after their patience runs out),
   sometimes close an empty lobby, and waiting traders sometimes leave. When a human joins a
@@ -156,8 +157,8 @@ Materialising a 75-minute world backlog (150 slots) after an idle period costs a
 A bot's live standing is a 4–12 µs lookup.
 
 Lobby over a simulated week (Tehran time), from the schedule alone, before the open-lobby
-floor: about 13 public battles visible at 21–22h (3–4 of them waiting for players), 6–7 at
-noon, 8 at midnight, under 1 at 04–05h.
+floor: about 10–11 public battles visible at 21–22h (hard-capped at 10 concurrent world
+battles; 2–3 of them waiting for players), 5–6 at noon, ~7 at midnight, under 1 at 04–05h.
 
 Outcomes over 140 simulated battles with full fields (about 1,000 bots, `tests/battles/bots`):
 median return ≈ 0%, p10 −3.6%, p90 +2.4%. The median bot makes 4 trades and 6–7% make none.
