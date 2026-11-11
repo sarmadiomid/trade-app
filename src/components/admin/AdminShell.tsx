@@ -39,6 +39,12 @@ const NAV_GROUPS: ReadonlyArray<{ label: string | null; items: readonly NavItem[
         icon: 'chat',
         badge: 'tickets',
       },
+      {
+        href: '/admin/transactions',
+        label: 'تراکنش‌ها',
+        hint: 'پرداخت و طرح',
+        icon: 'activity',
+      },
       { href: '/admin/discounts', label: 'تخفیف‌ها', hint: 'کدهای پرداخت', icon: 'tag' },
     ],
   },

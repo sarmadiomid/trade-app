@@ -1,9 +1,10 @@
 import 'server-only';
-import { ObjectId } from 'mongodb';
+import { ObjectId, type Filter } from 'mongodb';
 import { PLAN_IDS, normalizePlan, type PlanId } from '@/lib/app/billing/entitlements';
 import { parseDiscountCatalog } from '@/lib/app/billing/discount';
+import type { PaymentStatus } from '@/lib/app/billing/gateway';
 import { setUserPlan } from './billing';
-import { collections } from './db';
+import { collections, type PaymentDoc } from './db';
 
 export class AdminError extends Error {
   constructor(
@@ -293,6 +294,108 @@ export async function listPracticeSessions() {
       userName: owner?.displayName ?? '',
     };
   });
+}
+
+const PLAN_RANK: Readonly<Record<PlanId, number>> = {
+  beginner: 0,
+  mid: 1,
+  pro: 2,
+};
+
+const PAYMENT_STATUSES: ReadonlySet<string> = new Set(['pending', 'paid', 'canceled', 'failed']);
+
+/** Checkout rows for the admin desk, with the buyer's current plan for mismatch checks. */
+export async function listTransactions(input: {
+  readonly q?: string;
+  readonly status?: string;
+  readonly mismatch?: boolean;
+}) {
+  const { payments, users } = await collections();
+  const q = (input.q ?? '').trim();
+  const mismatchOnly = Boolean(input.mismatch);
+  const status =
+    typeof input.status === 'string' && PAYMENT_STATUSES.has(input.status)
+      ? (input.status as PaymentStatus)
+      : null;
+
+  const filter: Filter<PaymentDoc> = {};
+  if (mismatchOnly) filter.status = 'paid';
+  else if (status) filter.status = status;
+
+  if (q) {
+    const userMatches = await users
+      .find(
+        {
+          $or: [
+            { phone: { $regex: escapeRegex(q) } },
+            { displayName: { $regex: escapeRegex(q), $options: 'i' } },
+          ],
+        },
+        { projection: { _id: 1 } },
+      )
+      .limit(60)
+      .toArray();
+    const userIds = userMatches.map((user) => user._id);
+    const or: Filter<PaymentDoc>[] = [
+      { authority: { $regex: escapeRegex(q), $options: 'i' } },
+      { refId: { $regex: escapeRegex(q), $options: 'i' } },
+    ];
+    if (ObjectId.isValid(q)) or.push({ _id: new ObjectId(q) });
+    if (userIds.length > 0) or.push({ userId: { $in: userIds } });
+    filter.$or = or;
+  }
+
+  // Over-fetch when filtering mismatches in memory so recent paid gaps still surface.
+  const fetchLimit = mismatchOnly ? 300 : 100;
+  const rows = await payments.find(filter).sort({ createdAt: -1 }).limit(fetchLimit).toArray();
+  const ownerIds = [...new Map(rows.map((row) => [row.userId.toHexString(), row.userId])).values()];
+  const owners = await users
+    .find(
+      { _id: { $in: ownerIds } },
+      { projection: { phone: 1, displayName: 1, plan: 1 } },
+    )
+    .toArray();
+  const byId = new Map(owners.map((owner) => [owner._id.toHexString(), owner]));
+
+  const mapped = rows.map((row) => {
+    const owner = byId.get(row.userId.toHexString());
+    const userPlan = normalizePlan(owner?.plan);
+    const paidPlan = row.planId;
+    const mismatch =
+      row.status === 'paid' && PLAN_RANK[userPlan] < PLAN_RANK[paidPlan];
+    return {
+      id: row._id.toHexString(),
+      userId: row.userId.toHexString(),
+      userName: owner?.displayName ?? '',
+      phone: owner?.phone ?? '',
+      userPlan,
+      planId: paidPlan,
+      cycle: row.cycle,
+      gateway: row.gateway,
+      status: row.status,
+      amount: row.amount,
+      subtotal: row.subtotal,
+      discount: row.discount,
+      code: row.code,
+      authority: row.authority,
+      refId: row.refId,
+      cardPan: row.cardPan,
+      failureMessage: row.failureMessage,
+      discountError: row.discountError,
+      createdAt: row.createdAt.getTime(),
+      paidAt: row.paidAt ? row.paidAt.getTime() : null,
+      mismatch,
+    };
+  });
+
+  const transactions = mismatchOnly
+    ? mapped.filter((row) => row.mismatch).slice(0, 100)
+    : mapped.slice(0, 100);
+
+  return {
+    transactions,
+    mismatchCount: mapped.filter((row) => row.mismatch).length,
+  };
 }
 
 function isPlan(value: unknown): value is PlanId {
